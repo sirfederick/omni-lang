@@ -12,6 +12,10 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+SDK_ONLY_SOURCES = (
+    'compiler/src/host_invocation_loader.cpp',
+    'compiler/src/host_sdk_public.cpp',
+)
 WARN = ['-Wall', '-Wextra', '-Wpedantic', '-Werror', '-Wshadow',
         '-Wconversion', '-Wsign-conversion']
 CXX_FLAGS = ['-std=c++20', '-O2', '-fPIC', *WARN]
@@ -72,8 +76,7 @@ def main():
     link_flags = [*LINK_FLAGS, *instrumentation]
     # The public host SDK links to this runtime ABI.  It deliberately is not
     # part of the compiler executable, which has no invocation runtime link.
-    native = sources() + [ROOT / 'compiler/src/host_invocation_loader.cpp',
-                          ROOT / 'compiler/src/host_sdk_public.cpp']
+    native = sources() + [ROOT / relative for relative in SDK_ONLY_SOURCES]
     runtime = [ROOT / 'runtime/omni_runtime.c',
                ROOT / 'runtime/omni_invocation_codec.c']
     digest = hashlib.sha256(b'omni.module-invoke.runtime-build/1\n')

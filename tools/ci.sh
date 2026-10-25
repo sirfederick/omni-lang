@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-exec "$ROOT/tools/ci-mainline-full.sh"
+exec python3 -B "$ROOT/tools/check_local.py" "$@"

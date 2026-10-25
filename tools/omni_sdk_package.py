@@ -30,6 +30,7 @@ def main()->None:
         (ROOT/'include/omni/omni_host_sdk_v1.h','include/omni/omni_host_sdk_v1.h'),(args.node,'node/omni_host_sdk.node'),
         (ROOT/'bindings/python/omni_host_sdk.py','python/omni_host_sdk.py'),(ROOT/'tools/omni_sdk_codegen.py','tools/omni_sdk_codegen.py'),(ROOT/'tools/omni_sdk_doctor.py','tools/omni_sdk_doctor.py'),
         (ROOT/'VERSION','VERSION'),(ROOT/'tools/omni_lsp.py','tools/omni_lsp.py'),
+        (ROOT/'tools/run_sdk_examples.py','tools/run_sdk_examples.py'),
         (ROOT/'spec/CORE_1_3_0_0_PUBLIC_DELTA_CANDIDATE.json','spec/CORE_1_3_0_0_PUBLIC_DELTA_CANDIDATE.json'),
     ]
     files.extend([(ROOT/'LICENSE-MIT','LICENSE-MIT'),(ROOT/'LICENSE-APACHE','LICENSE-APACHE'),(ROOT/'THIRD_PARTY_NOTICES.md','THIRD_PARTY_NOTICES.md')])

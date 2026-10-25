@@ -5,5 +5,7 @@
 *.hpp text eol=lf
 *.c text eol=lf
 *.h text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
 *.owire -text
 *.onme -text

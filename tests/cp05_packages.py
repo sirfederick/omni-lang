@@ -46,7 +46,7 @@ class SdkPackagingManifestTests(unittest.TestCase):
             for relative in ('runtime/omni_runtime.c', 'runtime/omni_invocation_v1.h',
                              'runtime/omni_invocation_internal.h', 'include/omni/omni_host_sdk_v1.h',
                              'bindings/python/omni_host_sdk.py', 'tools/omni_sdk_codegen.py',
-                             'tools/omni_sdk_doctor.py', 'tools/omni_lsp.py', 'VERSION',
+                             'tools/omni_sdk_doctor.py', 'tools/omni_lsp.py', 'tools/run_sdk_examples.py', 'VERSION',
                              'LICENSE-MIT','LICENSE-APACHE','THIRD_PARTY_NOTICES.md',
                              'spec/CORE_1_3_0_0_PUBLIC_DELTA_CANDIDATE.json'):
                 destination = fixture / relative

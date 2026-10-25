@@ -179,6 +179,20 @@
     ],
     "structural": [
       "tests/structural_verifiers.py"
+    ],
+    "tooling": [
+      "tests/test_matrix_runner.py",
+      "tests/dev_driver.py",
+      "tests/ci_entry.py"
+    ],
+    "cli": [
+      "tests/cli_smoke.py"
+    ],
+    "capabilities": [
+      "tests/capability_smoke.py"
+    ],
+    "matrix_integration": [
+      "tests/matrix_compiler_integration.py"
     ]
   },
   "not_portable": {
@@ -200,5 +214,51 @@
     "a89": "Postcommit exact-source audit requires Git; not part of no-Git precommit acceptance",
     "a96": "Postcommit exact-source audit requires Git; not part of no-Git precommit acceptance",
     "a97": "Postcommit exact-source audit requires Git; not part of no-Git precommit acceptance"
+  },
+  "contracts": {
+    "tests/numeric_differential.py": {
+      "kind": "probe",
+      "schema": "omni.numeric-differential/1"
+    },
+    "tests/adt_differential.py": {
+      "kind": "probe",
+      "schema": "omni.adt-differential/1"
+    },
+    "tests/product_differential.py": {
+      "kind": "probe",
+      "schema": "omni.product-differential/1"
+    },
+    "tests/view_differential.py": {
+      "kind": "probe",
+      "schema": "omni.view-differential/1"
+    },
+    "tests/abstraction_differential.py": {
+      "kind": "probe",
+      "schema": "omni.abstraction-differential/1"
+    },
+    "tests/memory_authority_differential.py": {
+      "kind": "probe",
+      "schema": "omni.memory_authority-differential/1"
+    },
+    "tests/float_differential.py": {
+      "kind": "probe",
+      "schema": "omni.float-differential/1"
+    },
+    "tests/unicode_differential.py": {
+      "kind": "probe",
+      "schema": "omni.unicode-differential/1"
+    },
+    "tests/data_control_differential.py": {
+      "kind": "probe",
+      "schema": "omni.data_control-differential/1"
+    },
+    "tests/range_differential.py": {
+      "kind": "probe",
+      "schema": "omni.range-differential/1"
+    },
+    "tests/language_sanitizer_smoke.py": {
+      "kind": "probe",
+      "schema": "omni.language-compiler-smoke/1"
+    }
   }
 }

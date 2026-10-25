@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import os, pathlib, subprocess, tempfile
+import json, os, pathlib, subprocess, tempfile
 
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 OMNI=pathlib.Path(os.environ.get("OMNI_TEST_BIN",ROOT/"bin/linux-x86_64/omni"))
@@ -75,3 +75,9 @@ with tempfile.TemporaryDirectory(prefix="omni-alpha8-memory-diff-") as td:
             )
         observations+=1
 print(f"alpha8 memory/authority differential: {observations}/{len(cases)} MATCH")
+
+# Reached only after the original assertions/comparisons have all succeeded.
+print(json.dumps({"schema": 'omni.memory_authority-differential/1', "status": "PASS",
+                  "observations": observations, "checks": {
+    'all_evaluator_native_cases': observations == len(cases) and observations > 0,
+}}))

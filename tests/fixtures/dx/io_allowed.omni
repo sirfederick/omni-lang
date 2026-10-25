@@ -1,0 +1,6 @@
+module capability_example
+
+func main() u32 !{io.print} {
+    print("Capability accepted")
+    return 0
+}

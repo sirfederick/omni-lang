@@ -3,13 +3,19 @@ SPDX-FileCopyrightText: 2026 Federico T. Begna
 SPDX-License-Identifier: MIT OR Apache-2.0
 -->
 
-# Change proposal
+# Problem and resulting behavior
 
-Describe the problem and resulting behavior. Link the affected contract and meaningful tests. Report actual commands, failures/skips and platform limits.
+Describe a concrete trigger and what changes for users. Link affected contracts, examples and implementation responsibilities.
 
-- [ ] I have the right to contribute and preserved required third-party notices.
-- [ ] Commits carry my genuine DCO sign-off when commits are authorized.
-- [ ] No secrets, private application data or unsupported feature claims are included.
-- [ ] Positive/negative tests or a proportional explanation are provided.
+## Validation
 
-The maintainer decides admission, OVS eligibility and release. No automatic merge or publication is implied.
+List exact commands, platform/toolchain, effective tests or probe oracles, and any failures, skips or environment limits. Explain proportional validation for documentation-only changes. Include compatibility/ABI/format implications where relevant.
+
+## Contribution
+
+- [ ] Rights and required source/third-party attribution are preserved.
+- [ ] Commits carry genuine DCO sign-off.
+- [ ] The change includes a causal test or an explanation of why one is unnecessary.
+- [ ] No credentials, private data, generated outputs or unsupported capability claims are included.
+
+Maintainer review determines admission. This PR does not authorize a release or visibility change.

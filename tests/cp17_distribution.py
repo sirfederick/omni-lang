@@ -93,7 +93,7 @@ class ConsumerPackageTests(unittest.TestCase):
                 members = {member.name.split('/', 1)[1]: member for member in archive.getmembers()}
                 inventory = json.load(archive.extractfile(members['metadata/omni-sdk.json']))
                 indexed = {row['path']: row['sha256'] for row in inventory['components']}
-                for name in ('VERSION', 'tools/omni_lsp.py', 'tools/omni_sdk_doctor.py',
+                for name in ('VERSION', 'tools/omni_lsp.py', 'tools/omni_sdk_doctor.py', 'tools/run_sdk_examples.py',
                              'spec/CORE_1_3_0_0_PUBLIC_DELTA_CANDIDATE.json',
                              'spec/CP17_SDK_INTEGRATION_CANDIDATE.md'):
                     with self.subTest(component=name):

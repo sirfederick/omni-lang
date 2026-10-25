@@ -5,31 +5,106 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 
 # Build and development
 
-The current native profile is Linux x86-64 through Ubuntu WSL. The compiler uses C++20, the native runtime C, and native programs are lowered to textual LLVM IR and compiled by system Clang. Dependencies observed: GCC 13, Clang 18, Python 3.12, OpenSSL headers/libcrypto, Node 18 and N-API headers. Other hosts are not certified by this checkout.
+## Obtain sources
 
-From the project root in PowerShell (OMNI_WSL_DISTRO defaults to Ubuntu-24.04):
+The repository is private during preparation. Use an authorized GitHub account:
 
-```powershell
-python tools/omni_dev.py --allow-slow-fs env
-python tools/omni_dev.py --allow-slow-fs build --target compiler --jobs 2
-python tools/omni_dev.py --allow-slow-fs check examples/hola.omni
-python tools/omni_dev.py --allow-slow-fs run examples/hola.omni
-python tools/omni_dev.py --allow-slow-fs build --target loader --jobs 2
-python tools/omni_dev.py --allow-slow-fs build --target node
-python tools/omni_dev.py --allow-slow-fs test --group core --group generic_resources13 --group packages13 --group sdk13 --group compatibility --group projection13
+```sh
+git clone https://github.com/sirfederick/omni-lang.git
+cd omni-lang
 ```
 
-From Linux/WSL, use python3 instead of python. The entry point forwards Windows execution to the same existing workspace using wslpath; it never clones or initializes Git. --allow-slow-fs explicitly accepts the mounted filesystem. Outputs and input stamps live under build/dev. A missing/stale compiler is reported rather than silently testing old sources. build skips a component only when its recorded inputs and output hash agree.
+All following relative paths start at this checkout root. A source export also works; Git is not a build prerequisite. The compiler and SDK build from this repository alone.
 
-Canonical low-level build scripts: tools/build_compiler.py (21 units), tools/build_invocation_loader.py (20 shared units, two additional SDK units and C runtime), and tools/build_host_sdk_node.py (public N-API addon). Their source lists and identity hashing are the authority. CMAKE=DEFERRED_WITH_REASON: introducing another source/build graph during the port would require an additional equivalence campaign; the working canonical driver is retained. No placeholder CMake project is shipped.
+## Supported environment and dependencies
 
-Structural checks, without Git:
+The exercised profile is Linux x86-64, with Ubuntu 24.04 directly or through WSL. Recorded tools: GCC 13.3, Clang 18, Python 3.12, Node.js 18 and OpenSSL development headers/libcrypto. Windows commands run the Linux toolchain through WSL; they do not produce Windows-native executables.
 
-```powershell
-python tools/check_spec_sync.py
-python tools/verify_tree.py
+In Ubuntu (also inside WSL), prepare the compiler/runtime dependencies:
+
+```sh
+sudo apt-get update
+sudo apt-get install -y git g++ clang python3 libssl-dev
 ```
 
-See [coverage](tests/SPEC_SYNC_COVERAGE.json), [test discovery](tests/README.md), [examples](examples/README.md), [SDK](docs/sdk/QUICKSTART.md), and [specification precedence](spec/README.md). A successful structural scan does not mean semantic tests ran. MATRIX reports tests, failures, skips and timeout per executable; zero tests is not acceptance.
+For the Node SDK interface, also install:
 
-Troubleshooting: missing c++/clang is a host dependency; missing openssl/evp.h or -lcrypto requires development headers/libraries; node_api.h is required only for the addon. Select a different installed WSL distro using OMNI_WSL_DISTRO if necessary. Do not install a new OS or move the founder's checkout as a workaround. Fork/privileged CI and publication are not configured. CI_REMOTE=BLOCKED_ACCOUNT; CI_EXTERNAL=NOT_CONFIGURED.
+```sh
+sudo apt-get install -y nodejs libnode-dev
+```
+
+Python's SDK binding uses standard-library ctypes. No pip package is required. The C consumer additionally uses the system C compiler and public headers. Node/N-API headers are not required to run a first Omni program.
+
+On Windows install Git for Windows, Python 3.11 or later for the launcher, and WSL with Ubuntu 24.04. Install GCC, Clang, OpenSSL and Node dependencies **inside Ubuntu**, not into the Windows Python environment. `OMNI_WSL_DISTRO` selects an existing distro; the default is `Ubuntu-24.04`.
+
+## Linux / WSL
+
+```sh
+python3 -B tools/omni_dev.py env
+python3 -B tools/omni_dev.py build --target compiler --jobs 2
+python3 -B tools/omni_dev.py check examples/hola.omni
+python3 -B tools/omni_dev.py run examples/hola.omni
+```
+
+For a checkout on a Windows-mounted filesystem, add `--allow-slow-fs` **before** the subcommand. No workspace move is required. The common CI command below handles the mounted workspace automatically.
+
+The evaluator and native execution are distinct paths:
+
+```sh
+OMNI_HOME="$PWD" build/dev/omni eval examples/hola.omni
+OMNI_HOME="$PWD" build/dev/omni build examples/hola.omni -o build/dev/hola
+build/dev/hola
+```
+
+Each prints `Hola, Omni` then `720`, with exit 0. `result_minimo.omni` prints `100` then `El programa continua`, with exit 0. Some other examples intentionally return a computed value: `ranges.omni` returns 22 and `generics_iteration.omni` returns 42; their nonzero exit is part of the example oracle.
+
+## PowerShell
+
+From the checkout root:
+
+```powershell
+python -B tools/omni_dev.py --allow-slow-fs env
+python -B tools/omni_dev.py --allow-slow-fs build --target compiler --jobs 2
+python -B tools/omni_dev.py --allow-slow-fs check examples/hola.omni
+python -B tools/omni_dev.py --allow-slow-fs run examples/hola.omni
+```
+
+The bridge resolves the checkout with `wslpath`; paths passed above are relative to that checkout. `python -B tools/check_local.py` and `python -B tools/run_sdk_examples.py` have the same Windows-to-WSL entry behavior.
+
+## Tests and the CI command
+
+```sh
+bash tools/ci.sh
+```
+
+This is the same entry used by GitHub Actions. It checks source/spec consistency, tree/links/licenses, tooling regressions, a current compiler, evaluator/native first-use examples, loader/Node builds and the real SDK smoke including an extracted SDK. It stops on the first failure. Outputs stay in `build/`; it does not publish anything.
+
+For faster causal checks:
+
+```sh
+python3 -B tools/check_local.py --scope tools
+python3 -B tools/check_local.py --scope compiler
+python3 -B tools/omni_dev.py test --group capabilities --report build/reports/capabilities.json
+```
+
+`tools` needs no Omni build. `compiler` adds the first-use tests. `all` (the default) also validates the SDK. [MATRIX](tests/MATRIX.json) offers additional behavior groups; do not run all historical/hardware groups for a documentation change. The runner requires a nonempty, non-skipped execution and coherent unittest summary. Explicit JSON probes have a separate contract and check count; they do not invent unittest cases.
+
+## SDK and packages
+
+Build the shared loader and addon through the same driver, then use the [SDK Quick Start](docs/sdk/QUICKSTART.md) or [public consumers](examples/host-sdk/README.md). An existing SDK smoke output is preserved; choose a fresh `OMNI_SDK_SMOKE_DIR` or use the common command, which chooses one for you.
+
+## Build integrity and maintenance
+
+Canonical source lists and Python builders remain the build authority. `build` reuses an artifact only if both inputs and output bytes match its stamp; `check/run/test` enforce that same rule. Missing, malformed or stale stamps require `build`. CMake is not currently a supported build entry.
+
+For Python changes use four spaces, descriptive names and focused subprocess/unit fixtures. C/C++ changes retain local style and compiler warnings; avoid formatting unrelated units. [Compiler responsibilities](compiler/README.md) and [maintenance boundaries](docs/architecture/MAINTAINABILITY.md) identify where to work.
+
+## Common errors
+
+- `pass --allow-slow-fs`: place the flag before `env`, `build`, `check`, `run` or `test` on mounted WSL paths.
+- `compiler missing, stale or output changed`: run the compiler build command; do not copy in an old binary or edit its stamp.
+- Missing `openssl/evp.h` or `-lcrypto`: install `libssl-dev` inside Ubuntu.
+- Missing `node_api.h`: install `libnode-dev`; this is a Node addon dependency.
+- An SDK demo output already exists: choose a new `--output build/NAME`; existing evidence is not silently removed.
+
+The workflow configuration, local PASS and a successful hosted Actions run are separate facts. Hosted CI availability depends on the account; no badge asserts remote success here.
