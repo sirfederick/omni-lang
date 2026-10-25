@@ -59,6 +59,11 @@ int main(void) {{
     run(['cc','-std=c11','-Werror','-I',str(sdk/'include'),'-I',str(sdk/'runtime'),str(c_consumer),'-L',str(sdk/'lib'),'-lomni_host_sdk_v1','-o',str(c_binary)],env)
     c_env={**env,'LD_LIBRARY_PATH':f"{sdk/'lib'}:{sdk/'runtime'}"}; run([str(c_binary)],c_env)
     generated=DIST/'generated.mjs'; run(['python3',str(sdk/'tools/omni_sdk_codegen.py'),'--language','typescript','--runtime',str(sdk/'runtime/libomni_invocation_v1.so'),'--artifact',str(artifact),'--artifact-sha256',receipt['artifact_sha256'],'--descriptor-sha256',receipt['descriptor_sha256'],'--output',str(generated)],env)
-    report={'schema':'omni.sdk-distribution-probe/1','status':'PASS','deterministic_build':'PASS','asset_sha256':digest(one),'sdk_doctor':'PASS','portable_omni_std':'PASS','portable_package_resolution':'PASS','fresh_extracted_sdk':'PASS','fresh_c_consumer':'PASS','fresh_c_invocation_result':7,'source_checkout_dependency':'NONE for installed commands; packaging reads this source tree','host_artifact_sha256':digest(artifact),'generated_from_fresh_sdk':'PASS'}
+    # The packaged public example must work from the installed SDK alone.
+    demo = DIST / 'documented-consumer'
+    demo_output = run(['python3', str(sdk/'tools/run_sdk_examples.py'), '--output', str(demo)], env)
+    (ROOT/'installed_examples.log').write_text(demo_output, encoding='utf-8')
+    assert json.loads((demo/'report.json').read_text())['status'] == 'PASS'
+    report={'schema':'omni.sdk-distribution-probe/1','status':'PASS','deterministic_build':'PASS','asset_sha256':digest(one),'sdk_doctor':'PASS','portable_omni_std':'PASS','portable_package_resolution':'PASS','fresh_extracted_sdk':'PASS','installed_documented_examples':'PASS','fresh_c_consumer':'PASS','fresh_c_invocation_result':7,'source_checkout_dependency':'NONE for installed commands; packaging reads this source tree','host_artifact_sha256':digest(artifact),'generated_from_fresh_sdk':'PASS'}
     (ROOT/'sdk_distribution_report.json').write_text(json.dumps(report,indent=2)+'\n'); print(json.dumps(report,sort_keys=True))
 if __name__=='__main__': main()

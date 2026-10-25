@@ -12,6 +12,7 @@ The implemented source path is Particle text → parser/AST → module/package r
 | CLI/driver and build dispatch | compiler/src/main.cpp |
 | Particle lexer/parser and introspection | compiler/src/particle.cpp |
 | Types, loans, ownership, effects, capabilities | compiler/src/check.cpp and capabilities.cpp |
+| Evaluator and checked execution | Evaluator / evaluate / evaluateValue in compiler/src/check.cpp; dispatched by main.cpp |
 | Modules and package/stdlib resolution | compiler/src/modules.cpp and packages.cpp |
 | Wave/Wire serialization and fences | compiler/src/formats.cpp |
 | LLVM IR/native lowering | compiler/src/llvm.cpp |

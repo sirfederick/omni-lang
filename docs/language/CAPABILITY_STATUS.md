@@ -3,41 +3,247 @@ SPDX-FileCopyrightText: 2026 Federico T. Begna
 SPDX-License-Identifier: MIT OR Apache-2.0
 -->
 
-# Technical capability and proposal inventory
+# Capability status and reproducible evidence
 
-This is the evidence index for 0.1.0.00 WIP, not the founder/DT editorial feature catalog. A feature is not counted by directory, file, historical version or proposal count. VERIFIED applies only to the stated profile and oracle. PARTIAL and NOT_RUN are explicit limits. Local execution reports live in ignored build/ and docs/prompts/; public links below identify the reproducible inputs and tests.
+Product: **0.1.0.00 WIP / NOT_RELEASED**. Implementation and verification are separate facts. Implemented means a concrete implementation exists; implemented subset states a bounded surface; proposed denotes design without an adopted implementation claim. Not executed in this revision does not mean absent.
 
-For complete command discovery, effect identifiers and exported intrinsic contract families, see [implementation surface](IMPLEMENTATION_SURFACE.md). Discovery is explicitly separate from behavioral verification.
+Examples below use Linux x86-64/Ubuntu WSL. Start at [README](../../README.md#capabilities-and-evidence) or [DEVELOPMENT](../../DEVELOPMENT.md). Reproduce a group from the root with `python3 -B tools/omni_dev.py test --group GROUP`; add `--allow-slow-fs` before `test` for a mounted WSL checkout. [MATRIX](../../tests/MATRIX.json) discovers suites. Example tests compare explicit output and exit oracles in evaluator/native paths, including intentional nonzero results.
 
-## Current implementation and executable demonstrations
+Accepted compatibility/projection, package, application and independent-SDK evidence is reused where unchanged. Current acceptance uses `bash tools/ci.sh`; this is not a claim of a fresh complete historical matrix. Generated execution evidence belongs in ignored `build/`. [Specification status](../../spec/INDEX.md) describes authority and candidate adoption independently of runtime verification.
 
-| Area | Capability / boundary | Contract | Example / entry | Test | Evidence scope |
-| --- | --- | --- | --- | --- | --- |
-| Language | Functions, recursion, conditionals | [LANGUAGE_0_2.md](../../spec/LANGUAGE_0_2.md) | [examples/hola.omni](../../examples/hola.omni) | [test](../../tests/core_compat_current.py) | VERIFIED: CLI exact output and core suite |
-| Language | Result and exhaustive matching | [ADTS_0_2.md](../../spec/ADTS_0_2.md) | [examples/result_minimo.omni](../../examples/result_minimo.omni) | [test](../../tests/core_compat_current.py) | VERIFIED: CLI exact output; negative cases in core |
-| Language | Integer widths, checked arithmetic and casts | [TYPE_MEMORY_CONSTITUTION_0_2.md](../../spec/TYPE_MEMORY_CONSTITUTION_0_2.md) | [examples/numeric.omni](../../examples/numeric.omni) | [test](../../tests/language_0_2_alpha2.py) | VERIFIED in current compatibility adapter; historical publication checks excluded explicitly |
-| Language | Records, tuples, fixed arrays | [PRODUCT_TYPES_LAYOUT_0_2.md](../../spec/PRODUCT_TYPES_LAYOUT_0_2.md) | [examples/product_types.omni](../../examples/product_types.omni) | [test](../../tests/language_0_2_alpha4.py) | VERIFIED in current compatibility adapter; historical publication checks excluded explicitly |
-| Language | Option and closed enums | [ADTS_0_2.md](../../spec/ADTS_0_2.md) | [examples/option.omni](../../examples/option.omni) | [test](../../tests/language_0_2_alpha.py) | VERIFIED in current compatibility adapter; historical publication checks excluded explicitly |
-| Language | Floats | [DATA_LANGUAGE_0_8_1.md](../../spec/DATA_LANGUAGE_0_8_1.md) | [examples/floats.omni](../../examples/floats.omni) | [test](../../tests/float_differential.py) | NOT_RUN in focal matrix |
-| Language | Unicode text | [UNICODE_TEXT_0_8_1.md](../../spec/UNICODE_TEXT_0_8_1.md) | [examples/unicode_text.omni](../../examples/unicode_text.omni) | [test](../../tests/unicode_differential.py) | PARTIAL: Unicode primitive used by application; dedicated suite NOT_RUN |
-| Language | Ranges and iteration | [RANGE_ITERATION_0_8_1.md](../../spec/RANGE_ITERATION_0_8_1.md) | [examples/ranges.omni](../../examples/ranges.omni) | [test](../../tests/range_differential.py) | NOT_RUN dedicated suite |
-| Language | Borrow and mutable loans | [MEMORY_AUTHORITY_0_8.md](../../spec/MEMORY_AUTHORITY_0_8.md) | [examples/borrow_mut.omni](../../examples/borrow_mut.omni) | [test](../../tests/language_0_8_alpha8.py) | NOT_RUN full dedicated suite; core subset only |
-| Language | Borrowed views | [BORROWED_VIEWS_0_2.md](../../spec/BORROWED_VIEWS_0_2.md) | [examples/borrowed_views.omni](../../examples/borrowed_views.omni) | [test](../../tests/view_differential.py) | NOT_RUN dedicated suite |
-| Language | Generics and traits | [GENERICS_ABSTRACTION_0_2.md](../../spec/GENERICS_ABSTRACTION_0_2.md) | [examples/generics_iteration.omni](../../examples/generics_iteration.omni) | [test](../../tests/cp01_generic_resources.py) | VERIFIED: generic_resources13, 19 tests; no whole-family certification |
-| Language / runtime | Resource ownership and containers | [GENERIC_RESOURCE_CANDIDATE.md](../../spec/GENERIC_RESOURCE_CANDIDATE.md) | [examples/storage/vec.omni](../../examples/storage/vec.omni) | [test](../../tests/cp01_owned_slots.py) | PARTIAL: generic resource suite passed (19 cases); owned-slots suite NOT_RUN |
-| Language / runtime | Hosted filesystem and grants | [HOSTED_EFFECTS_FFI_0_8_6.md](../../spec/HOSTED_EFFECTS_FFI_0_8_6.md) | [examples/applications/data-cli/src/main.omni](../../examples/applications/data-cli/src/main.omni) | [test](../../tools/run_app_examples.py) | VERIFIED: native read/write and exact output; full policy suite NOT_RUN |
-| Language / runtime | Structured tasks and join | [CONCURRENCY_0_8_5.md](../../spec/CONCURRENCY_0_8_5.md) | [examples/applications/recovery-service/src/main.omni](../../examples/applications/recovery-service/src/main.omni) | [test](../../tools/run_app_examples.py) | VERIFIED: native two tasks and two persistence generations; full concurrency suite NOT_RUN |
-| Tools / packages | Packages, lock and integrated stdlib | [PACKAGE_LOCK_SOURCE_IDENTITY_1_0.md](../../spec/PACKAGE_LOCK_SOURCE_IDENTITY_1_0.md) | [examples/a84_package_consumer/src/main.omni](../../examples/a84_package_consumer/src/main.omni) | [test](../../tests/cp05_packages.py) | VERIFIED: packages13 (10 cases) and extracted SDK offline stdlib |
-| Representations | Wave / Wire compatibility | [IR_WAVE_WIRE_0_2.md](../../spec/IR_WAVE_WIRE_0_2.md) | [examples/hola.owave](../../examples/hola.owave) | [test](../../tests/current_compatibility.py) | VERIFIED: current compatibility (94 cases) and projection13 (48 cases), scoped to their assertions |
-| Semantic memory / representations | ONME semantic projection | [ONME_0_7.md](../../spec/ONME_0_7.md) | [examples/hola.omni](../../examples/hola.omni) | [test](../../tests/cp15_projection.py) | VERIFIED: projection13 (48 cases); not an ISA |
-| Semantic memory / representations | OSNMF and identities | [OSNMF_0_7.md](../../spec/OSNMF_0_7.md) | [examples/hola.omni](../../examples/hola.omni) | [test](../../tests/cp15_projection.py) | VERIFIED: projection13 (48 cases); not runtime authority |
-| SDK | C ABI / actual host invocation | [HOST_INVOCATION_ABI_1_1.md](../../spec/HOST_INVOCATION_ABI_1_1.md) | [examples/host-sdk/src/echo.omni](../../examples/host-sdk/src/echo.omni) | [test](../../tests/host_invocation_h02/sdk_public_probe.py) | VERIFIED: real loader invoke/read/decode and extracted compiled C consumer |
-| SDK | Node N-API binding | [HOST_SDK_1_2.md](../../spec/HOST_SDK_1_2.md) | [tests/host_invocation_h02/node_public_probe.mjs](../../tests/host_invocation_h02/node_public_probe.mjs) | [test](../../tests/host_invocation_h02/binding_roundtrip_fixture.py) | VERIFIED: public addon encode/decode of real runtime response; not all Node structural cases |
-| SDK | Python ctypes binding | [HOST_SDK_1_2.md](../../spec/HOST_SDK_1_2.md) | [tests/host_invocation_h02/python_public_probe.py](../../tests/host_invocation_h02/python_public_probe.py) | [test](../../tests/host_invocation_h02/binding_roundtrip_fixture.py) | VERIFIED: public binding encode/decode of real runtime response; not all Python structural cases |
-| SDK | Extracted SDK / deterministic archive | [CP17_SDK_INTEGRATION_CANDIDATE.md](../../spec/CP17_SDK_INTEGRATION_CANDIDATE.md) | [tools/omni_sdk_package.py](../../tools/omni_sdk_package.py) | [test](../../tests/host_invocation_h02/sdk_distribution_probe.py) | VERIFIED: two identical packages, extracted doctor, stdlib resolution, C consumer and generated module |
-| Tools / packages | LSP, admission, tooling context | [CP16_TOOLING_CANDIDATE.md](../../spec/CP16_TOOLING_CANDIDATE.md) | [tools/omni_lsp.py](../../tools/omni_lsp.py) | [test](../../tests/cp16_tooling.py) | NOT_RUN dedicated suites; implementation present |
-| Language / target runtime | SIMD and target intrinsics | [SIMD_BASELINE_CANDIDATE.md](../../spec/SIMD_BASELINE_CANDIDATE.md) | [examples/storage/simd.omni](../../examples/storage/simd.omni) | [test](../../tests/cp10_simd.py) | NOT_RUN; target-bound candidate, no present hardware certification; suite discovery in MATRIX |
-| Language / runtime | Dynamic storage libraries | [DYNAMIC_STORAGE_CANDIDATE.md](../../spec/DYNAMIC_STORAGE_CANDIDATE.md) | [examples/storage/heap.omni](../../examples/storage/heap.omni) | [test](../../tests/cp04_dynamic_storage.py) | NOT_RUN dedicated suites; resource library implementation present |
+## Functions and flow
+
+| Field | Scope |
+| --- | --- |
+| Use | Compute typed recursive functions and branch on values. |
+| Implementation | Implemented |
+| Verification | First-use evaluator/native oracles |
+| Implementation entry | [compiler/src/particle.cpp](../../compiler/src/particle.cpp), [compiler/src/check.cpp](../../compiler/src/check.cpp) |
+| Example | [examples/hola.omni](../../examples/hola.omni) |
+| Test / command | `python3 -B tools/omni_dev.py test --group cli` |
+| Limits | Examples do not certify all recursion/budget bounds. |
+| Contract | [LANGUAGE_0_2.md](../../spec/LANGUAGE_0_2.md) |
+
+## Numeric types and conversions
+
+| Field | Scope |
+| --- | --- |
+| Use | Use fixed-width integers, checked casts, wrapping/saturating arithmetic and f32/f64. |
+| Implementation | Implemented |
+| Verification | Numeric/float examples in evaluator and native execution |
+| Implementation entry | [compiler/src/check.cpp](../../compiler/src/check.cpp), [compiler/src/llvm.cpp](../../compiler/src/llvm.cpp) |
+| Example | [examples/numeric.omni](../../examples/numeric.omni), [examples/floats.omni](../../examples/floats.omni) |
+| Test / command | `python3 -B tools/omni_dev.py test --group capabilities` |
+| Limits | Not a full IEEE/NaN/differential campaign; floats intentionally returns 7. |
+| Contract | [DATA_LANGUAGE_0_8_1.md](../../spec/DATA_LANGUAGE_0_8_1.md) |
+
+## Records tuples and arrays
+
+| Field | Scope |
+| --- | --- |
+| Use | Represent checked records, heterogeneous tuples and fixed-size arrays. |
+| Implementation | Implemented subset |
+| Verification | Product example evaluator/native oracles |
+| Implementation entry | [compiler/src/check.cpp](../../compiler/src/check.cpp), [compiler/src/particle.cpp](../../compiler/src/particle.cpp) |
+| Example | [examples/product_types.omni](../../examples/product_types.omni), [record example](../../examples/result_minimo.omni) |
+| Test / command | `python3 -B tools/omni_dev.py test --group cli --group capabilities` |
+| Limits | Owning aggregates have additional move/cleanup restrictions. |
+| Contract | [PRODUCT_TYPES_LAYOUT_0_2.md](../../spec/PRODUCT_TYPES_LAYOUT_0_2.md) |
+
+## Option Result enums and matching
+
+| Field | Scope |
+| --- | --- |
+| Use | Handle missing/error alternatives, including an Err branch that continues execution. |
+| Implementation | Implemented |
+| Verification | First-use and Option/enum example oracles |
+| Implementation entry | [compiler/src/check.cpp](../../compiler/src/check.cpp), [compiler/src/particle.cpp](../../compiler/src/particle.cpp) |
+| Example | [examples/result_minimo.omni](../../examples/result_minimo.omni), [examples/option.omni](../../examples/option.omni), [examples/adt_enum.omni](../../examples/adt_enum.omni) |
+| Test / command | `python3 -B tools/omni_dev.py test --group cli --group capabilities` |
+| Limits | Closed variants and checked payload restrictions apply. |
+| Contract | [ADTS_0_2.md](../../spec/ADTS_0_2.md) |
+
+## Generics and traits
+
+| Field | Scope |
+| --- | --- |
+| Use | Specialize explicit type arguments and statically checked trait implementations. |
+| Implementation | Implemented static subset |
+| Verification | Generic example evaluator/native; broader trait methods not rerun here |
+| Implementation entry | [compiler/src/check.cpp](../../compiler/src/check.cpp), [compiler/src/particle.cpp](../../compiler/src/particle.cpp) |
+| Example | [examples/generics_iteration.omni](../../examples/generics_iteration.omni) |
+| Test / command | `python3 -B tools/omni_dev.py test --group capabilities` |
+| Limits | Example covers generic constraints/UFCS, not every trait method or dynamic dispatch. |
+| Contract | [GENERICS_ABSTRACTION_0_2.md](../../spec/GENERICS_ABSTRACTION_0_2.md) |
+
+## Ownership loans views and resources
+
+| Field | Scope |
+| --- | --- |
+| Use | Borrow a buffer exclusively, release it and inspect bounded read-only views. |
+| Implementation | Implemented subset |
+| Verification | Borrow/view examples evaluator/native; broader owning containers separate |
+| Implementation entry | [compiler/src/check.cpp](../../compiler/src/check.cpp), [runtime/omni_runtime.c](../../runtime/omni_runtime.c) |
+| Example | [examples/borrow_mut.omni](../../examples/borrow_mut.omni), [examples/borrowed_views.omni](../../examples/borrowed_views.omni) |
+| Test / command | `python3 -B tools/omni_dev.py test --group capabilities` |
+| Limits | Examples intentionally return 8 and 50; no whole-family ownership certification. |
+| Contract | [MEMORY_AUTHORITY_0_8.md](../../spec/MEMORY_AUTHORITY_0_8.md) |
+
+## Effects and capabilities
+
+| Field | Scope |
+| --- | --- |
+| Use | Declare required effects and reject I/O in a pure function before execution. |
+| Implementation | Implemented |
+| Verification | Positive evaluator/native and semantic E_CAPABILITY rejection |
+| Implementation entry | [compiler/src/capabilities.cpp](../../compiler/src/capabilities.cpp), [compiler/src/check.cpp](../../compiler/src/check.cpp) |
+| Example | [tests/fixtures/dx/io_allowed.omni](../../tests/fixtures/dx/io_allowed.omni), [tests/fixtures/dx/pure_io_denied.omni](../../tests/fixtures/dx/pure_io_denied.omni) |
+| Test / command | `python3 -B tools/omni_dev.py test --group cli` |
+| Limits | Static capability declarations do not provide runtime grants or a security sandbox. |
+| Contract | [OCAP_0_7.md](../../spec/OCAP_0_7.md) |
+
+## Unicode text and iteration
+
+| Field | Scope |
+| --- | --- |
+| Use | Distinguish UTF-8 byte/scalar counts and iterate bounded ranges/views. |
+| Implementation | Implemented subset |
+| Verification | Unicode/range examples evaluator/native |
+| Implementation entry | [compiler/src/check.cpp](../../compiler/src/check.cpp), [compiler/src/llvm.cpp](../../compiler/src/llvm.cpp) |
+| Example | [examples/unicode_text.omni](../../examples/unicode_text.omni), [examples/ranges.omni](../../examples/ranges.omni) |
+| Test / command | `python3 -B tools/omni_dev.py test --group capabilities` |
+| Limits | Examples return 3 and 22; full Unicode/differential suites remain separate. |
+| Contract | [UNICODE_TEXT_0_8_1.md](../../spec/UNICODE_TEXT_0_8_1.md) |
+
+## Tasks and concurrency
+
+| Field | Scope |
+| --- | --- |
+| Use | Spawn/join scoped tasks and persist recovery generations. |
+| Implementation | Implemented bounded subset |
+| Verification | Existing native application evidence; full concurrency suite not rerun here |
+| Implementation entry | [compiler/src/check.cpp](../../compiler/src/check.cpp), [compiler/src/llvm.cpp](../../compiler/src/llvm.cpp), [runtime/omni_runtime.c](../../runtime/omni_runtime.c) |
+| Example | [examples/applications/recovery-service/src/main.omni](../../examples/applications/recovery-service/src/main.omni) |
+| Test / command | `python3 -B tools/run_app_examples.py` (prepares file placeholders and OHP1 policy) |
+| Limits | Requires prepared files/OHP1 policy; not general async or distributed exactly-once. |
+| Contract | [CONCURRENCY_0_8_5.md](../../spec/CONCURRENCY_0_8_5.md) |
+
+## Files and permissions
+
+| Field | Scope |
+| --- | --- |
+| Use | Read bounded input and write checked output under explicit filesystem grants. |
+| Implementation | Implemented hosted subset |
+| Verification | Existing exact-output native application evidence |
+| Implementation entry | [compiler/src/host_policy.cpp](../../compiler/src/host_policy.cpp), [runtime/omni_runtime.c](../../runtime/omni_runtime.c) |
+| Example | [examples/applications/data-cli/src/main.omni](../../examples/applications/data-cli/src/main.omni) |
+| Test / command | `python3 -B tools/run_app_examples.py` (prepares file placeholders and OHP1 policy) |
+| Limits | The fixture needs OHP1 setup; no ambient authorization or provider-security claim. |
+| Contract | [HOSTED_EFFECTS_FFI_0_8_6.md](../../spec/HOSTED_EFFECTS_FFI_0_8_6.md) |
+
+## Modules packages and stdlib
+
+| Field | Scope |
+| --- | --- |
+| Use | Resolve declared imports/dependencies and generate/check offline locks. |
+| Implementation | Implemented offline subset |
+| Verification | Package evidence and real extracted-SDK stdlib consumption |
+| Implementation entry | [compiler/src/modules.cpp](../../compiler/src/modules.cpp), [compiler/src/packages.cpp](../../compiler/src/packages.cpp) |
+| Example | [examples/a84_package_consumer/src/main.omni](../../examples/a84_package_consumer/src/main.omni) |
+| Test / command | `python3 -B tools/omni_dev.py test --group packages13` |
+| Limits | No published registry; omni.std has an independent package version. |
+| Contract | [PACKAGES_STDLIB_0_8_4.md](../../spec/PACKAGES_STDLIB_0_8_4.md) |
+
+## Evaluator and native compilation
+
+| Field | Scope |
+| --- | --- |
+| Use | Evaluate checked programs or emit LLVM IR and build with Clang and the C runtime. |
+| Implementation | Implemented Linux profile |
+| Verification | Exact first-use evaluator/native output and exit oracles |
+| Implementation entry | [compiler/src/check.cpp](../../compiler/src/check.cpp), [compiler/src/llvm.cpp](../../compiler/src/llvm.cpp), [compiler/src/main.cpp](../../compiler/src/main.cpp) |
+| Example | [examples/hola.omni](../../examples/hola.omni) |
+| Test / command | `python3 -B tools/omni_dev.py test --group cli` |
+| Limits | Linux x86-64 exercised; Windows commands bridge to WSL. |
+| Contract | [TARGET_PROFILES_0_8_8.md](../../spec/TARGET_PROFILES_0_8_8.md) |
+
+## Wave Wire ONME and OSNMF
+
+| Field | Scope |
+| --- | --- |
+| Use | Read/write structured programs and project/query semantic identities and memory. |
+| Implementation | Implemented versioned surfaces |
+| Verification | Accepted projection/compatibility evidence retained; not rerun wholesale here |
+| Implementation entry | [compiler/src/formats.cpp](../../compiler/src/formats.cpp), [compiler/src/onme.cpp](../../compiler/src/onme.cpp), [compiler/src/osnmf.cpp](../../compiler/src/osnmf.cpp) |
+| Example | [examples/hola.owave](../../examples/hola.owave), [examples/hola.omni](../../examples/hola.omni) |
+| Test / command | `python3 -B tools/omni_dev.py test --group projection13` |
+| Limits | ONME is not an ISA; identity does not grant authority; native compilation need not traverse every projection. |
+| Contract | [IR_WAVE_WIRE_0_2.md](../../spec/IR_WAVE_WIRE_0_2.md) |
+
+## C Node and Python SDK
+
+| Field | Scope |
+| --- | --- |
+| Use | Embed admitted host entries and exchange values through the public ABI and codecs. |
+| Implementation | Implemented bounded ABI and codecs |
+| Verification | C invokes; Node/Python encode and decode a real runtime response |
+| Implementation entry | [compiler/src/host_sdk_public.cpp](../../compiler/src/host_sdk_public.cpp), [compiler/src/host_invocation_loader.cpp](../../compiler/src/host_invocation_loader.cpp), [include/omni/omni_host_sdk_v1.h](../../include/omni/omni_host_sdk_v1.h) |
+| Example | [examples/host-sdk/consumer.c](../../examples/host-sdk/consumer.c), [examples/host-sdk/consumer.mjs](../../examples/host-sdk/consumer.mjs), [examples/host-sdk/consumer.py](../../examples/host-sdk/consumer.py) |
+| Test / command | `python3 -B tools/run_sdk_examples.py --output build/sdk-catalog-example`; [full SDK smoke](../../tools/run_sdk_smoke.py) needs a fresh output |
+| Limits | Node/Python do not expose arbitrary direct invocation; OMI1 admits only its declared type subset. |
+| Contract | [HOST_SDK_1_2.md](../../spec/HOST_SDK_1_2.md) |
+
+## Development tools
+
+| Field | Scope |
+| --- | --- |
+| Use | Check/format code, inspect diagnostics, export context and use the existing LSP implementation. |
+| Implementation | Implemented subset |
+| Verification | Tooling regressions; full LSP/admission suites not rerun here |
+| Implementation entry | [tools/omni_dev.py](../../tools/omni_dev.py), [tools/omni_lsp.py](../../tools/omni_lsp.py), [tools/run_test_matrix.py](../../tools/run_test_matrix.py) |
+| Example | [docs/language/IMPLEMENTATION_SURFACE.md](../../docs/language/IMPLEMENTATION_SURFACE.md) |
+| Test / command | `python3 -B tools/omni_dev.py test --group tooling` |
+| Limits | Discovery/export is not proof of every command or complete editor support. |
+| Contract | [CP16_TOOLING_CANDIDATE.md](../../spec/CP16_TOOLING_CANDIDATE.md) |
+
+## SIMD
+
+| Field | Scope |
+| --- | --- |
+| Use | Use supported 128-bit lane records and masks with explicit profile fences. |
+| Implementation | Implemented target-bound subset |
+| Verification | Not executed in this revision; dedicated tests indexed |
+| Implementation entry | [compiler/src/check.cpp](../../compiler/src/check.cpp), [compiler/src/llvm.cpp](../../compiler/src/llvm.cpp) |
+| Example | [examples/storage/simd.omni](../../examples/storage/simd.omni) |
+| Test / command | `python3 -B tools/omni_dev.py test --group cpustate13` |
+| Limits | No AVX, wide vectors, shuffle or autovectorization guarantee; baremetal SSE2 needs its ISA profile and emulator prerequisites. |
+| Contract | [SIMD_BASELINE_CANDIDATE.md](../../spec/SIMD_BASELINE_CANDIDATE.md) |
+
+## Dynamic storage
+
+| Field | Scope |
+| --- | --- |
+| Use | Build resource-based heaps, arenas, vectors and related containers. |
+| Implementation | Implemented library subset |
+| Verification | Not executed in this revision; dedicated tests indexed |
+| Implementation entry | [examples/storage/heap.omni](../../examples/storage/heap.omni), [examples/storage/seq.omni](../../examples/storage/seq.omni), [runtime/omni_runtime.c](../../runtime/omni_runtime.c) |
+| Example | [examples/storage/vec.omni](../../examples/storage/vec.omni) |
+| Test / command | `python3 -B tools/omni_dev.py test --group storage13` |
+| Limits | Allocator, lifetime and cleanup contracts apply; no unrestricted GC heap claim. |
+| Contract | [DYNAMIC_STORAGE_CANDIDATE.md](../../spec/DYNAMIC_STORAGE_CANDIDATE.md) |
+
+## Hardware profiles
+
+| Field | Scope |
+| --- | --- |
+| Use | Express checked raw-memory, layout, CPU and port operations in explicit freestanding profiles. |
+| Implementation | Implemented experimental subsets |
+| Verification | Not executed in this revision; target/QEMU suites indexed |
+| Implementation entry | [compiler/src/check.cpp](../../compiler/src/check.cpp), [compiler/src/llvm.cpp](../../compiler/src/llvm.cpp) |
+| Example | [tests/x64/README.md](../../tests/x64/README.md) |
+| Test / command | `python3 -B tools/omni_dev.py test --group freestanding13` |
+| Limits | Not physical-hardware or universal-platform certification; i386 bootstrap is not general C ABI. |
+| Contract | [TARGET_BAREMETAL_PROFILE_CANDIDATE.md](../../spec/TARGET_BAREMETAL_PROFILE_CANDIDATE.md) |
 
 ## Candidate extensions and adoption status
 
@@ -94,7 +300,7 @@ The complete [specification index](../../spec/INDEX.md) includes every retained 
 | Runtime / target | [TLS_AND_PERCPU_CANDIDATE.md](../../spec/TLS_AND_PERCPU_CANDIDATE.md) | [tests/language_0_8_3_alpha8.py](../../tests/language_0_8_3_alpha8.py) | DESIGN_CANDIDATE / uncertified; inspect implementation and target limits before advertising |
 | Language / memory | [TRAIT_METHODS_CANDIDATE.md](../../spec/TRAIT_METHODS_CANDIDATE.md) | [tests/language_0_8_3_alpha8.py](../../tests/language_0_8_3_alpha8.py) | DESIGN_CANDIDATE / uncertified; inspect implementation and target limits before advertising |
 | Language / memory | [TRY_PROPAGATION_CANDIDATE.md](../../spec/TRY_PROPAGATION_CANDIDATE.md) | [tests/language_0_8_3_alpha8.py](../../tests/language_0_8_3_alpha8.py) | DESIGN_CANDIDATE / uncertified; inspect implementation and target limits before advertising |
-| SDK / tools | [WINDOWS_CANDIDATE.md](../../spec/WINDOWS_CANDIDATE.md) | [examples/storage/window.omni](../../examples/storage/window.omni), [tests/cp02_adversarial.py](../../tests/cp02_adversarial.py) | DESIGN_CANDIDATE / uncertified; inspect implementation and target limits before advertising |
+| Language / bounded storage | [WINDOWS_CANDIDATE.md](../../spec/WINDOWS_CANDIDATE.md) | [examples/storage/window.omni](../../examples/storage/window.omni), [tests/cp02_adversarial.py](../../tests/cp02_adversarial.py) | DESIGN_CANDIDATE / uncertified; inspect implementation and target limits before advertising |
 
 ## Documented future work, not current functionality
 
@@ -102,11 +308,11 @@ These are explicitly deferred clauses, not newly approved work or dates. Old def
 
 | Item | Documented boundary | Decision |
 | --- | --- | --- |
-| SIMD shuffles, wider vectors and AVX | [SIMD section 55](../../spec/SIMD_BASELINE_CANDIDATE.md) | Deferred design scope; no schedule approved here |
+| SIMD shuffles, wider vectors and AVX | [SIMD section 5](../../spec/SIMD_BASELINE_CANDIDATE.md) | Deferred design scope; no schedule approved here |
 | Scoped raw block sugar | [raw boundary](../../spec/RAW_BOUNDARY_CANDIDATE.md) | Deferred syntax; existing per-function capability boundary remains |
 | Pending-place assignment/reinitialization | [ownership composition](../../spec/OWNERSHIP_COMPOSITION_CANDIDATE.md) | Deferred until cleanup/replacement contract exists |
 | Remote package registry and signed publishers | [packages](../../spec/PACKAGES_STDLIB_0_8_4.md) | Outside current offline profile; needs current founder/DT decision |
 | General C ABI mapping / zero-copy / arbitrary symbols | [hosted effects deferred scope](../../spec/HOSTED_EFFECTS_FFI_0_8_6.md) | Not supplied by fixed copy-only host effects |
 | Additional host platforms | [development](../../DEVELOPMENT.md) | NOT_VERIFIED; Linux x86-64/WSL is the exercised profile |
 
-Adding a new capability requires a contract, an authentic example, a positive oracle, relevant rejection cases and a recorded execution profile. Missing example coverage is a gap to record, not permission to invent syntax or claim a test passed. Editorial catalog and root README remain founder/DT work.
+Adding a new capability requires a contract, an authentic example, a positive oracle, relevant rejection cases and a recorded execution profile. Missing example coverage is a gap to record, not permission to invent syntax or claim a test passed. The README summarizes this catalog; neither is a release certification.

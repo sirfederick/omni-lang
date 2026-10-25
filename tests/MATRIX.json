@@ -179,6 +179,17 @@
     ],
     "structural": [
       "tests/structural_verifiers.py"
+    ],
+    "tooling": [
+      "tests/test_matrix_runner.py",
+      "tests/dev_driver.py",
+      "tests/ci_entry.py"
+    ],
+    "cli": [
+      "tests/cli_smoke.py"
+    ],
+    "capabilities": [
+      "tests/capability_smoke.py"
     ]
   },
   "not_portable": {

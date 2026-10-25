@@ -1,0 +1,6 @@
+module capability_rejection
+
+func main() u32 !pure {
+    print("This requires io.print")
+    return 0
+}

@@ -1,4 +1,5 @@
 module omni_host_sdk_example
 pub struct Pair { left u32, right u32 }
 pub func echo_pair(value Pair) Pair !pure { return value }
+pub func echo_u8(value u8) u8 !pure { return value }
 func main() u32 !pure { return 0u32 }
