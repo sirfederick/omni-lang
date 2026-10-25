@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import os, pathlib, subprocess, tempfile
+import json, os, pathlib, subprocess, tempfile
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 OMNI=pathlib.Path(os.environ.get('OMNI_TEST_BIN',ROOT/'bin/linux-x86_64/omni'))
 
@@ -44,3 +44,14 @@ with tempfile.TemporaryDirectory(prefix='omni-adt-diff-') as td:
     assert ev.stdout==native.stdout,(ev.stdout,native.stdout)
     assert len(ev.stdout.splitlines())==len(calls),(len(ev.stdout.splitlines()),len(calls))
 print(f'ADT evaluator/native differential: PASS ({len(calls)} observations)')
+
+# Reached only after the original assertions/comparisons have all succeeded.
+print(json.dumps({"schema": 'omni.adt-differential/1', "status": "PASS",
+                  "observations": len(calls), "checks": {
+    'semantic_check': chk.returncode == 0,
+    'evaluator_execution': ev.returncode == 0,
+    'native_build': build.returncode == 0,
+    'native_execution': native.returncode == 0,
+    'evaluator_native_output': ev.stdout == native.stdout,
+    'observation_count': len(ev.stdout.splitlines()) == len(calls) and len(calls) > 0,
+}}))

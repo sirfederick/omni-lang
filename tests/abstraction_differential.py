@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import os, pathlib, subprocess, tempfile
+import json, os, pathlib, subprocess, tempfile
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 OMNI=pathlib.Path(os.environ.get('OMNI_TEST_BIN',ROOT/'bin/linux-x86_64/omni'))
 def run(*a): return subprocess.run([str(x) for x in a],capture_output=True,env={**os.environ,'OMNI_HOME':str(ROOT)},timeout=45)
@@ -23,3 +23,9 @@ with tempfile.TemporaryDirectory(prefix='omni-alpha6-diff-') as td:
         if (e.returncode,e.stdout)!=(n.returncode,n.stdout): raise SystemExit(f'differential case {i}: eval={(e.returncode,e.stdout)!r} native={(n.returncode,n.stdout)!r} evalerr={e.stderr!r} nativeerr={n.stderr!r}')
         obs+=1
 print(f'alpha6 abstraction differential: {obs}/{len(cases)} MATCH')
+
+# Reached only after the original assertions/comparisons have all succeeded.
+print(json.dumps({"schema": 'omni.abstraction-differential/1', "status": "PASS",
+                  "observations": obs, "checks": {
+    'all_evaluator_native_cases': obs == len(cases) and obs > 0,
+}}))

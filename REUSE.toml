@@ -276,6 +276,7 @@ path = [
   "stdlib/src/prelude.omni",
   "tests/COMPATIBILITY_COVERAGE.json",
   "tests/MATRIX.json",
+  "tests/matrix_compiler_integration.py",
   "tests/README.md",
   "tests/SPEC_SYNC_COVERAGE.json",
   "tests/a85_channel_smoke.omni",
