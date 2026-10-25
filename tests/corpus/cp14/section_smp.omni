@@ -1,0 +1,91 @@
+module t
+import rt "rt.omni"
+import critical "critical.omni"
+
+// CP-14 rows 14.4/14.6 on two vCPUs: both CPUs run the same read-modify-write of a shared counter (a relaxed load and a relaxed store, which is NOT atomic as a pair) 30000 times.
+// Through critical.locked the total is exact; the same body run without the lock (the control, in the same program) loses updates. A lock that is never taken is never held at the end.
+// Cells: lock 0x5E0100 (6160640), locked counter 0x5E0140 (6160704), plain counter 0x5E0180 (6160768), failures of locked on CPU 1 0x5E01C0 (6160832). AP flags as in smp_counter.omni.
+struct Inc { n u32 }
+
+func bump(arg u64) u32 !{memory.raw,memory.atomic} {
+  let v u32 = atomic.load32(arg, 0u32)
+  let s u32 = atomic.store32(arg, v + 1u32, 0u32)
+  return v + 1u32
+}
+
+impl critical.Section for Inc {
+  func run(arg u64) u32 !{memory.raw,memory.atomic} { return bump(arg) }
+}
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func hammer_locked(n u32) u32 !{memory.raw,memory.atomic,cpu.control} {
+  var failed u32 = 0u32
+  for i in 0u32..n {
+    let r = critical.locked<Inc>(6160640u64, 6160704u64, 100000000u32)
+    match r { Ok(v) { } Err(e) { failed = failed + 1u32 } }
+  }
+  return failed
+}
+
+func hammer_plain(n u32) u32 !{memory.raw,memory.atomic} {
+  for i in 0u32..n {
+    let v u32 = bump(6160768u64)
+  }
+  return 0u32
+}
+
+func ap_main() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  let who u32 = raw.store32(5308800u64, id + 100u32)
+  let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+  let go u32 = wait_flag(5308928u64)
+  let f u32 = hammer_locked(30000u32)
+  let fc u32 = atomic.store32(6160832u64, f, 2u32)
+  let p u32 = hammer_plain(30000u32)
+  let done u32 = atomic.store32(5308992u64, 1u32, 2u32)
+  return 0u32
+}
+
+func flag(b bool) u32 {
+  if b { return 1u32 }
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+  let init u32 = raw.store32(4276093696u64, 17664u32)
+  let w1 u32 = delay()
+  let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+  let w2 u32 = delay()
+  let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+  let up u32 = wait_flag(5308864u64)
+  if up == 0u32 {
+    print(999u32)
+    return rt.finish(2u32)
+  }
+  let go u32 = atomic.store32(5308928u64, 1u32, 2u32)
+  let f u32 = hammer_locked(30000u32)
+  let p u32 = hammer_plain(30000u32)
+  let done u32 = wait_flag(5308992u64)
+  print(atomic.load32(6160704u64, 4u32))
+  print(flag(atomic.load32(6160768u64, 4u32) < 60000u32))
+  print(f + atomic.load32(6160832u64, 4u32))
+  print(atomic.load32(6160640u64, 4u32))
+  return rt.finish(0u32)
+}

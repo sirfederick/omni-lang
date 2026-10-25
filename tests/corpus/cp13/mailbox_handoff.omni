@@ -1,0 +1,177 @@
+module t
+import rt "rt.omni"
+import mailbox "mailbox.omni"
+
+// CP-13 row 13.5: a bounded hand-off between two vCPUs (spec/MEMORY_MODEL_X86_64_CANDIDATE.md). The bootstrap processor is the producer and an application processor, running Omni code, is
+// the consumer; the queue has 4 slots, so the stream of 20000 messages wraps it 5000 times and the producer meets "full" again and again. Every message is {seq, a, b, c} with a, b and c
+// derived from seq, so the consumer can tell a lost, repeated, reordered or half-written message from a good one by itself.
+// Cells (identity-mapped RAM): mailbox 0x5C0000 (6029312); consumer results 0x5C8000.. one cell per 64 bytes: received 6062080, bad 6062144, last seq 6062208, sum 6062272,
+// first pop (empty queue) 6062336, second open of the consumer end 6062400, go-consume flag 6062464, done flag 6062528, error flag 6062592.
+// AP flags as in smp_counter.omni: AP_UP 5308864.
+struct Msg { seq u64, a u64, b u32, c u32 }
+
+func total() u64 { return 20000u64 }
+func fa(s u64) u64 { return s * 1000003u64 + 12345u64 }
+func fb(s u64) u32 { return u32(s % 65521u64) }
+func fc(s u64) u32 { return bit.xor(u32(s), 3735928559u32) }
+func mk(s u64) Msg { return Msg { seq: s, a: fa(s), b: fb(s), c: fc(s) } }
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func code(r Result<u32,u32>) u32 {
+  match r {
+    Ok(n) { return 1u32 }
+    Err(e) { return e }
+  }
+}
+
+// The consumer: takes every message in order and checks it on its own; counts what is wrong instead of stopping.
+func consume(c BorrowMut<mailbox.Consumer>) u32 !{memory.raw,memory.atomic} {
+  var expected u64 = 0u64
+  var bad u32 = 0u32
+  var sum u64 = 0u64
+  var tries u32 = 0u32
+  for i in 0u32..4000000000u32 {
+    if expected == total() {
+      let r u32 = atomic.store32(6062080u64, u32(expected), 2u32)
+      let b u32 = atomic.store32(6062144u64, bad, 2u32)
+      let l u32 = atomic.store64(6062208u64, expected - 1u64, 2u32)
+      let s u32 = atomic.store64(6062272u64, sum, 2u32)
+      return 0u32
+    }
+    let m = mailbox.pop<Msg>(c)
+    match m {
+      Ok(x) {
+        if x.seq != expected { bad = bad + 1u32 }
+        if x.a != fa(x.seq) { bad = bad + 1u32 }
+        if x.b != fb(x.seq) { bad = bad + 1u32 }
+        if x.c != fc(x.seq) { bad = bad + 1u32 }
+        sum = sum + x.a
+        expected = expected + 1u64
+        tries = 0u32
+      }
+      Err(e) {
+        tries = tries + 1u32
+        if tries > 100000000u32 {
+          let f u32 = atomic.store32(6062592u64, e + 100u32, 2u32)
+          return 1u32
+        }
+      }
+    }
+  }
+  return 2u32
+}
+
+func ap_main() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  let who u32 = raw.store32(5308800u64, id + 100u32)
+  let opened = mailbox.open_consumer(6029312u64)
+  match opened {
+    Err(e) {
+      let f u32 = atomic.store32(6062592u64, e + 200u32, 2u32)
+      let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+      return 1u32
+    }
+    Ok(c) {
+      // the queue is empty and nobody has pushed yet (the producer waits for AP_UP): the first pop says so, and the end cannot be opened twice
+      let first = mailbox.pop<Msg>(borrow_mut(c))
+      match first {
+        Ok(x) { let q u32 = atomic.store32(6062336u64, 1u32, 2u32) }
+        Err(e) { let q u32 = atomic.store32(6062336u64, e, 2u32) }
+      }
+      let again = mailbox.open_consumer(6029312u64)
+      match again {
+        Ok(d) { let z u32 = mailbox.close_consumer(move(d))
+                let q u32 = atomic.store32(6062400u64, 1u32, 2u32) }
+        Err(e) { let q u32 = atomic.store32(6062400u64, e, 2u32) }
+      }
+      let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+      let go u32 = wait_flag(6062464u64)
+      let r u32 = consume(borrow_mut(c))
+      let cl u32 = mailbox.close_consumer(move(c))
+      let done u32 = atomic.store32(6062528u64, 1u32, 2u32)
+      return r
+    }
+  }
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  print(code(mailbox.create(6029312u64, 4u64, 24u64)))
+  let opened = mailbox.open_producer(6029312u64)
+  match opened { Ok(p) {
+    print(1u32)
+    print(code(mailbox.create(6029313u64, 4u64, 24u64)))
+    let second = mailbox.open_producer(6029312u64)
+    match second {
+      Ok(q) { print(0u32)
+              let z u32 = mailbox.close_producer(move(q)) }
+      Err(e) { print(e) }
+    }
+    let svr u32 = raw.store32(4276093168u64, 511u32)
+    let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+    let init u32 = raw.store32(4276093696u64, 17664u32)
+    let w1 u32 = delay()
+    let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+    let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+    let w2 u32 = delay()
+    let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+    let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+    let up u32 = wait_flag(5308864u64)
+    if up == 0u32 {
+      print(999u32)
+      let z u32 = mailbox.close_producer(move(p))
+      return rt.finish(2u32)
+    }
+    // fill the queue while the consumer waits: four pushes fit, the fifth meets "full" and changes nothing
+    var fitted u32 = 0u32
+    for s in 0u32..4u32 {
+      let r = mailbox.push<Msg>(borrow_mut(p), mk(u64(s)))
+      match r { Ok(n) { fitted = fitted + 1u32 } Err(e) { } }
+    }
+    print(fitted)
+    print(code(mailbox.push<Msg>(borrow_mut(p), mk(4u64))))
+    print(mailbox.pending_p(borrow(p)))
+    let go u32 = atomic.store32(6062464u64, 1u32, 2u32)
+    var next u64 = 4u64
+    var spins u32 = 0u32
+    for i in 0u32..4000000000u32 {
+      if next == total() { break }
+      let r = mailbox.push<Msg>(borrow_mut(p), mk(next))
+      match r {
+        Ok(n) { next = next + 1u64
+                spins = 0u32 }
+        Err(e) { spins = spins + 1u32 }
+      }
+      if spins > 100000000u32 { break }
+    }
+    let done u32 = wait_flag(6062528u64)
+    print(atomic.load32(6062336u64, 1u32))
+    print(atomic.load32(6062400u64, 1u32))
+    print(atomic.load32(6062080u64, 1u32))
+    print(atomic.load32(6062144u64, 1u32))
+    print(atomic.load64(6062208u64, 1u32))
+    var want u64 = 0u64
+    for s in 0u32..20000u32 { want = want + fa(u64(s)) }
+    if atomic.load64(6062272u64, 1u32) == want { print(1u32) } else { print(0u32) }
+    print(atomic.load32(6062592u64, 1u32))
+    print(mailbox.pending_p(borrow(p)))
+    print(mailbox.close_producer(move(p)))
+    let again = mailbox.open_producer(6029312u64)
+    match again { Ok(r) { print(1u32)
+                          let z u32 = mailbox.close_producer(move(r)) }
+                  Err(e) { print(e) } }
+  } Err(e) { print(e) } }
+  return rt.finish(0u32)
+}

@@ -1,0 +1,30 @@
+module unicode_text
+
+func main() u32 !{io.print} {
+  let text Text = "Aé🙂"
+  print(text.byte_len(text))
+  print(text.scalar_len(text))
+
+  let middle Result<Char,u32> = text.scalar_at(text,1u32)
+  match middle {
+    Ok(ch) {
+      print(ch)
+      print(char.codepoint(ch))
+    }
+    Err(e) { return e }
+  }
+
+  let smile Result<Char,u32> = char.from_u32(128578u32)
+  match smile {
+    Ok(ch) {
+      let as_text Result<Text,u32> = text.from_char(ch)
+      match as_text {
+        Ok(t) { print(t) }
+        Err(e) { return e }
+      }
+    }
+    Err(e) { return e }
+  }
+
+  return text.scalar_len(text)
+}

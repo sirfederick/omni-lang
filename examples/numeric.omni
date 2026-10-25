@@ -1,0 +1,22 @@
+module numeric
+
+func widen(x u8) u16 {
+    return u16(x)
+}
+
+func main() u32 !{io.print} {
+    let a u8 = 250u8
+    let b u8 = 5u8
+    let c u8 = a + b
+    let w u8 = a +% 10u8
+    let s u8 = a +| 10u8
+    let neg i8 = -12i8
+    let n2 i8 = neg + 2i8
+    let wide u16 = widen(c)
+    print(c)
+    print(w)
+    print(s)
+    print(n2)
+    print(wide)
+    return 0
+}

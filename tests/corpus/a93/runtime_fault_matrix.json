@@ -1,0 +1,21 @@
+{
+  "schema": "omni.a93-runtime-fault-matrix/1",
+  "version": "0.9.3",
+  "seed": 93002026,
+  "policy": "Causal phase and resource oracles are authoritative; elapsed wall-clock duration is not evidence.",
+  "scenarios": [
+    {"id":"A93-F01","fault":"deadline_before_dispatch","boundary":"process","phase":"PRE_DISPATCH","result":6,"resource_oracle":"no_invocation"},
+    {"id":"A93-F02","fault":"authority_generation_mismatch","boundary":"host_policy","phase":"PRE_DISPATCH","result":1,"resource_oracle":"no_invocation"},
+    {"id":"A93-F03","fault":"process_response_lost_after_dispatch","boundary":"real_python_process","phase":"DISPATCHED","result":10,"resource_oracle":"child_reaped"},
+    {"id":"A93-F04","fault":"process_response_malformed","boundary":"real_python_process","phase":"DISPATCHED","result":8,"resource_oracle":"child_reaped"},
+    {"id":"A93-F05","fault":"tcp_connection_refused","boundary":"real_tcp_socket","phase":"PRE_DISPATCH","result":4,"resource_oracle":"socket_closed"},
+    {"id":"A93-F06","fault":"tcp_ack_lost_after_payload","boundary":"real_tcp_socket","phase":"DISPATCHED","result":10,"resource_oracle":"socket_closed"},
+    {"id":"A93-F07","fault":"task_cancel","boundary":"evaluator_native","phase":"PRE_DISPATCH","result":1,"resource_oracle":"single_terminal_outcome"},
+    {"id":"A93-F08","fault":"task_deadline","boundary":"evaluator_native","phase":"PRE_DISPATCH","result":4,"resource_oracle":"single_terminal_outcome"},
+    {"id":"A93-F09","fault":"channel_backpressure_and_drain","boundary":"evaluator_native","phase":"ACKNOWLEDGED","result":7,"resource_oracle":"bounded_queue_drained"},
+    {"id":"A93-F10","fault":"buffer_slot_and_size_exhaustion","boundary":"native_runtime","phase":"PRE_DISPATCH","result":2,"resource_oracle":"generation_and_capacity_coherent"},
+    {"id":"A93-F11","fault":"stale_cognitive_epoch","boundary":"cognitive_store","phase":"PRE_DISPATCH","result":2,"resource_oracle":"no_publication"},
+    {"id":"A93-F12","fault":"wrong_proposal_target","boundary":"cognitive_store","phase":"PRE_DISPATCH","result":2,"resource_oracle":"no_publication"},
+    {"id":"A93-F13","fault":"retry_after_unknown_outcome","boundary":"effect_model","phase":"DISPATCHED","result":10,"resource_oracle":"no_automatic_retry"}
+  ]
+}

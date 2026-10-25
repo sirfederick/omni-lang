@@ -1,0 +1,15 @@
+module abstraction_demo
+
+func add<T:Integer>(a T, b T) T {
+    return a + b
+}
+
+func main() u32 {
+    let values Array<u32,3> = array(10u32, 12u32, 20u32)
+    let values_view View<u32> = view(values)
+    var total u32 = 0u32
+    for item in values_view {
+        total = total::add<u32>(item)
+    }
+    return total
+}

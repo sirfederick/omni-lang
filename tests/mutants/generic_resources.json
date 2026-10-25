@@ -1,0 +1,76 @@
+[
+ {
+  "name": "GR1 the substitution of Resource/Borrow/BorrowMut names is switched off",
+  "file": "compiler/src/check.cpp",
+  "old": "if((t.kind==Type::Resource||t.kind==Type::Borrow||t.kind==Type::BorrowMut)&&t.parts.empty()) {",
+  "new": "if(false&&(t.kind==Type::Resource||t.kind==Type::Borrow||t.kind==Type::BorrowMut)&&t.parts.empty()) {",
+  "tests": [
+   "tests/cp01_generic_resources.py"
+  ]
+ },
+ {
+  "name": "GR3 the substituted name is not replaced",
+  "file": "compiler/src/check.cpp",
+  "old": "t.name=it->second.name; return t;   // a generic argument",
+  "new": "return t;   // a generic argument",
+  "tests": [
+   "tests/cp01_generic_resources.py"
+  ]
+ },
+ {
+  "name": "GN1 the struct uses of a generated body are not specialized before its calls are instantiated",
+  "file": "compiler/src/check.cpp",
+  "old": "rewriteRecordBlock(g.body,g.module); scanBlock(g.body,g.module); }",
+  "new": "scanBlock(g.body,g.module); }",
+  "tests": [
+   "tests/cp01_generic_resources.py",
+   "NestedGenericInstanceTests"
+  ]
+ },
+ {
+  "name": "GN3 the flush forgets the generated enums",
+  "file": "compiler/src/check.cpp",
+  "old": "                if(!generatedEnums.empty()){\n                    for(auto& g:generatedEnums)p.enums.push_back(std::move(g));\n                    generatedEnums.clear();\n                    genericEnums.clear();\n                    for(const auto& e:p.enums)genericEnums.emplace(e.module+\".\"+e.name,&e);\n                    if(p.enums.size()>OMNI_MAX_ENUMS)fail(\"E_LIMIT\",\"too many enums after generic specialization\");\n                }\n                if(!generatedRecords.empty()){",
+  "new": "                if(!generatedRecords.empty()){",
+  "tests": [
+   "tests/language_0_8_3_alpha8.py",
+   "A83GenericEnumTests"
+  ]
+ },
+ {
+  "name": "GR4 a Borrow<T> is not substituted",
+  "file": "compiler/src/check.cpp",
+  "old": "if((t.kind==Type::Resource||t.kind==Type::Borrow||t.kind==Type::BorrowMut)&&t.parts.empty()) {",
+  "new": "if((t.kind==Type::Resource||t.kind==Type::BorrowMut)&&t.parts.empty()) {",
+  "tests": [
+   "tests/cp01_generic_resources.py"
+  ]
+ },
+ {
+  "name": "GR5 a BorrowMut<T> is not substituted",
+  "file": "compiler/src/check.cpp",
+  "old": "if((t.kind==Type::Resource||t.kind==Type::Borrow||t.kind==Type::BorrowMut)&&t.parts.empty()) {",
+  "new": "if((t.kind==Type::Resource||t.kind==Type::Borrow)&&t.parts.empty()) {",
+  "tests": [
+   "tests/cp01_generic_resources.py"
+  ]
+ },
+ {
+  "name": "GR6 a Resource<T> is not substituted",
+  "file": "compiler/src/check.cpp",
+  "old": "if((t.kind==Type::Resource||t.kind==Type::Borrow||t.kind==Type::BorrowMut)&&t.parts.empty()) {",
+  "new": "if((t.kind==Type::Borrow||t.kind==Type::BorrowMut)&&t.parts.empty()) {",
+  "tests": [
+   "tests/cp01_generic_resources.py"
+  ]
+ },
+ {
+  "name": "GR7 a non-nominal argument is accepted as the resource name",
+  "file": "compiler/src/check.cpp",
+  "old": "if(it->second.kind!=Type::Record)fail(\"E_GENERIC_CONSTRAINT\",\"un Resource/Borrow requiere un registro nominal como argumento: \"+typeName(it->second),l);",
+  "new": "",
+  "tests": [
+   "tests/cp01_generic_resources.py"
+  ]
+ }
+]

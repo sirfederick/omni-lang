@@ -1,0 +1,5 @@
+ONME2
+Rsha256:2eeb6ce49460b1dc2d4d2e7689ac089fda609fdb7457db28070db33ae75d2d86
+Psha256:2eeb6ce49460b1dc2d4d2e7689ac089fda609fdb7457db28070db33ae75d2d86
+Csha256:18f0f37dbecdc3bce3e2e63e978d8722068654ae14e6bd182fbabf147ff795f5
+(!WA2:18(!EA8:adt_demo)(!MA8:adt_demo(!I)(!NA5:State(!V!p)(!Z(A7:Pending)(A6:Active!3)(A6:Failed!T)))(!FA5:score(!V!p)(!A(A1:sA5:State))(!R!3)(!X!0)(!B(A10:match-enum(!fA1:s)(A4:caseA7:Pending(!B(!r(!3A1:0))))(A4:caseA6:ActiveA5:value(!B(!r(!fA5:value))))(A4:caseA6:FailedA7:message(!B(!r(!cA8:text.len(!fA7:message))))))))(!FA4:main(!V!p)(!A)(!R!3)(!XA8:io.print)(!B(!lA1:aA5:State(A7:variantA12:State.Active(!3A2:42)))(!lA1:bA5:State(A7:variantA12:State.Failed(A10:text-valueQ6:"oops")))(A5:print(!cA5:score(!fA1:a)))(A5:print(!cA5:score(!fA1:b)))(!r(!3A1:0))))))

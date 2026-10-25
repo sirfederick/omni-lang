@@ -1,0 +1,31 @@
+module optiondemo
+
+func buscar(flag bool) Option<u32> {
+    if flag {
+        return Some<u32>(42)
+    }
+    return None<u32>()
+}
+
+func main() u32 !io {
+    let a = buscar(true)
+    match a {
+        Some(valor) {
+            print(valor)
+        }
+        None {
+            print(0)
+        }
+    }
+
+    let b = buscar(false)
+    match b {
+        Some(valor) {
+            print(valor)
+        }
+        None {
+            print(99)
+        }
+    }
+    return 0
+}

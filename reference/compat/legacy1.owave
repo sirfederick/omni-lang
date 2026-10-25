@@ -1,0 +1,6 @@
+(omni-wave 1
+  (module legacy1)
+  (func main (params) (result u32) (effects io)
+    (block
+      (print (binary "+" (u32 40) (u32 2)))
+      (return (u32 0)))))

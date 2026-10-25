@@ -1,0 +1,6 @@
+{
+  "schema": "omni.lock/2",
+  "packages": [
+    {"origin":"local:.","name":"omni.host.probe","version":"0.1.0","manifest_sha256":"9aa6cdf58cede9ee2dff51df8402916b4939f2d5a6dd8ceda31faac342b34837","source_sha256":"1a45fb98d4496bb25a287b8b61aed616efeed6e03d42bc22fc05f51eedcdc5fd"}
+  ]
+}

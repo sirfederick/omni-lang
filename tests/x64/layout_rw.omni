@@ -1,0 +1,86 @@
+module t
+import rt "rt.omni"
+
+// Native and packed layout, and typed access to raw memory (CP-07, spec/NATIVE_LAYOUT_CANDIDATE.md).
+//   Mixed : a u8, b u32, c u16, d u64     -> offsets 0 4 8 16, size 24, align 8 (C rules, padding in between and at the tail)
+//   Gate  : packed, 16 bytes, align 1      -> the shape of a 64-bit IDT gate
+//   Nest  : tag u8, inner Mixed, tail u8   -> a record inside a record: offsets 0 8 32, size 40
+//   Pk    : packed u8, u32, u16            -> offsets 0 1 5, size 7
+// Memory 0x5C0000 (6029312) is poisoned with 0xAA first, so every byte the program does not write is visibly 0xAA: padding written by raw.write is zero
+// (no uninitialised padding leaks), and neighbouring bytes of an unaligned packed record are untouched.
+
+struct Mixed { a u8, b u32, c u16, d u64 }
+packed struct Gate { lo u16, sel u16, ist u8, flags u8, mid u16, hi u32, zero u32 }
+struct Nest { tag u8, inner Mixed, tail u8 }
+packed struct Pk { x u8, y u32, z u16 }
+
+func poison() u32 !{memory.raw} {
+  for i in 0u32..64u32 {
+    let p u32 = raw.store64(6029312u64 + u64(i) * 8u64, 12297829382473034410u64)
+  }
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  print(layout.size<Mixed>())
+  print(layout.align<Mixed>())
+  print(layout.offset<Mixed>(a))
+  print(layout.offset<Mixed>(b))
+  print(layout.offset<Mixed>(c))
+  print(layout.offset<Mixed>(d))
+  print(layout.size<Gate>())
+  print(layout.align<Gate>())
+  print(layout.offset<Gate>(hi))
+  print(layout.offset<Gate>(zero))
+  print(layout.size<Nest>())
+  print(layout.offset<Nest>(inner))
+  print(layout.offset<Nest>(tail))
+  print(layout.size<Pk>())
+  print(layout.offset<Pk>(z))
+  let q u32 = poison()
+  // native record: padding is zero, fields land at their offsets
+  let w1 u32 = raw.write<Mixed>(6029312u64, Mixed { a: 1u8, b: 2u32, c: 3u16, d: 4u64 })
+  print(raw.load8(6029313u64))
+  print(raw.load8(6029315u64))
+  print(raw.load8(6029322u64))
+  print(raw.load8(6029327u64))
+  print(raw.load8(6029312u64))
+  print(raw.load32(6029316u64))
+  print(raw.load32(6029320u64))
+  print(raw.load64(6029328u64))
+  let m Mixed = raw.read<Mixed>(6029312u64)
+  print(m.b)
+  print(m.d)
+  // packed record at an odd address: no alignment needed, neighbours untouched
+  let w2 u32 = raw.write<Gate>(6029377u64, Gate { lo: 4660u16, sel: 8u16, ist: 1u8, flags: 142u8, mid: 22136u16, hi: 2882400018u32, zero: 0u32 })
+  print(raw.load8(6029377u64))
+  print(raw.load8(6029378u64))
+  print(raw.load8(6029385u64))
+  print(raw.load32(6029385u64))
+  print(raw.load8(6029376u64))
+  print(raw.load8(6029393u64))
+  let g Gate = raw.read<Gate>(6029377u64)
+  print(g.lo)
+  print(g.hi)
+  // nested native records: the inner padding and the tail padding are zero too
+  let w3 u32 = raw.write<Nest>(6029440u64, Nest { tag: 9u8, inner: Mixed { a: 5u8, b: 6u32, c: 7u16, d: 8u64 }, tail: 7u8 })
+  print(raw.load8(6029443u64))
+  print(raw.load8(6029449u64))
+  print(raw.load8(6029450u64))
+  print(raw.load8(6029476u64))
+  print(raw.load8(6029479u64))
+  print(raw.load8(6029472u64))
+  print(raw.load64(6029464u64))
+  let n Nest = raw.read<Nest>(6029440u64)
+  print(n.inner.b)
+  print(n.tail)
+  // packed with mixed widths at an odd address
+  let w4 u32 = raw.write<Pk>(6029651u64, Pk { x: 1u8, y: 16909060u32, z: 1286u16 })
+  print(raw.load32(6029652u64))
+  print(raw.load8(6029656u64))
+  print(raw.load8(6029650u64))
+  print(raw.load8(6029658u64))
+  let pk Pk = raw.read<Pk>(6029651u64)
+  print(pk.y)
+  return rt.finish(0u32)
+}

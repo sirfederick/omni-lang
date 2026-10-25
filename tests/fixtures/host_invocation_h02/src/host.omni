@@ -1,0 +1,75 @@
+module host_probe
+pub struct Pair { left u32, right u32 }
+pub enum Choice { Empty, Full(u32) }
+pub struct Nested { pair Pair, choice Choice }
+pub func echo_nested(x Nested) Nested !pure { return x }
+pub func echo_tuple(x Tuple<u32,bool>) Tuple<u32,bool> !pure { return x }
+pub func echo_array(x Array<u32,3>) Array<u32,3> !pure { return x }
+pub func echo_array_zero(x Array<u8,0>) Array<u8,0> !pure { return x }
+pub func echo_bool(x bool) bool !pure { return x }
+pub func echo_char(x Char) Char !pure { return x }
+// Exercises generated-codegen scalar projection: both Bool arms alongside
+// U32/U64 in one record, so a decode bug that coerces Bool to a number
+// cannot hide behind a value that is also a legal 0/1 integer.
+pub struct BoolMatrix { bool_false bool, bool_true bool, count_u32 u32, count_u64 u64 }
+pub func echo_bool_matrix(x BoolMatrix) BoolMatrix !pure { return x }
+pub func spin() u32 !pure {
+  var sum u32 = 0u32
+  for item in 0u32..100000000u32 { sum = sum + 1u32 }
+  return sum
+}
+pub func zero() u32 !pure { return 17u32 }
+pub func echo(x u32) u32 !pure { return x }
+pub func echo_u32(x u32) u32 !pure { return x }
+pub func echo_u8(x u8) u8 !pure { return x }
+pub func echo_u16(x u16) u16 !pure { return x }
+pub func echo_u64(x u64) u64 !pure { return x }
+pub func echo_i8(x i8) i8 !pure { return x }
+pub func echo_i16(x i16) i16 !pure { return x }
+pub func echo_i32(x i32) i32 !pure { return x }
+pub func echo_i64(x i64) i64 !pure { return x }
+pub func echo_text(x Text) Text !pure { return x }
+pub func echo_bytes(x Bytes) Bytes !pure { return x }
+pub func echo_pair(x Pair) Pair !pure { return x }
+pub func echo_choice(x Choice) Choice !pure { return x }
+pub func echo_option(x Option<u32>) Option<u32> !pure { return x }
+pub func echo_result(x Result<u32,u32>) Result<u32,u32> !pure { return x }
+pub func classify_result(x Result<u32,u32>) u32 !pure {
+  match x { Ok(value) { return value } Err(code) { return code + 1000u32 } }
+}
+pub func semantic_err() Result<u32,u32> !pure { return Err<u32,u32>(7u32) }
+pub func maybe_fail(x u32) Result<u32,u32> !pure {
+  if x == 0u32 { return Err<u32,u32>(7u32) }
+  if x == 1u32 { let quotient = 7u32 / (x - 1u32); return Ok<u32,u32>(quotient) }
+  return Ok<u32,u32>(x)
+}
+pub func divide(x u32) u32 !pure { return 7u32 / x }
+pub func read_denied() u32 !{fs.read} {
+  let result = host.read("/tmp/omni-host02-nonexistent", 64u32);
+  match result { Ok(data) { return bytes.len(data); } Err(code) { return code; } }
+}
+pub func read_effect(path Text) u32 !{fs.read} {
+  let result = host.read(path, 64u32);
+  match result { Ok(data) { return bytes.len(data); } Err(code) { return code; } }
+}
+pub func write_denied() u32 !{fs.write} {
+  let result = host.write("/tmp/omni-host02-denied-write", bytes.from_text("x"));
+  match result { Ok(written) { return written; } Err(code) { return code; } }
+}
+pub func tcp_denied() u32 !{net.connect} {
+  let result = host.tcp("127.0.0.1:8042", bytes.from_text("x"), 64u32, 10u32);
+  match result { Ok(data) { return bytes.len(data); } Err(code) { return code; } }
+}
+pub func process_denied() u32 !{process.spawn} {
+  let result = host.process("/tmp/omni-host02-nonexistent", bytes.from_text("x"), 64u32, 10u32);
+  match result { Ok(data) { return bytes.len(data); } Err(code) { return code; } }
+}
+pub func process_effect(adapter Text) u32 !{process.spawn} {
+  let result = host.process(adapter, bytes.from_text("x"), 64u32, 5000u32);
+  match result { Ok(data) { return bytes.len(data); } Err(code) { return code; } }
+}
+pub func ffi_denied() u32 !{ffi.call} {
+  let result = host.ffi("/tmp/omni-host02-nonexistent.so", bytes.from_text("x"), 64u32);
+  match result { Ok(data) { return bytes.len(data); } Err(code) { return code; } }
+}
+func main() u32 !pure { return 0u32 }

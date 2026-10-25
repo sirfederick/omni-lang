@@ -1,0 +1,22 @@
+(omni-wave 6
+  (entry optiondemo)
+  (module optiondemo
+    (imports)
+    (func buscar (visibility private)
+      (params (flag bool)) (result Option<u32>) (effects pure)
+      (block
+        (if (ref flag) (block
+          (return (some Option<u32> (u32 42)))) (block))
+        (return (none Option<u32>))))
+    (func main (visibility private)
+      (params) (result u32) (effects fs.read fs.write io.print)
+      (block
+        (let a infer (call buscar (bool true)))
+        (match-option (ref a) (some valor (block
+          (print (ref valor)))) (none (block
+          (print (u32 0)))))
+        (let b infer (call buscar (bool false)))
+        (match-option (ref b) (some valor (block
+          (print (ref valor)))) (none (block
+          (print (u32 99)))))
+        (return (u32 0))))))

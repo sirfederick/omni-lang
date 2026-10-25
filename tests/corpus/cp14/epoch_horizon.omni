@@ -1,0 +1,83 @@
+module t
+import rt "rt.omni"
+import epoch "epoch.omni"
+
+// CP-14 row 14.6, adenda 009A EPOCH-01: the epoch counter must not wrap. 0 means "no reader in a section"; a counter that wrapped to 0, or that compares below what an active reader published,
+// makes that reader look quiescent and lets the writer reclaim an object under it. One CPU: the oracle is the state of the memory cells, before and after, not only the exit status.
+// Cells: epoch 0x5E7000 (6189056), reader slot 0x5E7040 (6189120). VARIANT (replaced by the test):
+//   1  an active reader published MAX-1; the writer advances to MAX; waiting for it is NOT satisfied (the reader is waited for): bounded deadlock, exit value 95
+//   2  the reader enters AFTER the advance to MAX (it published MAX): the wait is satisfied
+//   3  the epoch is exhausted: advance answers 0 and changes nothing; waiting with that answer ends the guest with exit value 96, it does not treat the readers as quiescent
+//   4  the cell was wrapped from OUTSIDE the library (a raw fetch_add, which is modular by intent): a reader that enters afterwards publishes 0, which looks quiescent; the library does not
+//      accept it: advance answers 0 on the damaged cell and the wait with that answer ends the guest with exit value 96
+func variant() u32 { return 1u32 }
+
+func common() u32 !{io.print,memory.atomic} {
+  // the horizon, step by step: the last advance that is allowed, then the refusals, and the cell each time
+  let a u32 = atomic.store32(6189056u64, 4294967294u32, 4u32)
+  print(epoch.can_advance(6189056u64))
+  print(epoch.advance(6189056u64))
+  print(atomic.load32(6189056u64, 4u32))
+  print(epoch.can_advance(6189056u64))
+  print(epoch.advance(6189056u64))
+  print(atomic.load32(6189056u64, 4u32))
+  // an epoch that was never initialized is refused as well, and left alone
+  let z u32 = atomic.store32(6189056u64, 0u32, 4u32)
+  print(epoch.can_advance(6189056u64))
+  print(epoch.advance(6189056u64))
+  print(atomic.load32(6189056u64, 4u32))
+  // the ordinary step
+  let o u32 = atomic.store32(6189056u64, 1u32, 4u32)
+  print(epoch.can_advance(6189056u64))
+  print(epoch.advance(6189056u64))
+  print(atomic.load32(6189056u64, 4u32))
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let c u32 = common()
+  let clear u32 = atomic.store32(6189120u64, 0u32, 4u32)
+  if variant() == 1u32 {
+    let g0 u32 = atomic.store32(6189056u64, 4294967294u32, 4u32)
+    let g = epoch.enter(6189056u64, 6189120u64)
+    print(atomic.load32(6189120u64, 4u32))
+    let e u32 = epoch.advance(6189056u64)
+    print(e)
+    let w u32 = epoch.wait(6189120u64, e, 1000u32)
+    print(w)
+    let x u32 = epoch.exit(move(g))
+  }
+  if variant() == 2u32 {
+    let g0 u32 = atomic.store32(6189056u64, 4294967294u32, 4u32)
+    let e u32 = epoch.advance(6189056u64)
+    let g = epoch.enter(6189056u64, 6189120u64)
+    print(atomic.load32(6189120u64, 4u32))
+    let w u32 = epoch.wait(6189120u64, e, 1000u32)
+    print(w)
+    let x u32 = epoch.exit(move(g))
+  }
+  if variant() == 3u32 {
+    let g0 u32 = atomic.store32(6189056u64, 4294967295u32, 4u32)
+    let g = epoch.enter(6189056u64, 6189120u64)
+    let e u32 = epoch.advance(6189056u64)
+    print(e)
+    print(atomic.load32(6189056u64, 4u32))
+    print(atomic.load32(6189120u64, 4u32))
+    let w u32 = epoch.wait(6189120u64, e, 1000u32)
+    print(w)
+    let x u32 = epoch.exit(move(g))
+  }
+  if variant() == 4u32 {
+    let g0 u32 = atomic.store32(6189056u64, 4294967295u32, 4u32)
+    let prev u32 = atomic.fetch_add32(6189056u64, 1u32, 4u32)
+    print(atomic.load32(6189056u64, 4u32))
+    let g = epoch.enter(6189056u64, 6189120u64)
+    print(atomic.load32(6189120u64, 4u32))
+    let e u32 = epoch.advance(6189056u64)
+    print(e)
+    let w u32 = epoch.wait(6189120u64, e, 1000u32)
+    print(w)
+    let x u32 = epoch.exit(move(g))
+  }
+  return rt.finish(0u32)
+}

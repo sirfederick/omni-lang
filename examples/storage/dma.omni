@@ -1,0 +1,94 @@
+module dma
+import mmio "mmio.omni"
+
+// CP-08 (spec/MMIO_PORTS_CANDIDATE.md): an operation that a device performs ON ITS OWN keeps the storage it uses alive until the device says it is done. Returning from the call that started
+// it does not end the device's use of the memory, so the storage cannot be the caller's any more while the device may still touch it.
+//   Block<S>     storage the program owns (a region S names): readable and writable through a lend, consumed by `release`
+//   InFlight<S>  the same storage while a device may be using it: it is what `start` returns and the only way back is `finish`. Nobody can read or write the storage in between (the program holds no
+//                Block), nobody can forget it (E_RESOURCE_UNCONSUMED), and `finish` hands the Block back only when the status register of the device reads zero.
+// Both are nominal resources over the address, private to this module: the only way to get one is `claim`, `start` or `finish`.
+// Outcome codes: 1 the offset is outside the block   2 not aligned to 4   3 the region cannot be claimed (empty, wraps the address space, or not canonical)
+pub struct Block<S: mmio.Region> { h u64 }
+pub struct InFlight<S: mmio.Region> { h u64 }
+
+pub func claim<S: mmio.Region>() Result<Resource<Block<S>>,u32> {
+  let base u64 = mmio.Region.base<S>()
+  let size u64 = mmio.Region.size<S>()
+  if size == 0u64 { return Err<Resource<Block<S>>,u32>(3u32) }
+  if size - 1u64 > 18446744073709551615u64 - base { return Err<Resource<Block<S>>,u32>(3u32) }   // the last byte is base + size - 1: a block that ends at the very last address does not wrap
+  return Ok<Resource<Block<S>>,u32>(resource.seal(Block<S> { h: base }))
+}
+
+pub func release<S: mmio.Region>(b Resource<Block<S>>) u32 {
+  let inner Block<S> = resource.unseal(move(b))
+  return 0u32
+}
+
+func word<S: mmio.Region>(base u64, off u32) Result<u64,u32> {
+  if off % 4u32 != 0u32 { return Err<u64,u32>(2u32) }
+  if u64(off) > mmio.Region.size<S>() { return Err<u64,u32>(1u32) }
+  if mmio.Region.size<S>() - u64(off) < 4u64 { return Err<u64,u32>(1u32) }
+  return Ok<u64,u32>(base + u64(off))
+}
+
+pub func read32<S: mmio.Region>(b Borrow<Block<S>>, off u32) Result<u32,u32> !{memory.raw} {
+  let held Block<S> = resource.peek(b)
+  let at = word<S>(held.h, off)
+  match at {
+    Ok(address) {
+      let w mmio.W32 = raw.read<mmio.W32>(address)
+      return Ok<u32,u32>(w.v)
+    }
+    Err(code) { return Err<u32,u32>(code) }
+  }
+}
+
+pub func write32<S: mmio.Region>(b BorrowMut<Block<S>>, off u32, v u32) Result<u32,u32> !{memory.raw} {
+  let held Block<S> = resource.peek(b)
+  let at = word<S>(held.h, off)
+  match at {
+    Ok(address) { return Ok<u32,u32>(raw.write<mmio.W32>(address, mmio.W32 { v: v })) }
+    Err(code) { return Err<u32,u32>(code) }
+  }
+}
+
+// Starts the operation: the doorbell register `D` of the device (mapping `m`) is written with `doorbell`, and the block becomes InFlight. If the doorbell cannot be written the block comes back,
+// still ours, and nothing has been started.
+pub func start<G: mmio.Region, S: mmio.Region, D: mmio.Writable>(m BorrowMut<mmio.Mapping<G>>, b Resource<Block<S>>, doorbell u64) Result<Resource<InFlight<S>>,Resource<Block<S>>> !{memory.raw} {
+  let rung = mmio.write<G,D>(m, doorbell)
+  match rung {
+    Ok(done) {
+      let inner Block<S> = resource.unseal(move(b))
+      return Ok<Resource<InFlight<S>>,Resource<Block<S>>>(resource.seal(InFlight<S> { h: inner.h }))
+    }
+    Err(code) { return Err<Resource<InFlight<S>>,Resource<Block<S>>>(move(b)) }
+  }
+}
+
+// Is the device done? The status register `St` reads zero when it is.
+pub func finished<G: mmio.Region, St: mmio.Readable>(m Borrow<mmio.Mapping<G>>) Result<bool,u32> !{memory.raw} {
+  let r = mmio.read<G,St>(m)
+  match r { Ok(v) { return Ok<bool,u32>(v == 0u64) } Err(code) { return Err<bool,u32>(code) } }
+}
+
+// Completes the operation. When the device is done the block is ours again; when it is not (or the status cannot be read) the InFlight comes back, still owning the storage.
+pub func finish<G: mmio.Region, S: mmio.Region, St: mmio.Readable>(m Borrow<mmio.Mapping<G>>, t Resource<InFlight<S>>) Result<Resource<Block<S>>,Resource<InFlight<S>>> !{memory.raw} {
+  let r = mmio.read<G,St>(m)
+  match r {
+    Ok(v) {
+      if v == 0u64 {
+        let inner InFlight<S> = resource.unseal(move(t))
+        return Ok<Resource<Block<S>>,Resource<InFlight<S>>>(resource.seal(Block<S> { h: inner.h }))
+      }
+      return Err<Resource<Block<S>>,Resource<InFlight<S>>>(move(t))
+    }
+    Err(code) { return Err<Resource<Block<S>>,Resource<InFlight<S>>>(move(t)) }
+  }
+}
+
+// The only other way to end an InFlight: give the storage up FOR GOOD. The block is never handed out again by this API, so a device that is still writing to it cannot corrupt anything the program
+// uses afterwards; what is lost is the storage, not safety. (A driver that can reset its device calls `finish` after the reset instead.)
+pub func abandon<S: mmio.Region>(t Resource<InFlight<S>>) u32 {
+  let inner InFlight<S> = resource.unseal(move(t))
+  return 0u32
+}

@@ -1,0 +1,4 @@
+module t
+struct Plain { n u32 }
+func f(o Option<Plain>) u32 { match o { Some(p) { return p.n } None { return 0u32 } } }
+func main() u32 { return f(Some<Plain>(Plain { n: 42u32 })) }

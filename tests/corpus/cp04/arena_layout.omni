@@ -1,0 +1,53 @@
+module arena_layout
+import arena "arena.omni"
+
+// Runtime-sized blocks with every supported alignment: each block starts at a multiple of its alignment, never overlaps the previous one,
+// consumes exactly its padding plus its size, and a zero-length block is valid and consumes only its padding.
+// Invalid alignments and arithmetic that would wrap are typed errors that leave the allocator state untouched.
+func main() u32 !{memory.read,memory.write} {
+  let a = buffer.alloc(0u32)
+  match a { Ok(b) {
+    var s arena.State = arena.new_state()
+    var prev_end u32 = 0u32
+    var bad u32 = 0u32
+    var al u32 = 1u32
+    for al <= 16u32 {
+      var size u32 = 0u32
+      for size <= 20u32 {
+        let g = arena.alloc(borrow_mut(b), s, size, al)
+        match g {
+          Ok(grant) {
+            if bit.and(grant.block.off, al - 1u32) != 0u32 { bad = bad + 1u32 }
+            if grant.block.off < prev_end { bad = bad + 1u32 }
+            if grant.block.size != size { bad = bad + 1u32 }
+            if grant.state.top != grant.block.off + size { bad = bad + 1u32 }
+            if grant.block.off - prev_end >= al { bad = bad + 1u32 }
+            prev_end = grant.state.top
+            s = grant.state
+          }
+          Err(e) { bad = bad + 100u32 }
+        }
+        size = size + 1u32
+      }
+      al = al * 2u32
+    }
+    if bad != 0u32 { let rel = buffer.release(move(b)); return 1u32 }
+    let before u32 = arena.used(s)
+    let invalid = arena.alloc(borrow_mut(b), s, 8u32, 0u32)
+    match invalid { Ok(g) { let rel = buffer.release(move(b)); return 2u32 } Err(e) { if e != 5u32 { let rel = buffer.release(move(b)); return 3u32 } } }
+    let three = arena.alloc(borrow_mut(b), s, 8u32, 3u32)
+    match three { Ok(g) { let rel = buffer.release(move(b)); return 4u32 } Err(e) { if e != 5u32 { let rel = buffer.release(move(b)); return 5u32 } } }
+    let wide = arena.alloc(borrow_mut(b), s, 8u32, 32u32)
+    match wide { Ok(g) { let rel = buffer.release(move(b)); return 6u32 } Err(e) { if e != 5u32 { let rel = buffer.release(move(b)); return 7u32 } } }
+    let max = arena.alloc(borrow_mut(b), s, 4294967295u32, 8u32)
+    match max { Ok(g) { let rel = buffer.release(move(b)); return 8u32 } Err(e) { if e != 6u32 { let rel = buffer.release(move(b)); return 9u32 } } }
+    let huge = arena.alloc(borrow_mut(b), s, 2000000u32, 1u32)
+    match huge { Ok(g) { let rel = buffer.release(move(b)); return 10u32 } Err(e) { if e != 1u32 { let rel = buffer.release(move(b)); return 11u32 } } }
+    let corrupt = arena.State { top: 4294967295u32, epoch: 1u32 }
+    let wrapped = arena.alloc(borrow_mut(b), corrupt, 16u32, 16u32)
+    match wrapped { Ok(g) { let rel = buffer.release(move(b)); return 12u32 } Err(e) { if e != 6u32 { let rel = buffer.release(move(b)); return 13u32 } } }
+    if arena.used(s) != before { let rel = buffer.release(move(b)); return 14u32 }
+    let rel = buffer.release(move(b))
+    return 42u32
+  } Err(e) { return 90u32 + e } }
+}

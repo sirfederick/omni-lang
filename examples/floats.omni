@@ -1,0 +1,18 @@
+module floats
+
+func main() u32 !{io.print} {
+  let a f32 = 1.5f32
+  let b f32 = 2.25f32
+  print(a+b)
+
+  let c f64 = 9.0f64
+  let d f64 = c/4.0f64
+  print(d)
+
+  let from_int f64 = f64(3u32)
+  print(from_int)
+
+  let truncated u32 = u32(7.9f64)
+  print(truncated)
+  return truncated
+}

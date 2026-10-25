@@ -1,0 +1,44 @@
+module t
+import rt "rt.omni"
+
+// Cooperative context switch (spec/TARGET_BAREMETAL_PROFILE_CANDIDATE.md, K3: --thread-entry + cpu.switch_context + cpu.thread_trampoline).
+// The "scheduler" is this test's main: two Omni threads yield to it 5000 times each. This is a conformance program, not a kernel
+// scheduler; Core provides only the switch and the trampoline.
+//
+// Context area (56 bytes): rbx, rbp, r12, r13, r14, r15, rsp. A fresh context's stack holds the trampoline address, which `ret` pops.
+// Areas: main 0x540000 (5505024), thread n at 0x540000 + 64 * n.  Stack tops: thread 1 0x3C0000 (3932160), thread 2 0x3B0000 (3866624).
+// Cells: current thread id 0x540100 (5505280); results 0x540108 (5505288) and 0x540110 (5505296).
+
+// The one entry function every new context starts in; it learns who it is from the current-thread cell.
+func worker() u32 !{memory.raw,cpu.control,port.io} {
+  let me u32 = raw.load32(5505280u64)
+  let own u64 = 5505024u64 + u64(me) * 64u64
+  var local u32 = me * 1000u32
+  for i in 0u32..5000u32 {
+    local = local + 1u32
+    let y u64 = cpu.switch_context(own, 5505024u64)
+  }
+  let s u32 = raw.store32(5505288u64 + u64(me - 1u32) * 8u64, local)
+  let last u64 = cpu.switch_context(own, 5505024u64)
+  return rt.finish(77u32)
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let tr u64 = cpu.thread_trampoline()
+  let a1 u32 = raw.store64(3932144u64, tr)
+  let a2 u32 = raw.store64(5505088u64 + 48u64, 3932144u64)
+  let b1 u32 = raw.store64(3866608u64, tr)
+  let b2 u32 = raw.store64(5505152u64 + 48u64, 3866608u64)
+  var acc u32 = 0u32
+  for r in 0u32..5001u32 {
+    let c1 u32 = raw.store32(5505280u64, 1u32)
+    let s1 u64 = cpu.switch_context(5505024u64, 5505088u64)
+    let c2 u32 = raw.store32(5505280u64, 2u32)
+    let s2 u64 = cpu.switch_context(5505024u64, 5505152u64)
+    acc = acc + 1u32
+  }
+  print(raw.load32(5505288u64))
+  print(raw.load32(5505296u64))
+  print(acc)
+  return rt.finish(0u32)
+}

@@ -1,0 +1,146 @@
+(* Omni Language 1.3.0.0 — Particle normative grammar for the implemented mainline subset.
+   Semantic restrictions live in LANGUAGE_0_2.md, GENERICS_ABSTRACTION_0_2.md,
+   ADTS_0_2.md, PRODUCT_TYPES_LAYOUT_0_2.md, BORROWED_VIEWS_0_2.md and
+   TYPE_MEMORY_CONSTITUTION_0_2.md. *)
+
+program          = source_module | bundle ;
+source_module    = "module", identifier, [";"], {source_item} ;
+source_item      = source_import | definition ;
+source_import    = "import", identifier, string_literal, end ;
+
+bundle           = "bundle", identifier, "{", bundled_module, {bundled_module}, "}" ;
+bundled_module   = "module", identifier, "{", {bundled_import | definition}, "}" ;
+bundled_import   = "import", identifier, "=", identifier, end ;
+
+definition       = ["pub"], (function | struct | enum_decl) ;
+struct           = "struct", identifier, "{", field, {field}, "}" ;
+field            = identifier, type, ("," | end) ;
+
+enum_decl        = "enum", identifier, "{", enum_variant, {enum_variant}, "}" ;
+enum_variant     = identifier, ["(", type, ")"], ("," | end) ;
+
+function         = "func", identifier, [generic_parameter_list], "(", [parameters], ")", type,
+                   ["!", effect_decl], block ;
+generic_parameter_list = "<", generic_parameter, {",", generic_parameter}, ">" ;
+generic_parameter = identifier, [":", generic_constraint] ;
+generic_constraint = "Any" | "Integer" | "SignedInteger" | "UnsignedInteger" | "Scalar" | "Plain" ;
+parameters       = parameter, {",", parameter} ;
+parameter        = identifier, type ;
+
+effect_decl      = "pure" | "io" | "{", capability, {",", capability}, "}" ;
+capability       = qualified_name ;
+
+integer_type     = "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" ;
+float_type       = "f32" | "f64" ;
+type             = integer_type | float_type | "bool" | "Char" | "Text" | "Bytes"
+                 | generic_parameter_reference
+                 | qualified_name
+                 | "Result", "<", type, ",", type, ">"
+                 | "Option", "<", type, ">"
+                 | "Tuple", "<", [type, {",", type}], ">"
+                 | "Array", "<", type, ",", decimal_digits, ">"
+                 | "View", "<", type, ">"
+                 | "Range", "<", type, ">"
+                 | "Resource", "<", identifier, ">"
+                 | "Borrow", "<", identifier, ">"
+                 | "BorrowMut", "<", identifier, ">"
+                 | "Future", "<", type, ">"
+                 | "Stream", "<", type, ">" ;
+generic_parameter_reference = identifier ; (* only when bound by the enclosing generic function *)
+
+qualified_name   = identifier, [".", identifier] ;
+constructor_name = identifier, ".", identifier
+                 | identifier, ".", identifier, ".", identifier ;
+
+block            = "{", {statement}, "}" ;
+statement        = declaration | destructuring | assignment | return | task_scope | spawn | loop_control | conditional | loop | for_each
+                 | match_result | match_option | match_enum | print ;
+
+declaration      = ("let" | "var"), identifier, [type], "=", expression, end ;
+destructuring    = "let", "(", pattern_binding, {",", pattern_binding}, ")", "=", expression, end ;
+pattern_binding  = identifier | "_" ;
+assignment       = identifier, "=", expression, end ;
+return           = "return", expression, end ;
+task_scope       = "task_scope", block ;
+spawn            = "spawn", identifier, "=", expression, end ;
+loop_control     = ("break" | "continue"), end ;
+conditional      = "if", expression, block, ["else", block] ;
+loop             = "for", expression, block ;
+for_each         = "for", identifier, "in", expression, block ;
+
+match_result     = "match", expression, "{", result_arm, result_arm, "}" ;
+result_arm       = ("Ok" | "Err"), "(", identifier, ")", block ;
+match_option     = "match", expression, "{", option_arm, option_arm, "}" ;
+option_arm       = "Some", "(", identifier, ")", block | "None", block ;
+match_enum       = "match", expression, "{", enum_arm, {enum_arm}, "}" ;
+enum_arm         = identifier, ["(", identifier, ")"], block ;
+
+print            = "print", "(", (string_literal | expression), ")", end ;
+
+expression       = range_expression ;
+range_expression = logical_or, ["..", ["="], logical_or] ;
+logical_or       = logical_and, {"||", logical_and} ;
+logical_and      = equality, {"&&", equality} ;
+equality         = relational, {("==" | "!="), relational} ;
+relational       = additive, {("<" | "<=" | ">" | ">="), additive} ;
+additive         = product, {("+" | "-" | "+%" | "-%" | "+|" | "-|"), product} ;
+product          = unary, {("*" | "/" | "%" | "*%" | "*|"), unary} ;
+unary            = ("!" | "-"), unary | postfix ;
+postfix          = primary, { method_call | index_access | ".", identifier } ;
+index_access     = "[", expression, "]" ;
+method_call      = "::", identifier, [generic_call_arguments], "(", [arguments], ")" ;
+generic_call_arguments = "<", type, {",", type}, ">" ;
+
+primary          = integer_literal | float_literal | string_literal | "true" | "false" | identifier
+                 | "join", "(", identifier, ")"
+                 | "cancel", "(", identifier, ")"
+                 | "deadline", "(", identifier, ",", integer_literal, ")"
+                 | "channel", "<", type, ">", "(", integer_literal, ")"
+                 | "send", "(", identifier, ",", expression, ")"
+                 | "receive", "(", identifier, ")"
+                 | "close", "(", identifier, ")"
+                 | integer_type, "(", expression, ")"       (* explicit checked numeric cast *)
+                 | float_type, "(", expression, ")"         (* explicit IEEE/numeric cast *)
+                 | constructor_name, "(", [expression], ")" (* enum constructor; semantic resolution decides which *)
+                 | qualified_name, [generic_call_arguments], "(", [arguments], ")"
+                 | qualified_name, "{", initializer, {",", initializer}, [","], "}"
+                 | ("Ok" | "Err"), "<", type, ",", type, ">", "(", expression, ")"
+                 | "Some", "<", type, ">", "(", expression, ")"
+                 | "None", "<", type, ">", "(", ")"
+                 | "(", expression, ")" ;
+
+integer_literal  = decimal_digits, [integer_suffix] ;
+integer_suffix   = "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" ;
+float_literal    = decimal_digits, [".", decimal_digits], [float_exponent], float_suffix ;
+float_exponent   = ("e" | "E"), ["+" | "-"], decimal_digits ;
+float_suffix     = "f32" | "f64" ;
+decimal_digits   = digit, {digit} ;
+
+initializer      = identifier, ":", expression ;
+arguments        = expression, {",", expression} ;
+end              = ";" | statement_line_end | before_closing_brace ;
+
+(* Alpha.6 semantic notes:
+   - Generic functions use explicit type arguments and deterministic whole-program monomorphization.
+   - Built-in constraints are Any, Integer, SignedInteger, UnsignedInteger, Scalar and Plain.
+   - Generic templates are Particle/source constructs. Wave11/OMC11 contain only closed concrete specializations.
+   - `receiver::fn<T>(args)` is Uniform Method Call Syntax and lowers to `fn<T>(receiver,args)`; it adds no class/dispatch semantics.
+   - `for item in sequence { ... }` supports Array<T,N> and View<T>. The sequence is evaluated once and item is immutable/scoped to the body.
+   - Capturing closures, dynamic heap collections, generic nominal type declarations, type inference for generic calls, and behavioral traits are not alpha.6 semantics.
+   - View<T> remains the read-only borrowed contiguous view introduced in alpha.5; mutable Slice<T> is still deferred.
+   - Tuple/Array direct linear/async payload restrictions remain until the generalized memory model.
+   - User enums remain closed nominal ADTs; Result/Option/Resource rules remain inherited.
+*)
+
+
+(* Alpha.8 A8.2 semantic notes:
+   - Borrow<T> is a shared read-only resource loan.
+   - BorrowMut<T> is an exclusive mutable resource loan.
+   - borrow(resource) creates a shared loan; borrow_mut(resource) creates an exclusive mutable loan.
+   - A8.2a admits parameters/call temporaries and fences BorrowMut behind Wave12 / OMC12.
+   - A8.2b also admits immutable local loan bindings created directly by borrow/borrow_mut.
+   - Persistent local loans carry a compiler Origin/Region and may end at statement-level last use before lexical scope end.
+   - A8.2b rejects var loan bindings, returned loans and local alias/reborrow construction.
+   - Field Places and reborrow semantics are A8.3.
+   - buffer.write_u8 requires BorrowMut<Buffer>; buffer.len accepts Borrow<Buffer> or BorrowMut<Buffer>.
+*)

@@ -1,0 +1,20 @@
+(omni-wave 8
+  (entry adt_demo)
+  (module adt_demo
+    (imports)
+    (enum State (visibility private) (variants (Pending) (Active u32) (Failed Text)))
+    (func score (visibility private)
+      (params (s State)) (result u32) (effects pure)
+      (block
+        (match-enum (ref s) (case Pending (block
+          (return (u32 0)))) (case Active value (block
+          (return (ref value)))) (case Failed message (block
+          (return (call text.len (ref message))))))))
+    (func main (visibility private)
+      (params) (result u32) (effects io.print)
+      (block
+        (let a State (variant State.Active (u32 42)))
+        (let b State (variant State.Failed (text-value "oops")))
+        (print (call score (ref a)))
+        (print (call score (ref b)))
+        (return (u32 0))))))

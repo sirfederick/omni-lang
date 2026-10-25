@@ -1,0 +1,26 @@
+module simd
+
+// CP-10 / MN-04 (spec/SIMD_BASELINE_CANDIDATE.md): the 128-bit vector types of the baseline, as what they are - a record of LANES. A vector is a record of 2, 4, 8 or 16 fields of one integer or float
+// type that together measure 128 bits; a MASK is a record of the same number of `bool` lanes. A lane is read and written as a field (`v.l2`, `U32x4 { l0: .., l1: .. }`), which is what extract
+// and insert are; the arithmetic, the comparisons (vector, vector -> mask), `select(mask, a, b)` and the reductions are the `simd.*` intrinsics, written with the types as arguments:
+//     simd.add<simd.U32x4>(a, b)        simd.lt<simd.I32x4, simd.M32x4>(a, b)        simd.select<simd.I32x4, simd.M32x4>(m, a, b)        simd.any<simd.M32x4>(m)
+// Integer arithmetic wraps per lane; floating point is IEEE per lane (an image uses the MXCSR rounding it is in). Masks are separate types: a comparison produces one, only `select`, the mask
+// operations and `any/all/bitmask` consume it, and it is never an integer vector. Loads and stores (`simd.load`, `simd.store`, and the `_aligned` forms that trap unless the address is
+// 16-aligned) need memory.raw. A freestanding image needs `--target-isa sse2`; the profile rejects the intrinsics otherwise.
+// Out of the 1.3 baseline (DEFER_1_4): shuffles and permutations, vectors wider than 128 bits, lane counts as parameters.
+
+pub struct U8x16 { l0 u8, l1 u8, l2 u8, l3 u8, l4 u8, l5 u8, l6 u8, l7 u8, l8 u8, l9 u8, l10 u8, l11 u8, l12 u8, l13 u8, l14 u8, l15 u8 }
+pub struct U16x8 { l0 u16, l1 u16, l2 u16, l3 u16, l4 u16, l5 u16, l6 u16, l7 u16 }
+pub struct U32x4 { l0 u32, l1 u32, l2 u32, l3 u32 }
+pub struct U64x2 { l0 u64, l1 u64 }
+pub struct I8x16 { l0 i8, l1 i8, l2 i8, l3 i8, l4 i8, l5 i8, l6 i8, l7 i8, l8 i8, l9 i8, l10 i8, l11 i8, l12 i8, l13 i8, l14 i8, l15 i8 }
+pub struct I16x8 { l0 i16, l1 i16, l2 i16, l3 i16, l4 i16, l5 i16, l6 i16, l7 i16 }
+pub struct I32x4 { l0 i32, l1 i32, l2 i32, l3 i32 }
+pub struct I64x2 { l0 i64, l1 i64 }
+pub struct F32x4 { l0 f32, l1 f32, l2 f32, l3 f32 }
+pub struct F64x2 { l0 f64, l1 f64 }
+
+pub struct M8x16 { l0 bool, l1 bool, l2 bool, l3 bool, l4 bool, l5 bool, l6 bool, l7 bool, l8 bool, l9 bool, l10 bool, l11 bool, l12 bool, l13 bool, l14 bool, l15 bool }
+pub struct M16x8 { l0 bool, l1 bool, l2 bool, l3 bool, l4 bool, l5 bool, l6 bool, l7 bool }
+pub struct M32x4 { l0 bool, l1 bool, l2 bool, l3 bool }
+pub struct M64x2 { l0 bool, l1 bool }

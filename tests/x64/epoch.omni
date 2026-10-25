@@ -1,0 +1,73 @@
+module epoch
+import rt "rt.omni"
+
+// CP-14 quiescence (candidate library, written in Omni). Epoch-based retirement: a writer unpublishes an object, advances the global epoch and
+// waits until every reader slot is either quiescent (0) or has been entered in the new epoch; only then may the object be reclaimed.
+//   enter   : a read-side section. Publishes the epoch the reader observed in its own slot (seq_cst store + fence), THEN the caller may load
+//             the shared pointer. The returned guard is a nominal affine resource: the section is left exactly once or the program does not
+//             compile (E_RESOURCE_UNCONSUMED / E_RESOURCE_MOVED).
+//   exit    : leaves the section (release store of 0 into the slot).
+//   advance : bumps the global epoch (seq_cst RMW) and returns the new epoch.
+//   wait    : bounded wait on ONE reader slot; a slot that never quiesces is reported as a deadlock (exit value 95), never an endless spin.
+// Correctness argument (Dekker-style): the reader stores its slot, fences, then loads the pointer; the writer stores the new pointer, then does a
+// seq_cst RMW on the epoch, then reads the slot. Either the writer sees the reader's slot (and waits) or the reader sees the new pointer.
+// Not provided: a reader count other than the slots the caller scans, grace-period batching, callbacks (Omni has no function values; the
+// retirement action is the caller's code after `wait`), preemption (a context switched out inside a section blocks the writer).
+pub struct Reader { h u64 }
+
+pub func enter(gen u64, slot u64) Resource<Reader> !{memory.atomic} {
+  let e u32 = atomic.load32(gen, 4u32)
+  let s u32 = atomic.store32(slot, e, 4u32)
+  let f u32 = atomic.fence(4u32)
+  return resource.seal(Reader { h: slot })
+}
+
+pub func exit(r Resource<Reader>) u32 !{memory.atomic} {
+  let s Reader = resource.unseal(move(r))
+  return atomic.store32(s.h, 0u32, 2u32)
+}
+
+// advance: the epoch is a 32-bit counter that MUST NOT wrap, because 0 means "this reader is not in a section" and an epoch that wrapped to 0 (or compares below the epoch a reader published)
+// would make an active reader look quiescent. The counter therefore lives in 1..4294967295 and is advanced with a compare-and-swap that refuses to leave that range: when the epoch is
+// uninitialized (0) or exhausted (4294967295) `advance` answers 0 and changes NOTHING (fail-closed, before any state is touched). The cell must be initialized to 1.
+//   can_advance : 1 if `advance` would succeed, 0 otherwise (a retirement checks it BEFORE it unpublishes anything, see cbreg.retire)
+//   wait        : a target of 0 is the answer of a refused `advance`: it ends the guest with exit value 96 (EPOCH_EXHAUSTED) instead of treating every reader as quiescent
+pub func can_advance(gen u64) u32 !{memory.atomic} {
+  let e u32 = atomic.load32(gen, 4u32)
+  if e == 0u32 { return 0u32 }
+  if e == 4294967295u32 { return 0u32 }
+  return 1u32
+}
+
+pub func advance(gen u64) u32 !{memory.atomic} {
+  for i in 0u32..4294967295u32 {
+    let e u32 = atomic.load32(gen, 4u32)
+    if e == 0u32 { return 0u32 }
+    if e == 4294967295u32 { return 0u32 }
+    if atomic.cas32(gen, e, e + 1u32, 4u32, 4u32) == e { return e + 1u32 }
+  }
+  return 0u32
+}
+
+pub func wait(slot u64, target u32, attempts u32) u32 !{memory.atomic,port.io,cpu.control} {
+  if target == 0u32 {
+    let spent u32 = rt.finish(96u32)
+  }
+  for i in 0u32..attempts {
+    let v u32 = atomic.load32(slot, 4u32)
+    if v == 0u32 { return 1u32 }
+    if v >= target { return 1u32 }
+  }
+  let dead u32 = rt.finish(95u32)
+  return 0u32
+}
+
+// wait_all: the grace period of a pointer that any of `count` readers may hold. The readers' slots are `count` cells, `stride` bytes apart, starting at `first`; the wait covers ALL of them
+// (quiescent, or entered after the advance) and a slot that never gets there is a deadlock, exit value 95. A grace period that scans fewer slots than there are readers proves nothing about
+// the others: the caller owns the list of readers (the library cannot know them), and tests/cp14_sections.py shows what a partial list lets through.
+pub func wait_all(first u64, count u32, stride u64, target u32, attempts u32) u32 !{memory.atomic,port.io,cpu.control} {
+  for k in 0u32..count {
+    let w u32 = wait(first + u64(k) * stride, target, attempts)
+  }
+  return 1u32
+}

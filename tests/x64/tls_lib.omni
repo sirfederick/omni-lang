@@ -1,0 +1,11 @@
+module tlslib
+
+// A library with its own thread-local variable (spec/THREAD_LOCAL_CANDIDATE.md): the variable is private to this module, so other modules reach it
+// only through these functions, and the compiler lays it out in the same per-thread block as every other module's variables.
+thread_local ticks u32 = 100u32
+
+pub func tick() u32 !{memory.tls} {
+  let v u32 = tls.get(ticks)
+  let n u32 = tls.set(ticks, v + 1u32)
+  return v
+}

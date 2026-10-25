@@ -1,0 +1,72 @@
+module t
+import rt "rt.omni"
+import idt "idt.omni"
+
+// Ring 3 (spec/TARGET_BAREMETAL_PROFILE_CANDIDATE.md K1: --ring3-support, cpu.enter_ring3 / cpu.leave_ring3, cpu.ltr, cpu.trap3 on a DPL3 gate
+// via --isr-extra-vector). This program is the ring-0 side: it builds GDT + TSS + IDT in Omni, makes the payload's 2 MiB page user-accessible
+// and runs rt.user_main at CPL3 three times. The user code asks ring 0 for a service, touches a supervisor-only page and executes a
+// privileged instruction. Ring 0 never trusts the user: any exception from CPL3 ends the user session with 1000 + vector.
+//
+// Fixed addresses: GDT 0x550000 (5570560) + GDTR 0x550100 (5570816); TSS 0x560000 (5636096) with RSP0 = 0x4F0000 (5177344);
+// enter/leave area 0x540000 (5505024); user stack top 0x3E0000 (4063232); mode cell 0x3D0000 (3997696); log 0x520000 (5373952):
+// +0 vector, +8 error code, +16 cs. Page directory 0x112000 (1122304, entry 1 at 1122312), PML4 0x110000 (1114112).
+// Selectors: 0x08 code0, 0x10 data0, 0x18 data3 (0x1B with RPL3), 0x20 code3 (0x23), 0x28 TSS.
+
+func gdt_install() u32 !{memory.raw,cpu.control} {
+  let n0 u32 = raw.store64(5570560u64, 0u64)
+  let n1 u32 = raw.store64(5570568u64, bit.or(bit.shl(11508224u64, 32u32), 65535u64))
+  let n2 u32 = raw.store64(5570576u64, bit.or(bit.shl(13603328u64, 32u32), 65535u64))
+  let n3 u32 = raw.store64(5570584u64, bit.or(bit.shl(13627904u64, 32u32), 65535u64))
+  let n4 u32 = raw.store64(5570592u64, bit.or(bit.shl(11532800u64, 32u32), 65535u64))
+  let tss_low u64 = bit.or(bit.or(103u64, bit.shl(86u64, 32u32)), bit.shl(137u64, 40u32))
+  let n5 u32 = raw.store64(5570600u64, tss_low)
+  let n6 u32 = raw.store64(5570608u64, 0u64)
+  let rsp0 u32 = raw.store64(5636096u64 + 4u64, 5177344u64)
+  let iopb u32 = raw.store32(5636096u64 + 100u64, 6815744u32)
+  let gdtr u32 = raw.store64(5570816u64, 55u64 + 5570560u64 * 65536u64)
+  let lg u32 = cpu.lgdt(5570816u32)
+  return cpu.ltr(40u32)
+}
+
+func on_exception(frame u64) u32 !{memory.raw,port.io,cpu.control} {
+  let v u64 = raw.load64(frame)
+  let cs u64 = raw.load64(frame + 24u64)
+  let l1 u32 = raw.store64(5373952u64, v)
+  let l2 u32 = raw.store64(5373960u64, raw.load64(frame + 8u64))
+  let l3 u32 = raw.store64(5373968u64, cs)
+  if v == 48u64 {
+    // saved caller-saved registers sit just below the frame: rax at frame-8, rsi at frame-32, rdi at frame-40
+    if raw.load64(frame - 8u64) == 1u64 {
+      let r u32 = raw.store64(frame - 8u64, raw.load64(frame - 40u64) + raw.load64(frame - 32u64))
+      return 0u32
+    }
+    let x u64 = cpu.leave_ring3(5505024u64, raw.load64(frame - 40u64))
+    return rt.finish(120u32)
+  }
+  if cs == 35u64 {
+    let y u64 = cpu.leave_ring3(5505024u64, 1000u64 + v)
+  }
+  return rt.finish(100u32 + u32(v))
+}
+
+func session(mode u32) u64 !{memory.raw,cpu.control} {
+  let m u32 = raw.store32(3997696u64, mode)
+  return cpu.enter_ring3(cpu.thread_trampoline(), 4063232u64, 5505024u64)
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let g u32 = gdt_install()
+  let i u32 = idt.install_service(48u32)
+  // the payload's 2 MiB page becomes user-accessible (leaf U bit); everything else, notably 0x500000, stays supervisor-only
+  let pd u32 = raw.store64(1122312u64, 2097287u64)
+  let flush u32 = cpu.write_cr(3u32, 1114112u32)
+  print(session(1u32))
+  print(raw.load64(5373952u64))
+  print(raw.load64(5373968u64))
+  print(session(2u32))
+  print(raw.load64(5373952u64))
+  print(raw.load64(5373960u64))
+  print(session(3u32))
+  print(raw.load64(5373952u64))
+  return rt.finish(0u32)
+}

@@ -1,0 +1,131 @@
+module t
+import rt "rt.omni"
+import mailbox "mailbox.omni"
+
+// CP-13 row 13.5, adenda 009A MAILBOX-01: a nominal resource cannot be copied, but two CPUs calling open on the same address could each build a handle of their own. The ends are claimed with a
+// compare-and-swap on a cell of the queue, so exactly one of two simultaneous opens wins, whoever they are. Both CPUs line up at a barrier and open the same end at the same moment, 5000 times;
+// the winner closes it after a second barrier. VARIANT (replaced by the test): 1 the producer end, 2 the consumer end. Printed: rounds with exactly one winner, with two, with none.
+// Cells: arrivals 0x5F8000 (6520832), mailbox 0x5F8100 (6521088), result of CPU 0 per round 0x5FA000 (6529024), result of CPU 1 per round 0x5FF000 (6549504). AP flags as in smp_counter.omni.
+func variant() u32 { return 1u32 }
+func rounds() u32 { return 5000u32 }
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func barrier(target u32) u32 !{memory.atomic} {
+  let a u32 = atomic.fetch_add32(6520832u64, 1u32, 4u32)
+  for i in 0u32..100000000u32 {
+    if atomic.load32(6520832u64, 1u32) >= target { return 1u32 }
+  }
+  return 0u32
+}
+
+func cell(who u32, r u32) u64 {
+  if who == 0u32 { return 6529024u64 + u64(r) * 4u64 }
+  return 6549504u64 + u64(r) * 4u64
+}
+
+func round_producer(r u32, who u32) u32 !{memory.raw,memory.atomic} {
+  if barrier(2u32 * (3u32 * r + 1u32)) == 0u32 { return 9u32 }
+  let o = mailbox.open_producer(6521088u64)
+  match o {
+    Ok(p) {
+      let s u32 = raw.store32(cell(who, r), 1u32)
+      let b u32 = barrier(2u32 * (3u32 * r + 2u32))
+      let c u32 = mailbox.close_producer(move(p))
+    }
+    Err(e) {
+      let s u32 = raw.store32(cell(who, r), e)
+      let b u32 = barrier(2u32 * (3u32 * r + 2u32))
+    }
+  }
+  return barrier(2u32 * (3u32 * r + 3u32))
+}
+
+func round_consumer(r u32, who u32) u32 !{memory.raw,memory.atomic} {
+  if barrier(2u32 * (3u32 * r + 1u32)) == 0u32 { return 9u32 }
+  let o = mailbox.open_consumer(6521088u64)
+  match o {
+    Ok(p) {
+      let s u32 = raw.store32(cell(who, r), 1u32)
+      let b u32 = barrier(2u32 * (3u32 * r + 2u32))
+      let c u32 = mailbox.close_consumer(move(p))
+    }
+    Err(e) {
+      let s u32 = raw.store32(cell(who, r), e)
+      let b u32 = barrier(2u32 * (3u32 * r + 2u32))
+    }
+  }
+  return barrier(2u32 * (3u32 * r + 3u32))
+}
+
+func play(who u32) u32 !{memory.raw,memory.atomic} {
+  var done u32 = 0u32
+  for r in 0u32..rounds() {
+    var ok u32 = 0u32
+    if variant() == 1u32 { ok = round_producer(r, who) }
+    if variant() == 2u32 { ok = round_consumer(r, who) }
+    if ok == 1u32 { done = done + 1u32 }
+  }
+  return done
+}
+
+func ap_main() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  let who u32 = raw.store32(5308800u64, id + 100u32)
+  let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+  let go u32 = wait_flag(5308928u64)
+  let done u32 = play(1u32)
+  let fin u32 = atomic.store32(5308992u64, done + 1u32, 2u32)
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let made = mailbox.create(6521088u64, 4u64, 8u64)
+  match made { Ok(n) { } Err(e) { print(e) } }
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+  let init u32 = raw.store32(4276093696u64, 17664u32)
+  let w1 u32 = delay()
+  let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+  let w2 u32 = delay()
+  let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+  let up u32 = wait_flag(5308864u64)
+  if up == 0u32 {
+    print(999u32)
+    return rt.finish(2u32)
+  }
+  let go u32 = atomic.store32(5308928u64, 1u32, 2u32)
+  let mine u32 = play(0u32)
+  let peer u32 = wait_flag(5308992u64)
+  var good u32 = 0u32
+  var both u32 = 0u32
+  var none u32 = 0u32
+  for r in 0u32..rounds() {
+    var wins u32 = 0u32
+    if raw.load32(cell(0u32, r)) == 1u32 { wins = wins + 1u32 }
+    if raw.load32(cell(1u32, r)) == 1u32 { wins = wins + 1u32 }
+    if wins == 1u32 { good = good + 1u32 }
+    if wins == 2u32 { both = both + 1u32 }
+    if wins == 0u32 { none = none + 1u32 }
+  }
+  print(good)
+  print(both)
+  print(none)
+  print(mine)
+  print(atomic.load32(5308992u64, 4u32) - 1u32)
+  return rt.finish(0u32)
+}

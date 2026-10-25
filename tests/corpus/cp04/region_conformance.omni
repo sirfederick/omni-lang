@@ -1,0 +1,133 @@
+module t
+import rt "rt.omni"
+import region "region.omni"
+
+// CP-04b: the typed region allocator over raw memory, one scenario per line of output. The same program runs in the evaluator and, with the
+// Core-owned minimal provider, as a freestanding x86-64 image under QEMU; the two transcripts must be identical.
+//   base 0x800000, range 4096 bytes: header 32 bytes, data from offset 32
+struct Small { a u8 }
+struct W32 { v u32 }
+struct B8 { v u8 }
+struct Wide { a u8, d u64, e u8 }
+packed struct Pk { x u8, y u32, z u16 }
+
+func made(r Result<Resource<region.Region>,u32>) u64 !{memory.raw} {
+  match r {
+    Ok(g) { let d u64 = region.destroy(move(g)); return 99u64 }
+    Err(e) { return u64(e) }
+  }
+}
+func off_slice<T>(r Result<region.Slice<T>,u32>, base u64) u64 {
+  match r {
+    Ok(s) { return s.addr - base }
+    Err(e) { return 1000u64 + u64(e) }
+  }
+}
+func off_slot<T>(r Result<region.Slot<T>,u32>, base u64) u64 {
+  match r {
+    Ok(s) { return s.addr - base }
+    Err(e) { return 1000u64 + u64(e) }
+  }
+}
+func status(r Result<u32,u32>) u64 {
+  match r {
+    Ok(n) { return 0u64 }
+    Err(e) { return u64(e) }
+  }
+}
+func status64(r Result<u64,u32>) u64 {
+  match r {
+    Ok(n) { return 0u64 }
+    Err(e) { return u64(e) }
+  }
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let base u64 = 8388608u64
+  // A: bad ranges are typed errors and leave nothing behind
+  print(made(region.create(0u64, 4096u64)))
+  print(made(region.create(base + 8u64, 4096u64)))
+  print(made(region.create(base, 63u64)))
+  print(made(region.create(18446744073709551600u64, 4096u64)))
+  let c = region.create(base, 4096u64)
+  match c { Ok(reg) {
+    // B: alignment and size come from the element type
+    print(off_slot<Small>(region.alloc<Small>(borrow_mut(reg)), base))
+    var w region.Slot<Wide> = region.Slot<Wide> { addr: 0u64, epoch: 0u64 }
+    var p region.Slot<Pk> = region.Slot<Pk> { addr: 0u64, epoch: 0u64 }
+    let s2 = region.alloc<Wide>(borrow_mut(reg))
+    match s2 { Ok(x) { w = x; print(x.addr - base) } Err(e) { print(1000u64 + u64(e)) } }
+    let s3 = region.alloc<Pk>(borrow_mut(reg))
+    match s3 { Ok(x) { p = x; print(x.addr - base) } Err(e) { print(1000u64 + u64(e)) } }
+    print(off_slot<Wide>(region.alloc<Wide>(borrow_mut(reg)), base))
+    print(region.used(borrow(reg)))
+    print(region.remaining(borrow(reg)))
+    // C: typed round trip; the record lands at its layout offsets
+    print(status(region.store<Wide>(borrow(reg), w, Wide { a: 1u8, d: 1099511627781u64, e: 9u8 })))
+    let back = region.load<Wide>(borrow(reg), w)
+    match back { Ok(v) { print(v.d); print(u32(v.e)) } Err(e) { print(1000u64 + u64(e)) } }
+    print(raw.load8(base + 40u64))
+    print(raw.load64(base + 48u64))
+    print(status(region.store<Pk>(borrow(reg), p, Pk { x: 200u8, y: 4000000000u32, z: 65535u16 })))
+    let back2 = region.load<Pk>(borrow(reg), p)
+    match back2 { Ok(v) { print(u32(v.x)); print(v.y); print(u32(v.z)) } Err(e) { print(1000u64 + u64(e)) } }
+    print(raw.load8(base + 64u64))
+    print(raw.load32(base + 65u64))
+    // D: empty and exact-fit blocks, arithmetic that would wrap, and the typed out-of-memory that leaves the state alone
+    let empty = region.alloc_array<W32>(borrow_mut(reg), 0u64)
+    var e0 region.Slice<W32> = region.Slice<W32> { addr: 0u64, count: 0u64, epoch: 0u64 }
+    match empty { Ok(x) { e0 = x; print(x.addr - base) } Err(e) { print(1000u64 + u64(e)) } }
+    let z = region.load_at<W32>(borrow(reg), e0, 0u64)
+    match z { Ok(x) { print(1u64) } Err(e) { print(u64(e)) } }
+    print(off_slice<W32>(region.alloc_array<W32>(borrow_mut(reg), 4611686018427387905u64), base))
+    print(off_slice<W32>(region.alloc_array<W32>(borrow_mut(reg), 4611686018427387903u64), base))
+    print(region.used(borrow(reg)))
+    let big = region.alloc_array<W32>(borrow_mut(reg), 1000u64)
+    var b region.Slice<W32> = region.Slice<W32> { addr: 0u64, count: 0u64, epoch: 0u64 }
+    match big { Ok(x) { b = x; print(x.addr - base) } Err(e) { print(1000u64 + u64(e)) } }
+    print(off_slot<Small>(region.alloc<Small>(borrow_mut(reg)), base))
+    print(region.used(borrow(reg)))
+    print(status(region.store_at<W32>(borrow(reg), b, 999u64, W32 { v: 77u32 })))
+    let last = region.load_at<W32>(borrow(reg), b, 999u64)
+    match last { Ok(x) { print(u64(x.v)) } Err(e) { print(1000u64 + u64(e)) } }
+    let past = region.load_at<W32>(borrow(reg), b, 1000u64)
+    match past { Ok(x) { print(1u64) } Err(e) { print(u64(e)) } }
+    // E: reset reclaims the whole range: older blocks are stale, their bytes are zero, the range starts over
+    print(status64(region.reset(borrow_mut(reg))))
+    print(region.epoch(borrow(reg)))
+    let stale = region.load_at<W32>(borrow(reg), b, 999u64)
+    match stale { Ok(x) { print(1u64) } Err(e) { print(u64(e)) } }
+    print(raw.load32(base + 96u64 + 3996u64))
+    print(off_slot<Wide>(region.alloc<Wide>(borrow_mut(reg)), base))
+    print(region.used(borrow(reg)))
+    // F: growth of the backing range
+    print(off_slice<B8>(region.alloc_array<B8>(borrow_mut(reg), 4040u64), base))
+    print(off_slot<Small>(region.alloc<Small>(borrow_mut(reg)), base))
+    print(status64(region.extend(borrow_mut(reg), base + 4095u64)))
+    print(status64(region.extend(borrow_mut(reg), base + 8192u64)))
+    print(off_slot<Small>(region.alloc<Small>(borrow_mut(reg)), base))
+    // G: forged handles never reach memory
+    let epoch u64 = region.epoch(borrow(reg))
+    print(status(region.store<Wide>(borrow(reg), region.Slot<Wide> { addr: base + 41u64, epoch: epoch }, Wide { a: 0u8, d: 0u64, e: 0u8 })))
+    let far = region.load<Wide>(borrow(reg), region.Slot<Wide> { addr: base + 100000u64, epoch: epoch })
+    match far { Ok(x) { print(1u64) } Err(e) { print(u64(e)) } }
+    let old = region.load<Small>(borrow(reg), region.Slot<Small> { addr: base + 32u64, epoch: 1u64 })
+    match old { Ok(x) { print(1u64) } Err(e) { print(u64(e)) } }
+    let wide = region.load_at<Wide>(borrow(reg), region.Slice<Wide> { addr: base + 32u64, count: 1000u64, epoch: epoch }, 500u64)
+    match wide { Ok(x) { print(1u64) } Err(e) { print(u64(e)) } }
+    // H: a damaged header is detected, and restoring it restores service
+    let saved u64 = raw.load64(base)
+    let hit u32 = raw.store64(base, 0u64)
+    print(off_slot<Small>(region.alloc<Small>(borrow_mut(reg)), base))
+    print(status64(region.reset(borrow_mut(reg))))
+    let fix u32 = raw.store64(base, saved)
+    print(off_slot<Small>(region.alloc<Small>(borrow_mut(reg)), base))
+    // I: teardown scrubs the used bytes and the header
+    let poke u32 = raw.store64(base + 40u64, 18446744073709551615u64)
+    print(region.destroy(move(reg)))
+    print(raw.load64(base))
+    print(raw.load8(base + 32u64))
+    print(raw.load64(base + 40u64))
+  } Err(e) { print(3000u64) } }
+  return rt.finish(0u32)
+}

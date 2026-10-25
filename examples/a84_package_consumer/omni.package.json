@@ -1,0 +1,1 @@
+{"schema":"omni.package/1","name":"omni.example.package-consumer","version":"0.1.0","entry":"src/main.omni","dependencies":{"omni.std":{"path":"../../stdlib","version":"0.8.4-alpha.8"}}}

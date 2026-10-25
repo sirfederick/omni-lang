@@ -1,0 +1,115 @@
+module t
+import rt "rt.omni"
+import epoch "epoch.omni"
+import cbreg "cbreg.omni"
+
+// CP-06 on two vCPUs (spec/CALLBACK_REGISTRY_CANDIDATE.md). CPU 1 keeps firing whatever callable is registered, inside an epoch read section; CPU 0 registers a
+// callable (the environment carries the generation as its base value), publishes the handle, lets CPU 1 use it, unpublishes it and RETIRES it, 2000 times in
+// the same slot. Retirement waits for CPU 1 to leave its section and only then disposes (exactly once) and poisons the environment. A call that sees a poisoned
+// or torn environment is counted as bad; a call through a retired handle is counted as stale (and is harmless).
+//
+// Cells: slot 0x5D0000 (6094848), handle 0x5D0040 (6094912), disposed counter 0x5D0080 (6094976), ok 0x5D00C0 (6095040), stale 0x5D0100 (6095104),
+// bad 0x5D0140 (6095168), epoch 0x5D0200 (6095360), reader slot 0x5D0240 (6095424), stop 0x5D0280 (6095488). AP flags as in lock_smp.omni.
+
+struct Adder { base u32, closed u64 }
+
+impl cbreg.Handler for Adder {
+  func call(h Adder, x u32) u32 !{memory.raw} { return h.base + x }
+  func dispose(h Adder) u32 !{memory.atomic} { return atomic.fetch_add32(h.closed, 1u32, 4u32) }
+}
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func dwell(n u32) u32 !{memory.raw} {
+  for i in 0u32..n {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func reader() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  var ok u32 = 0u32
+  var stale u32 = 0u32
+  var bad u32 = 0u32
+  for i in 0u32..4000000000u32 {
+    if atomic.load32(6095488u64, 1u32) != 0u32 {
+      let a u32 = raw.store32(6095040u64, ok)
+      let b u32 = raw.store32(6095104u64, stale)
+      return raw.store32(6095168u64, bad)
+    }
+    let g = epoch.enter(6095360u64, 6095424u64)
+    let token u64 = atomic.load64(6094912u64, 4u32)
+    if token != 0u64 {
+      let want u32 = u32(bit.shr(token, 40u32)) + 7u32
+      let r Result<u32,u32> = cbreg.fire<Adder>(6094848u64, token, 7u32)
+      match r {
+        Ok(v) { if v == want { ok = ok + 1u32 } else { bad = bad + 1u32 } }
+        Err(code) { stale = stale + 1u32 }
+      }
+    }
+    let x u32 = epoch.exit(move(g))
+  }
+  return 0u32
+}
+
+func ap_main() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  let who u32 = raw.store32(5308800u64, id + 100u32)
+  let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+  let go u32 = wait_flag(5308928u64)
+  let r u32 = reader()
+  let done u32 = atomic.store32(5308992u64, 1u32, 2u32)
+  return 0u32
+}
+
+func writer(rounds u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  for k in 0u32..rounds {
+    let g u32 = cbreg.next_generation(6094848u64)
+    let reg = cbreg.register<Adder>(6094848u64, Adder { base: g, closed: 6094976u64 })
+    let token u64 = cbreg.handle(borrow(reg))
+    let published u32 = atomic.store64(6094912u64, token, 4u32)
+    let d1 u32 = dwell(60u32)
+    let hidden u32 = atomic.store64(6094912u64, 0u64, 4u32)
+    let c u32 = cbreg.retire<Adder>(move(reg), 6095360u64, 6095424u64, 100000000u32)
+  }
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let g0 u32 = atomic.store32(6095360u64, 1u32, 4u32)
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+  let init u32 = raw.store32(4276093696u64, 17664u32)
+  let w1 u32 = delay()
+  let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+  let w2 u32 = delay()
+  let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+  let up u32 = wait_flag(5308864u64)
+  if up == 0u32 {
+    print(999u32)
+    return rt.finish(2u32)
+  }
+  let go u32 = atomic.store32(5308928u64, 1u32, 2u32)
+  let w u32 = writer(2000u32)
+  let stop u32 = atomic.store32(6095488u64, 1u32, 2u32)
+  let done u32 = wait_flag(5308992u64)
+  print(raw.load32(6095168u64))
+  if raw.load32(6095040u64) > 100u32 { print(1u32) } else { print(0u32) }
+  print(atomic.load32(6094976u64, 4u32))
+  print(atomic.load32(6094848u64, 4u32))
+  return rt.finish(0u32)
+}

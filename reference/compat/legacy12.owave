@@ -1,0 +1,17 @@
+(omni-wave 12
+  (entry abstraction_demo)
+  (module abstraction_demo
+    (imports)
+    (func main (visibility private)
+      (params) (result u32) (effects pure)
+      (block
+        (let values Array<u32,3> (call array (u32 10) (u32 12) (u32 20)))
+        (let values_view View<u32> (call view (ref values)))
+        (var total u32 (u32 0))
+        (for-each item (ref values_view) (block
+          (set total (call abstraction_demo.add__g_b267989d466b61ba (ref total) (ref item)))))
+        (return (ref total))))
+    (func add__g_b267989d466b61ba (visibility private)
+      (params (a u32) (b u32)) (result u32) (effects pure)
+      (block
+        (return (binary "+" (ref a) (ref b)))))))

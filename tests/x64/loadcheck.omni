@@ -1,0 +1,13 @@
+module t
+import rt "rt.omni"
+
+// Causal check of load addresses: the guest reads its own code (payload at 0x200000) and the AP trampoline copy (0x8000) back from
+// RAM. If QEMU's loader (which places PT_LOAD segments by p_paddr) put the payload anywhere else, these words are not the linked bytes.
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  print(raw.load32(2097152u64))
+  print(raw.load32(2097156u64))
+  print(raw.load32(2097160u64))
+  print(raw.load32(32768u64))
+  print(raw.load32(32772u64))
+  return rt.finish(0u32)
+}

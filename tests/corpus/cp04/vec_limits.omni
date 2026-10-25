@@ -1,0 +1,82 @@
+module vec_limits
+import vec "vec_u32.omni"
+
+// Typed failure at every limit, with the data and the count intact afterwards:
+//   - element-count arithmetic never wraps (new_buffer / reserve with 2^32-1, len beyond the limit)
+//   - the 1 MiB per-buffer limit (code 1) and the 16 MiB total budget (code 2) are recoverable errors, and the budget is returned when a holder is released
+func code(r Result<u32,u32>) u32 { match r { Ok(n) { return n } Err(e) { return 1000u32 + e } } }
+
+func arithmetic() u32 !{memory.read,memory.write} {
+  let big = vec.new_buffer(262145u32)
+  match big { Ok(b) { let rel = buffer.release(move(b)); return 1u32 } Err(e) { if e != 1u32 { return 2u32 } } }
+  let wrap = vec.new_buffer(4294967295u32)
+  match wrap { Ok(b) { let rel = buffer.release(move(b)); return 3u32 } Err(e) { if e != 1u32 { return 4u32 } } }
+  let a = vec.new_buffer(262144u32)
+  match a { Ok(b) {
+    let w = vec.set(borrow_mut(b), 1u32, 0u32, 7u32)
+    if code(w) != 1u32 { let rel = buffer.release(move(b)); return 5u32 }
+    if code(vec.reserve(borrow_mut(b), 262144u32, 1u32)) != 1001u32 { let rel = buffer.release(move(b)); return 6u32 }
+    if code(vec.reserve(borrow_mut(b), 262145u32, 0u32)) != 1011u32 { let rel = buffer.release(move(b)); return 7u32 }
+    if code(vec.reserve(borrow_mut(b), 0u32, 4294967295u32)) != 1001u32 { let rel = buffer.release(move(b)); return 8u32 }
+    if code(vec.reserve(borrow_mut(b), 10u32, 4294967295u32)) != 1001u32 { let rel = buffer.release(move(b)); return 9u32 }
+    if code(vec.push(borrow_mut(b), 262144u32, 5u32)) != 1001u32 { let rel = buffer.release(move(b)); return 10u32 }
+    if buffer.len(borrow(b)) != 1048576u32 { let rel = buffer.release(move(b)); return 11u32 }
+    if code(vec.get(borrow(b), 262144u32, 0u32)) != 7u32 { let rel = buffer.release(move(b)); return 12u32 }
+    if code(vec.reserve(borrow_mut(b), 262144u32, 0u32)) != 262144u32 { let rel = buffer.release(move(b)); return 13u32 }
+    let rel = buffer.release(move(b))
+    return 0u32
+  } Err(e) { return 20u32 + e } }
+}
+
+// Depth 15 holds 15 MiB, the next level holds 1 MiB minus 16 bytes and the vector holds 16: the budget is exactly full.
+func hold(depth u32, b BorrowMut<Buffer>) u32 !{memory.read,memory.write} {
+  var size u32 = 1048576u32
+  if depth == 1u32 { size = 1048560u32 }
+  if depth == 0u32 {
+    let full = vec.push(b, 4u32, 99u32)
+    if code(full) != 1002u32 { return 100u32 }
+    if buffer.len(b) != 16u32 { return 101u32 }
+    return 0u32
+  }
+  let h = buffer.alloc(size)
+  match h { Ok(holder) {
+    let inner u32 = hold(depth - 1u32, b)
+    let rel = buffer.release(move(holder))
+    if inner != 0u32 { return inner }
+    if depth == 1u32 {
+      let again = vec.push(b, 4u32, 99u32)
+      if code(again) != 5u32 { return 102u32 }
+      if code(buffer.read_u32le(b, 16u32)) != 99u32 { return 103u32 }
+    }
+    return 0u32
+  } Err(e) { return 50u32 + e } }
+}
+
+func budget() u32 !{memory.read,memory.write} {
+  let a = vec.new_buffer(4u32)
+  match a { Ok(b) {
+    var len u32 = 0u32
+    var i u32 = 0u32
+    for i < 4u32 {
+      let r = vec.push(borrow_mut(b), len, i + 10u32)
+      match r { Ok(n) { len = n } Err(e) { let rel = buffer.release(move(b)); return 30u32 + e } }
+      i = i + 1u32
+    }
+    let outcome u32 = hold(16u32, borrow_mut(b))
+    let first = vec.get(borrow(b), 5u32, 0u32)
+    var kept u32 = 0u32
+    match first { Ok(x) { kept = x } Err(e) { let rel = buffer.release(move(b)); return 31u32 } }
+    let rel = buffer.release(move(b))
+    if outcome != 0u32 { return outcome }
+    if kept != 10u32 { return 32u32 }
+    return 0u32
+  } Err(e) { return 40u32 + e } }
+}
+
+func main() u32 !{memory.read,memory.write} {
+  let x u32 = arithmetic()
+  if x != 0u32 { return x }
+  let y u32 = budget()
+  if y != 0u32 { return 200u32 + y }
+  return 42u32
+}

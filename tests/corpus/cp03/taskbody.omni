@@ -1,0 +1,130 @@
+module taskbody
+import coop "coop.omni"
+import lease "lease.omni"
+import critical "critical.omni"
+
+// CP-03 row 3.4, CONFORMANCE FIXTURE: the BODY of the tasks of coop_single.omni and coop_smp.omni, what the owner of the resources writes. It owns two leases (tests/x64/lease.omni) and ends by
+// closing both, last acquired first, on every path: the checker refuses a body that leaves any path with a live lease, and the path taken after a cancellation is an ordinary path.
+// The scenario is the `arg` the task was created with:
+//   1 three checkpoints             2 same (the lease table is made too small, so the second acquisition fails)       3 same (a close fails)
+//   4 an effect: checkpoint, dispatch, checkpoint, confirm, checkpoint
+//   5 a loop with NO checkpoint until the test lets it go (a task that does not cooperate), then the three checkpoints
+//   6 a critical section (interrupts off, a spin lock) that does a long piece of work and sets a flag when it starts, then the three checkpoints
+//   7 checkpoints for as long as nobody asks it to end, counting its progress
+// Cells: lease table 0x6F0000 (7274496), release flag 0x6F3000 (7286784), progress 0x6F3040 (7286848), inside flag 0x6F3080 (7286912), section lock 0x6F30C0 (7286976), section counter 0x6F3100 (7287040),
+// "the request was already there when the section ended" 0x6F3300 (7287552).
+struct Heavy { n u32 }
+
+impl critical.Section for Heavy {
+  func run(arg u64) u32 !{memory.raw,memory.atomic} {
+    let inside u32 = atomic.store32(7286912u64, 1u32, 4u32)
+    for i in 0u32..20000u32 {
+      let v u32 = atomic.load32(arg, 0u32)
+      let s u32 = atomic.store32(arg, v + 1u32, 0u32)
+    }
+    return atomic.load32(arg, 4u32)
+  }
+}
+
+func tbl() u64 { return 7274496u64 }
+
+func steps(ctrl u64, s u64) u32 !{memory.raw,memory.atomic,cpu.control} {
+  var stopped u32 = 0u32
+  for i in 0u32..3u32 {
+    if stopped == 0u32 {
+      if coop.checkpoint(ctrl, s) != 0u32 { stopped = 1u32 }
+    }
+  }
+  return stopped
+}
+
+func forever(ctrl u64, s u64) u32 !{memory.raw,memory.atomic,cpu.control} {
+  var stopped u32 = 0u32
+  for i in 0u32..4000000000u32 {
+    let p u32 = atomic.fetch_add32(7286848u64, 1u32, 0u32)
+    if coop.checkpoint(ctrl, s) != 0u32 {
+      stopped = 1u32
+      break
+    }
+  }
+  return stopped
+}
+
+// dispatch an effect, then confirm it: a cancellation can arrive before the dispatch, between the dispatch and the confirmation, or after it
+func effect_steps(ctrl u64, s u64) u32 !{memory.raw,memory.atomic,cpu.control} {
+  if coop.checkpoint(ctrl, s) != 0u32 { return 1u32 }
+  let d u32 = coop.dispatch(ctrl)
+  if coop.checkpoint(ctrl, s) != 0u32 { return 1u32 }
+  let c u32 = coop.confirm(ctrl)
+  if coop.checkpoint(ctrl, s) != 0u32 { return 1u32 }
+  return 0u32
+}
+
+func stuck_then_steps(ctrl u64, s u64) u32 !{memory.raw,memory.atomic,cpu.control} {
+  let inside u32 = atomic.store32(7286912u64, 1u32, 4u32)
+  for i in 0u32..4000000000u32 {
+    if atomic.load32(7286784u64, 1u32) != 0u32 { break }
+  }
+  return steps(ctrl, s)
+}
+
+func section_then_steps(ctrl u64, s u64) u32 !{memory.raw,memory.atomic,cpu.control} {
+  let r = critical.locked<Heavy>(7286976u64, 7287040u64, 100000000u32)
+  match r { Ok(v) { } Err(e) { return 90u32 + e } }
+  let seen u32 = atomic.store32(7287552u64, coop.cancelled(ctrl), 2u32)
+  return steps(ctrl, s)
+}
+
+// recursion that keeps every frame alive (each level writes a volatile cell): it uses a known fraction of the stack, so a stack whose top is wrong overflows its block
+func deep(n u32) u32 !{memory.raw} {
+  let mark u32 = raw.store32(7287616u64, n)
+  if n == 0u32 { return 0u32 }
+  let below u32 = deep(n - 1u32)
+  return below + raw.load32(7287616u64)
+}
+
+func run_kind(ctrl u64, s u64, kind u64) u32 !{memory.raw,memory.atomic,cpu.control} {
+  if kind == 8u64 {
+    let d u32 = deep(12u32)
+    return steps(ctrl, s)
+  }
+  if kind == 4u64 { return effect_steps(ctrl, s) }
+  if kind == 5u64 { return stuck_then_steps(ctrl, s) }
+  if kind == 6u64 { return section_then_steps(ctrl, s) }
+  if kind == 7u64 { return forever(ctrl, s) }
+  return steps(ctrl, s)
+}
+
+func close_both(lb Resource<lease.Lease>, la Resource<lease.Lease>) u32 !{memory.raw,memory.atomic} {
+  var code u32 = 0u32
+  let r1 = lease.release(tbl(), move(lb))
+  match r1 { Ok(n) { } Err(e) { code = e } }
+  let r2 = lease.release(tbl(), move(la))
+  match r2 { Ok(n) { } Err(e) { if code == 0u32 { code = e } } }
+  return code
+}
+
+// The result of the task: 0 completed, 1 cancelled, the code of the first failure otherwise (40 + the code of a failed acquisition).
+pub func work(ctrl u64, s u64) u32 !{memory.raw,memory.atomic,cpu.control} {
+  let kind u64 = coop.scenario(ctrl)
+  let a = lease.acquire(tbl())
+  match a {
+    Err(e) { return 40u32 + e }
+    Ok(la) {
+      let b = lease.acquire(tbl())
+      match b {
+        Err(e) {
+          let ca = lease.release(tbl(), move(la))
+          match ca { Ok(n) { } Err(c) { } }
+          return 40u32 + e
+        }
+        Ok(lb) {
+          let stopped u32 = run_kind(ctrl, s, kind)
+          let code u32 = close_both(move(lb), move(la))
+          if code != 0u32 { return code }
+          return stopped
+        }
+      }
+    }
+  }
+}

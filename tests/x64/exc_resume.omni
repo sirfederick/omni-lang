@@ -1,0 +1,41 @@
+module t
+import rt "rt.omni"
+import idt "idt.omni"
+
+// Exceptions (spec/TARGET_BAREMETAL_PROFILE_CANDIDATE.md, --exception-handler + --exception-resume). Omni builds the IDT (idt.omni),
+// then reads an address that is not mapped: the page fault enters on_exception (ordinary Omni code), which maps the page and returns
+// 0; iretq re-executes the instruction.
+//
+// Fixed addresses: log 0x520000 (5373952), PDPT 0x111000 (1118208), spare PD 0x114000 (1130496), physical page that will back the
+// faulting address 0x600000 (6291456). Log: +0 count, +8 vector, +16 error code, +24 faulting rip, +32 cr2.
+
+func on_exception(frame u64) u32 !{memory.raw,port.io,cpu.control} {
+  let count u64 = raw.load64(5373952u64)
+  let a u32 = raw.store64(5373952u64, count + 1u64)
+  let b u32 = raw.store64(5373960u64, raw.load64(frame))
+  let c u32 = raw.store64(5373968u64, raw.load64(frame + 8u64))
+  let d u32 = raw.store64(5373976u64, raw.load64(frame + 16u64))
+  let e u32 = raw.store64(5373984u64, cpu.read_cr64(2u32))
+  let al u32 = raw.store64(5373992u64, bit.and(frame, 15u64))   // the common tail runs with rsp 16-aligned for every vector (FPU_SSE_STATE_CANDIDATE.md section 4)
+  if raw.load64(frame) == 14u64 {
+    // map 0x80000000..0x801fffff onto physical 0x600000 with a 2 MiB page, then flush the TLB by reloading CR3
+    let f u32 = raw.store64(1130496u64, 6291587u64)
+    let g u32 = raw.store64(1118224u64, 1130499u64)
+    let h u32 = cpu.write_cr(3u32, 1114112u32)
+    return 0u32
+  }
+  return rt.finish(100u32 + u32(raw.load64(frame)))
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let magic u32 = raw.store32(6291456u64, 42u32)
+  let installed u32 = idt.install()
+  let seen u32 = raw.load32(2147483648u64)
+  print(seen)
+  print(raw.load64(5373952u64))
+  print(raw.load64(5373960u64))
+  print(raw.load64(5373968u64))
+  print(raw.load64(5373984u64))
+  print(raw.load64(5373992u64))
+  return rt.finish(0u32)
+}

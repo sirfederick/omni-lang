@@ -1,0 +1,17 @@
+module product
+
+func rotate(a Array<u32,4>) Array<u32,4> {
+    let b Array<u32,4> = array.with(a, 0u32, array.get(a, 3u32))
+    return b
+}
+
+func main() u32 !{io.print} {
+    let meta Tuple<u32,bool,u8> = tuple(42u32, true, 7u8)
+    let data Array<u32,4> = array(10u32, 20u32, 30u32, 40u32)
+    let next Array<u32,4> = rotate(data)
+    print(tuple.get(meta, 0u32))
+    print(array.len(next))
+    print(array.get(data, 0u32))
+    print(array.get(next, 0u32))
+    return 0
+}

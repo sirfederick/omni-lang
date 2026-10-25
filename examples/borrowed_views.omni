@@ -1,0 +1,14 @@
+module views
+
+func first_two(v View<u32>) u32 {
+    return view.get(v, 0u32) + view.get(v, 1u32)
+}
+
+func main() u32 !{io.print} {
+    let data Array<u32,4> = array(10u32, 20u32, 30u32, 40u32)
+    let all View<u32> = view(data)
+    let middle View<u32> = view.sub(all, 1u32, 2u32)
+    print(view.len(middle))
+    print(view.get(middle, 0u32))
+    return first_two(middle)
+}

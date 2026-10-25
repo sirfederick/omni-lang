@@ -1,0 +1,11 @@
+(omni-wave 7
+  (entry legacy7)
+  (module legacy7
+    (imports)
+    (func main (visibility private)
+      (params) (result u32) (effects pure)
+      (block
+        (let x i16 (unary "-" (i16 12)))
+        (let y i16 (i16 20))
+        (let z i16 (binary "+" (ref x) (ref y)))
+        (return (call u32 (ref z)))))))

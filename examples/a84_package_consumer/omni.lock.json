@@ -1,0 +1,7 @@
+{
+  "schema": "omni.lock/1",
+  "packages": [
+    {"origin":"./../../stdlib","name":"omni.std","version":"0.8.4-alpha.8","manifest_sha256":"150f32809898d51ca28bfe8a5eb318b045475fc8d58607a028c914865c71885e","source_sha256":"f13312685abb3153ccc8373b5bb148c882f6b4aa89268bf0a6b2129ce29edb3f"},
+    {"origin":"local:.","name":"omni.example.package-consumer","version":"0.1.0","manifest_sha256":"3cbab3956e37ca3679a21cef35791a9d915dbb5c67f2df364b8be7825aaedca4","source_sha256":"82e27ded7d2f1158395ab04e21c86019aa3adcce357dbe29216ec166c94fd41b"}
+  ]
+}

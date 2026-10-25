@@ -1,0 +1,78 @@
+module t
+import rt "rt.omni"
+import spin "spin.omni"
+
+// Mutual exclusion between two vCPUs (CP-14). Both CPUs run a read-modify-write built from a relaxed load and a relaxed store (not an atomic
+// RMW) on a shared counter, 100000 times each. Under the spinlock the total must be exact; the same loop without it (the control) loses
+// updates. The lock guard is a nominal affine resource: this program compiles only because every path releases it exactly once.
+// The AP is woken by the test-owned adapter (INIT/SIPI sent from Omni); ap_main is Omni code. Cells: lock word 0x510400 (5309440), locked
+// counter 0x510440 (5309504), unlocked control 0x510480 (5309568), AP identity 5308800, AP up 5308864, go 5308928, AP done 5308992.
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func locked_add(n u32) u32 !{memory.atomic,port.io,cpu.control} {
+  for i in 0u32..n {
+    let g = spin.acquire(5309440u64, 100000000u32)
+    let v u32 = atomic.load32(5309504u64, 0u32)
+    let s u32 = atomic.store32(5309504u64, v + 1u32, 0u32)
+    let r u32 = spin.release(move(g))
+  }
+  return 0u32
+}
+
+func unlocked_add(n u32) u32 !{memory.atomic} {
+  for i in 0u32..n {
+    let v u32 = atomic.load32(5309568u64, 0u32)
+    let s u32 = atomic.store32(5309568u64, v + 1u32, 0u32)
+  }
+  return 0u32
+}
+
+func ap_main() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  let who u32 = raw.store32(5308800u64, id + 100u32)
+  let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+  let go u32 = wait_flag(5308928u64)
+  let a u32 = locked_add(100000u32)
+  let b u32 = unlocked_add(100000u32)
+  let done u32 = atomic.store32(5308992u64, 1u32, 2u32)
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+  let init u32 = raw.store32(4276093696u64, 17664u32)
+  let w1 u32 = delay()
+  let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+  let w2 u32 = delay()
+  let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+  let up u32 = wait_flag(5308864u64)
+  if up == 0u32 {
+    print(999u32)
+    return rt.finish(2u32)
+  }
+  let go u32 = atomic.store32(5308928u64, 1u32, 2u32)
+  let a u32 = locked_add(100000u32)
+  let b u32 = unlocked_add(100000u32)
+  let done u32 = wait_flag(5308992u64)
+  print(raw.load32(5308800u64))
+  print(atomic.load32(5309504u64, 4u32))
+  print(atomic.load32(5309568u64, 4u32))
+  print(atomic.load32(5309440u64, 4u32))
+  return rt.finish(0u32)
+}

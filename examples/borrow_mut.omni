@@ -1,0 +1,19 @@
+module borrowmut
+
+func main() u32 !{memory.read,memory.write} {
+  let allocation = buffer.alloc(8)
+  match allocation {
+    Ok(buf) {
+      let exclusive = borrow_mut(buf)
+      let write = buffer.write_u8(exclusive,0,7)
+      match write {
+        Ok(x) { }
+        Err(e) { }
+      }
+      let n = buffer.len(exclusive)
+      let released = buffer.release(move(buf))
+      return n
+    }
+    Err(e) { return e }
+  }
+}

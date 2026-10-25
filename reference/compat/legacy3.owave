@@ -1,0 +1,10 @@
+(omni-wave 3
+  (entry legacy3)
+  (module legacy3
+    (imports)
+    (func main (visibility private)
+      (params) (result u32) (effects io)
+      (block
+        (let t Text (text-value "legacy3"))
+        (print (ref t))
+        (return (u32 0))))))

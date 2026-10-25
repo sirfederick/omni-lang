@@ -1,0 +1,6 @@
+{
+  "schema": "omni.lock/1",
+  "packages": [
+    {"origin":"local:.","name":"omni.std","version":"0.8.4-alpha.8","manifest_sha256":"150f32809898d51ca28bfe8a5eb318b045475fc8d58607a028c914865c71885e","source_sha256":"f13312685abb3153ccc8373b5bb148c882f6b4aa89268bf0a6b2129ce29edb3f"}
+  ]
+}

@@ -1,0 +1,25 @@
+module language_usable_data_cli
+
+func classify_scalar_count(count u32) u32 !pure {
+    if count == 11u32 { return 1u32 }
+    return 2u32
+}
+
+func main() u32 !{fs.read,fs.write} {
+    match host.read("__INPUT__", 4096u32) {
+        Err(code) { return code }
+        Ok(raw) {
+            match bytes.to_text(raw) {
+                Err(code) { return code }
+                Ok(dataset) {
+                    let class = classify_scalar_count(text.scalar_len(dataset))
+                    if class != 1u32 { return 90u32 }
+                    match host.write("__OUTPUT__", bytes.from_text("records=2;class=accepted\n")) {
+                        Err(code) { return code }
+                        Ok(written) { if written != 25u32 { return 91u32 } return 0u32 }
+                    }
+                }
+            }
+        }
+    }
+}

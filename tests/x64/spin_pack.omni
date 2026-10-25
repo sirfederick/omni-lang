@@ -1,0 +1,27 @@
+module t
+import rt "rt.omni"
+import spin "spin.omni"
+
+// The spinlock handle loses neither the address nor the interrupt state, for any 64-bit address (spec/GUARDS_AND_LOCKS_CANDIDATE.md).
+// Addresses: low, the x86-64 higher half (bit 63 set), the highest aligned address, and 4 (bit 2 set); each with interrupts enabled (RFLAGS.IF = 512)
+// and disabled. A pure computation: it does not touch the addresses, so unmapped higher-half values are fine.
+func check(addr u64, flags u64) u32 {
+  let h u64 = spin.pack(addr, flags)
+  var ok u32 = 0u32
+  if spin.handle_addr(h) == addr { ok = ok + 1u32 }
+  if spin.handle_irq(h) == bit.shr(bit.and(flags, 512u64), 9u32) { ok = ok + 1u32 }
+  return ok
+}
+
+func main() u32 !{io.print,port.io,cpu.control} {
+  var good u32 = 0u32
+  good = good + check(5309440u64, 512u64) + check(5309440u64, 0u64)
+  good = good + check(18446603336221196288u64, 512u64) + check(18446603336221196288u64, 0u64)
+  good = good + check(9223372036854775808u64, 512u64) + check(9223372036854775808u64, 0u64)
+  good = good + check(18446744073709551612u64, 512u64) + check(18446744073709551612u64, 0u64)
+  good = good + check(4u64, 512u64) + check(4u64, 0u64)
+  print(good)
+  print(spin.handle_irq(spin.pack(5309440u64, 514u64)))
+  print(spin.handle_irq(spin.pack(5309440u64, 2u64)))
+  return rt.finish(0u32)
+}

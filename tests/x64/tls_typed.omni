@@ -1,0 +1,99 @@
+module t
+import rt "rt.omni"
+import tlslib "tls_lib.omni"
+
+// Typed thread-local variables (CP-11, spec/THREAD_LOCAL_CANDIDATE.md). Two Omni threads use the SAME SYMBOLS (`counter`, `flag`, `delta`, and the
+// library's `ticks`) and must see different values. Each new thread's block is built by `tls.init` from the compiler-emitted template (the memory is
+// poisoned first, so the initial values are the template's and not leftovers); the scheduler (this main) installs the FS base of the thread it switches to.
+//
+// IA32_FS_BASE = 0xC0000100 (3221225728). Blocks: thread 1 0x580000 (5767168), thread 2 0x581000 (5771264). Context areas as in ctx_switch.omni.
+// Results at 0x541800 (5511168): thread n at +32*(n-1): [first values ok][correct reads][delta correct][ticks][flag].
+
+thread_local counter u64 = 7u64
+thread_local flag u8 = 3u8
+thread_local delta i16 = -5i16
+thread_local mark u32 = 4660u32
+
+func set_fs(base u64) u32 !{cpu.control} {
+  return cpu.wrmsr(3221225728u32, u32(bit.and(base, 4294967295u64)), u32(bit.shr(base, 32u32)))
+}
+
+func make_block(base u64) u32 !{memory.raw,memory.tls} {
+  for i in 0u32..32u32 {
+    let poison u32 = raw.store64(base + u64(i) * 8u64, 12297829382473034410u64)
+  }
+  return u32(tls.init(base))
+}
+
+func worker() u32 !{memory.tls,memory.raw,cpu.control,port.io} {
+  let me u32 = raw.load32(5505280u64)
+  let own u64 = 5505024u64 + u64(me) * 64u64
+  let res u64 = 5511168u64 + u64(me - 1u32) * 32u64
+  var first u32 = 0u32
+  if tls.get(counter) == 7u64 {
+    if tls.get(flag) == 3u8 {
+      if tls.get(delta) == -5i16 {
+        if tls.get(mark) == 4660u32 {
+          if tlslib.tick() == 100u32 { first = 1u32 }
+        }
+      }
+    }
+  }
+  let r0 u32 = raw.store32(res, first)
+  let setflag u32 = tls.set(flag, u8(me))
+  var step i16 = 1i16
+  var want_delta i16 = 995i16
+  if me == 2u32 {
+    step = 2i16
+    want_delta = 1995i16
+  }
+  var ok u32 = 0u32
+  for i in 0u32..1000u32 {
+    let want u64 = u64(me) * 1000u64 + u64(i)
+    let w u32 = tls.set(counter, want)
+    let d u32 = tls.set(delta, tls.get(delta) + step)
+    let t u32 = tlslib.tick()
+    let y u64 = cpu.switch_context(own, 5505024u64)
+    if tls.get(counter) == want { ok = ok + 1u32 }
+  }
+  let r1 u32 = raw.store32(res + 8u64, ok)
+  var dok u32 = 0u32
+  if tls.get(delta) == want_delta { dok = 1u32 }
+  let r2 u32 = raw.store32(res + 16u64, dok)
+  let r3 u32 = raw.store32(res + 24u64, tlslib.tick())
+  let r4 u32 = raw.store32(res + 28u64, u32(tls.get(flag)))
+  let last u64 = cpu.switch_context(own, 5505024u64)
+  return rt.finish(77u32)
+}
+
+func main() u32 !{io.print,memory.raw,memory.tls,port.io,cpu.control} {
+  let b1 u32 = make_block(5767168u64)
+  let b2 u32 = make_block(5771264u64)
+  let tr u64 = cpu.thread_trampoline()
+  let a1 u32 = raw.store64(3932144u64, tr)
+  let a2 u32 = raw.store64(5505088u64 + 48u64, 3932144u64)
+  let c1 u32 = raw.store64(3866608u64, tr)
+  let c2 u32 = raw.store64(5505152u64 + 48u64, 3866608u64)
+  for r in 0u32..1001u32 {
+    let k1 u32 = raw.store32(5505280u64, 1u32)
+    let f1 u32 = set_fs(5767168u64)
+    let s1 u64 = cpu.switch_context(5505024u64, 5505088u64)
+    let k2 u32 = raw.store32(5505280u64, 2u32)
+    let f2 u32 = set_fs(5771264u64)
+    let s2 u64 = cpu.switch_context(5505024u64, 5505152u64)
+  }
+  print(raw.load32(5511168u64))
+  print(raw.load32(5511200u64))
+  print(raw.load32(5511176u64))
+  print(raw.load32(5511208u64))
+  print(raw.load32(5511184u64))
+  print(raw.load32(5511216u64))
+  print(raw.load32(5511192u64))
+  print(raw.load32(5511224u64))
+  print(raw.load32(5511196u64))
+  print(raw.load32(5511228u64))
+  print(raw.load64(5767168u64 + 16u64))
+  print(raw.load64(5771264u64 + 16u64))
+  print(tls.block_size())
+  return rt.finish(0u32)
+}

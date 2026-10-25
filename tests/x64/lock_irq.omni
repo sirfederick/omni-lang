@@ -1,0 +1,55 @@
+module t
+import rt "rt.omni"
+import idt "idt.omni"
+import spin "spin.omni"
+
+// Why the lock disables interrupts (CP-14), on one vCPU. A periodic local-APIC timer interrupts a loop whose body takes a spinlock and
+// updates a counter; the interrupt handler takes the SAME lock and updates the same counter. `spin.acquire` disables interrupts before the
+// compare-and-swap and its guard restores them on release, so the handler can only run while the lock is free and the total is exact:
+// iterations + interrupts. With `acquire_noirq` (the control, made by text substitution in the test) an interrupt can land while the main
+// loop holds the lock; the handler then spins on a lock that cannot be released until it returns, and the bounded spin reports a deadlock.
+//
+// Cells: lock word 0x510400 (5309440), counter 0x510440 (5309504), interrupt count 0x520000 (5373952).
+// Local APIC: SVR 4276093168, EOI 4276093104, LVT timer 4276093728, initial count 4276093824, divide 4276093952.
+
+func on_exception(frame u64) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  if raw.load64(frame) == 32u64 {
+    let g = spin.acquire_noirq(5309440u64, 2000000u32)
+    let v u32 = atomic.load32(5309504u64, 0u32)
+    let s u32 = atomic.store32(5309504u64, v + 1u32, 0u32)
+    let c u64 = raw.load64(5373952u64)
+    let n u32 = raw.store64(5373952u64, c + 1u64)
+    let r u32 = spin.release(move(g))
+    // a lock taken with acquire_noirq inside a handler (interrupts off) must leave them off: count the times IF is found set after the release
+    let fl u64 = cpu.read_flags()
+    let leak u32 = raw.store64(5373960u64, raw.load64(5373960u64) + bit.shr(bit.and(fl, 512u64), 9u32))
+    return raw.store32(4276093104u64, 0u32)
+  }
+  return rt.finish(100u32 + u32(raw.load64(frame)))
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let installed u32 = idt.install_count(33u32)
+  let pic1 u32 = port.out8(33u32, 255u32)
+  let pic2 u32 = port.out8(161u32, 255u32)
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let div u32 = raw.store32(4276093952u64, 11u32)
+  let lvt u32 = raw.store32(4276093728u64, 131104u32)
+  let init u32 = raw.store32(4276093824u64, 20000u32)
+  let on u32 = cpu.sti()
+  for i in 0u32..100000u32 {
+    let g = spin.acquire(5309440u64, 2000000u32)
+    let v u32 = atomic.load32(5309504u64, 0u32)
+    let s u32 = atomic.store32(5309504u64, v + 1u32, 0u32)
+    let r u32 = spin.release(move(g))
+  }
+  let fl u64 = cpu.read_flags()
+  let off u32 = cpu.cli()
+  let mask u32 = raw.store32(4276093728u64, 65568u32)
+  print(atomic.load32(5309504u64, 4u32))
+  print(raw.load64(5373952u64))
+  print(atomic.load32(5309440u64, 4u32))
+  print(bit.shr(bit.and(fl, 512u64), 9u32))    // the last release restored the interrupt state it found (enabled)
+  print(raw.load64(5373960u64))                // and no release inside a handler turned interrupts on
+  return rt.finish(0u32)
+}

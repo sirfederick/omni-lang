@@ -1,0 +1,21 @@
+module irq
+
+// CP-14 (candidate library, written in Omni on top of nominal affine resources). An interrupt guard OWNS the obligation to restore the
+// interrupt state it found: `save` disables interrupts and returns the previous RFLAGS in a Resource<Guard> that the compiler forces to be
+// consumed exactly once (E_RESOURCE_UNCONSUMED on any path that leaks it, E_RESOURCE_MOVED on a second restore). `restore` re-enables
+// interrupts only if they were enabled when the guard was taken, never unconditionally, so guards nest and compose.
+pub struct Guard { h u64 }
+
+pub func save() Resource<Guard> !{cpu.control} {
+  let flags u64 = cpu.read_flags()
+  let off u32 = cpu.cli()
+  return resource.seal(Guard { h: flags })
+}
+
+pub func restore(g Resource<Guard>) u32 !{cpu.control} {
+  let s Guard = resource.unseal(move(g))
+  if bit.and(s.h, 512u64) != 0u64 {
+    return cpu.sti()
+  }
+  return 0u32
+}

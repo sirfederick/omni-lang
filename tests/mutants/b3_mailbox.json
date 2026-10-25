@@ -1,0 +1,779 @@
+[
+ {
+  "name": "B1 a mailbox is recognised by anything but its magic",
+  "file": "examples/storage/mailbox.omni",
+  "old": "return atomic.load64(base, 1u32) == magic()",
+  "new": "return atomic.load64(base, 1u32) != magic()",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B2 create publishes no magic",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let g u32 = atomic.store64(base, magic(), 2u32)",
+  "new": "let g u32 = atomic.store64(base, 0u64, 2u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B3 create publishes the magic with a relaxed store",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let g u32 = atomic.store64(base, magic(), 2u32)",
+  "new": "let g u32 = atomic.store64(base, magic(), 0u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B4 a null base is accepted",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if base == 0u64 { return Err<u32,u32>(5u32) }",
+  "new": "if base == 1u64 { return Err<u32,u32>(5u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B5 create accepts a base aligned to 8",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if bit.and(base, 63u64) != 0u64 { return Err<u32,u32>(5u32) }",
+  "new": "if bit.and(base, 7u64) != 0u64 { return Err<u32,u32>(5u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B6 formatted accepts a base aligned to 8",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if bit.and(base, 63u64) != 0u64 { return false }",
+  "new": "if bit.and(base, 7u64) != 0u64 { return false }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B7 a mailbox without slots is accepted",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if capacity == 0u64 { return Err<u32,u32>(5u32) }",
+  "new": "if capacity == 99999999u64 { return Err<u32,u32>(5u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B8 more than the largest capacity is accepted",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if capacity > 1048576u64 { return Err<u32,u32>(5u32) }",
+  "new": "if capacity > 4194304u64 { return Err<u32,u32>(5u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B9 the largest capacity is refused",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if capacity > 1048576u64 { return Err<u32,u32>(5u32) }",
+  "new": "if capacity >= 1048576u64 { return Err<u32,u32>(5u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B10 a capacity that is not a power of two is accepted",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if bit.and(capacity, capacity - 1u64) != 0u64 { return Err<u32,u32>(5u32) }",
+  "new": "if bit.and(capacity, capacity - 1u64) != 99u64 { return Err<u32,u32>(5u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B11 a stride below 8 is accepted",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if stride < 8u64 { return Err<u32,u32>(5u32) }",
+  "new": "if stride < 4u64 { return Err<u32,u32>(5u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ],
+  "equivalent": "strides 4..7 are not multiples of 8, so the next line refuses them whatever this bound says: `< 4` and `< 8` differ only on inputs the multiple-of-8 test already refuses"
+ },
+ {
+  "name": "B59 a stride of zero is accepted",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if stride < 8u64 { return Err<u32,u32>(5u32) }",
+  "new": "if stride < 0u64 { return Err<u32,u32>(5u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B12 a stride above 4096 is accepted",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if stride > 4096u64 { return Err<u32,u32>(5u32) }",
+  "new": "if stride > 8192u64 { return Err<u32,u32>(5u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B13 the largest stride is refused",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if stride > 4096u64 { return Err<u32,u32>(5u32) }",
+  "new": "if stride >= 4096u64 { return Err<u32,u32>(5u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B14 a stride that is not a multiple of 8 is accepted",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if bit.and(stride, 7u64) != 0u64 { return Err<u32,u32>(5u32) }",
+  "new": "if bit.and(stride, 3u64) != 0u64 { return Err<u32,u32>(5u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B15 a base too near the top of the address space is not checked",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if base > max64() - 448u64 { return Err<u32,u32>(6u32) }",
+  "new": "if base > max64() - 448u64 && false { return Err<u32,u32>(6u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B16 the slots may run past the top of the address space",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if capacity * stride > max64() - base - 448u64 { return Err<u32,u32>(6u32) }",
+  "new": "if capacity * stride > max64() - base - 448u64 && false { return Err<u32,u32>(6u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B17 the slots may end exactly at the top of the address space",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if capacity * stride > max64() - base - 448u64 { return Err<u32,u32>(6u32) }",
+  "new": "if capacity * stride >= max64() - base - 448u64 { return Err<u32,u32>(6u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ],
+  "equivalent": "base is a multiple of 64, so max64() - base - 448 is congruent to 63 modulo 64 and cannot equal capacity * stride, a multiple of 8: the strict and the non-strict comparison give the same answer for every input"
+ },
+ {
+  "name": "B18 the capacity is stored doubled",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let a u32 = atomic.store64(cap_cell(base), capacity, 0u32)",
+  "new": "let a u32 = atomic.store64(cap_cell(base), capacity * 2u64, 0u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B19 the stride is stored larger",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let b u32 = atomic.store64(stride_cell(base), stride, 0u32)",
+  "new": "let b u32 = atomic.store64(stride_cell(base), stride + 8u64, 0u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B20 create keeps the tail",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let c u32 = atomic.store64(tail_cell(base), 0u64, 0u32)",
+  "new": "let c u32 = 0u32",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B21 create keeps the head",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let d u32 = atomic.store64(head_cell(base), 0u64, 0u32)",
+  "new": "let d u32 = 0u32",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B22 create keeps the producer claim",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let e u32 = atomic.store32(claim_p(base), 0u32, 0u32)",
+  "new": "let e u32 = 0u32",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B23 create keeps the consumer claim",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let f u32 = atomic.store32(claim_c(base), 0u32, 0u32)",
+  "new": "let f u32 = 0u32",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B24 an end that is already open is opened again",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let seen u32 = atomic.cas32(claim_p(base), 0u32, 1u32, 3u32, 1u32)",
+  "new": "let seen u32 = atomic.cas32(claim_p(base), 0u32, 0u32, 3u32, 1u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests",
+   "MailboxEndRaceTests"
+  ]
+ },
+ {
+  "name": "B25 the consumer end is opened twice",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let seen u32 = atomic.cas32(claim_c(base), 0u32, 1u32, 3u32, 1u32)",
+  "new": "let seen u32 = atomic.cas32(claim_c(base), 0u32, 0u32, 3u32, 1u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests",
+   "MailboxEndRaceTests"
+  ]
+ },
+ {
+  "name": "B26 opening the producer end refuses a free end",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let seen u32 = atomic.cas32(claim_p(base), 0u32, 1u32, 3u32, 1u32)\n  if seen != 0u32 {",
+  "new": "let seen u32 = atomic.cas32(claim_p(base), 0u32, 1u32, 3u32, 1u32)\n  if seen == 0u32 {",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests",
+   "MailboxEndRaceTests"
+  ]
+ },
+ {
+  "name": "B27 the claim of the producer is taken with a relaxed order",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let seen u32 = atomic.cas32(claim_p(base), 0u32, 1u32, 3u32, 1u32)",
+  "new": "let seen u32 = atomic.cas32(claim_p(base), 0u32, 1u32, 0u32, 0u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests",
+   "MailboxEndRaceTests"
+  ]
+ },
+ {
+  "name": "B28 the claim of the consumer is taken with a release order",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let seen u32 = atomic.cas32(claim_c(base), 0u32, 1u32, 3u32, 1u32)",
+  "new": "let seen u32 = atomic.cas32(claim_c(base), 0u32, 1u32, 2u32, 0u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests",
+   "MailboxEndRaceTests"
+  ]
+ },
+ {
+  "name": "B29 the producer end is never given back",
+  "file": "examples/storage/mailbox.omni",
+  "old": "return atomic.store32(claim_p(e.m), 0u32, 2u32)",
+  "new": "return atomic.store32(claim_p(e.m), 1u32, 2u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B30 the consumer end is never given back",
+  "file": "examples/storage/mailbox.omni",
+  "old": "return atomic.store32(claim_c(e.m), 0u32, 2u32)",
+  "new": "return atomic.store32(claim_c(e.m), 1u32, 2u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B31 the producer end is given back with a relaxed store",
+  "file": "examples/storage/mailbox.omni",
+  "old": "return atomic.store32(claim_p(e.m), 0u32, 2u32)",
+  "new": "return atomic.store32(claim_p(e.m), 0u32, 0u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B32 the consumer end is given back with a relaxed store",
+  "file": "examples/storage/mailbox.omni",
+  "old": "return atomic.store32(claim_c(e.m), 0u32, 2u32)",
+  "new": "return atomic.store32(claim_c(e.m), 0u32, 0u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B33 a message as large as a slot does not fit",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if size > stride { return Err<u32,u32>(8u32) }",
+  "new": "if size >= stride { return Err<u32,u32>(8u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B34 a message larger than a slot is written",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if size > stride { return Err<u32,u32>(8u32) }",
+  "new": "if size > stride && false { return Err<u32,u32>(8u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B35 a full queue is detected one message late",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if tail - head == cap { return Err<u32,u32>(15u32) }",
+  "new": "if tail - head > cap { return Err<u32,u32>(15u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B36 a full queue is detected one message early",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if tail - head == cap { return Err<u32,u32>(15u32) }",
+  "new": "if tail - head + 1u64 >= cap { return Err<u32,u32>(15u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B37 push does not look at a head beyond the tail",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if head > tail { return Err<u32,u32>(12u32) }\n  if tail - head > cap { return Err<u32,u32>(12u32) }\n  if tail - head == cap",
+  "new": "if head > tail && false { return Err<u32,u32>(12u32) }\n  if tail - head > cap { return Err<u32,u32>(12u32) }\n  if tail - head == cap",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B38 push does not look at more than capacity pending",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if head > tail { return Err<u32,u32>(12u32) }\n  if tail - head > cap { return Err<u32,u32>(12u32) }\n  if tail - head == cap",
+  "new": "if head > tail { return Err<u32,u32>(12u32) }\n  if tail - head > cap && false { return Err<u32,u32>(12u32) }\n  if tail - head == cap",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B39 the slot of a push is not wrapped",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let w u32 = raw.write<T>(slots(base) + bit.and(tail, cap - 1u64) * stride, v)",
+  "new": "let w u32 = raw.write<T>(slots(base) + tail * stride, v)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B40 the slot of a push is addressed by byte",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let w u32 = raw.write<T>(slots(base) + bit.and(tail, cap - 1u64) * stride, v)",
+  "new": "let w u32 = raw.write<T>(slots(base) + bit.and(tail, cap - 1u64) * 8u64, v)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B41 push publishes two messages",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let s u32 = atomic.store64(tail_cell(base), tail + 1u64, 2u32)",
+  "new": "let s u32 = atomic.store64(tail_cell(base), tail + 2u64, 2u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B42 push publishes nothing",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let s u32 = atomic.store64(tail_cell(base), tail + 1u64, 2u32)",
+  "new": "let s u32 = atomic.store64(tail_cell(base), tail, 2u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B43 push publishes with a relaxed store",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let s u32 = atomic.store64(tail_cell(base), tail + 1u64, 2u32)",
+  "new": "let s u32 = atomic.store64(tail_cell(base), tail + 1u64, 0u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B44 push publishes with a seq_cst store",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let s u32 = atomic.store64(tail_cell(base), tail + 1u64, 2u32)",
+  "new": "let s u32 = atomic.store64(tail_cell(base), tail + 1u64, 4u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B45 push reads the head with a relaxed load",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let head u64 = atomic.load64(head_cell(base), 1u32)\n  if head > tail { return Err<u32,u32>(12u32) }",
+  "new": "let head u64 = atomic.load64(head_cell(base), 0u32)\n  if head > tail { return Err<u32,u32>(12u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B46 pop reads the tail with a relaxed load",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let tail u64 = atomic.load64(tail_cell(base), 1u32)\n  if head > tail { return Err<T,u32>(12u32) }",
+  "new": "let tail u64 = atomic.load64(tail_cell(base), 0u32)\n  if head > tail { return Err<T,u32>(12u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B47 pop releases the slot with a relaxed store",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let s u32 = atomic.store64(head_cell(base), head + 1u64, 2u32)\n  return Ok<T,u32>(v)",
+  "new": "let s u32 = atomic.store64(head_cell(base), head + 1u64, 0u32)\n  return Ok<T,u32>(v)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B48 pop does not release the slot",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let s u32 = atomic.store64(head_cell(base), head + 1u64, 2u32)\n  return Ok<T,u32>(v)",
+  "new": "let s u32 = atomic.store64(head_cell(base), head, 2u32)\n  return Ok<T,u32>(v)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B49 pop takes the newest message",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let v T = raw.read<T>(slots(base) + bit.and(head, cap - 1u64) * stride)",
+  "new": "let v T = raw.read<T>(slots(base) + bit.and(tail - 1u64, cap - 1u64) * stride)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B50 pop does not wrap the slot",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let v T = raw.read<T>(slots(base) + bit.and(head, cap - 1u64) * stride)",
+  "new": "let v T = raw.read<T>(slots(base) + head * stride)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B51 pop reports an empty queue as damaged",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if head == tail { return Err<T,u32>(16u32) }",
+  "new": "if head == tail { return Err<T,u32>(12u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B52 pop of an empty queue is not reported",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if head == tail { return Err<T,u32>(16u32) }",
+  "new": "if head == tail && false { return Err<T,u32>(16u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B53 pop is satisfied by an empty queue at the boundary",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if head == tail { return Err<T,u32>(16u32) }",
+  "new": "if head >= tail { return Err<T,u32>(16u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ],
+  "equivalent": "the two lines before it already answer 12 when head > tail, so at this point head <= tail and head >= tail is head == tail"
+ },
+ {
+  "name": "B54 pop does not look at a head beyond the tail",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if head > tail { return Err<T,u32>(12u32) }\n  if tail - head > cap { return Err<T,u32>(12u32) }",
+  "new": "if head > tail && false { return Err<T,u32>(12u32) }\n  if tail - head > cap { return Err<T,u32>(12u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B55 pop does not look at more than capacity pending",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if tail - head > cap { return Err<T,u32>(12u32) }\n  if head == tail",
+  "new": "if tail - head > cap && false { return Err<T,u32>(12u32) }\n  if head == tail",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B56 pop accepts a message larger than a slot",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if size > stride { return Err<T,u32>(8u32) }",
+  "new": "if size > stride && false { return Err<T,u32>(8u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B57 the producer sees more pending messages",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if head > tail { return 0u64 }\n  return tail - head\n}\n\npub func pending_c",
+  "new": "if head > tail { return 0u64 }\n  return tail - head + 1u64\n}\n\npub func pending_c",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B58 the consumer counts a head beyond the tail as pending",
+  "file": "examples/storage/mailbox.omni",
+  "old": "atomic.load64(head_cell(e.m), 0u32)\n  if head > tail { return 0u64 }",
+  "new": "atomic.load64(head_cell(e.m), 0u32)\n  if head > tail && false { return 0u64 }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B60 create re-formats a mailbox whose producer end is open",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if atomic.load32(claim_p(base), 1u32) != 0u32 { return Err<u32,u32>(14u32) }",
+  "new": "if atomic.load32(claim_p(base), 1u32) != 0u32 && false { return Err<u32,u32>(14u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B61 create re-formats a mailbox whose consumer end is open",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if atomic.load32(claim_c(base), 1u32) != 0u32 { return Err<u32,u32>(14u32) }",
+  "new": "if atomic.load32(claim_c(base), 1u32) != 0u32 && false { return Err<u32,u32>(14u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B62 create only looks at the ends of a mailbox that is not formatted",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if atomic.load64(base, 1u32) == magic() {\n    if atomic.load32(claim_p(base)",
+  "new": "if atomic.load64(base, 1u32) != magic() {\n    if atomic.load32(claim_p(base)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B63 create answers another code for an open end",
+  "file": "examples/storage/mailbox.omni",
+  "old": "if atomic.load32(claim_p(base), 1u32) != 0u32 { return Err<u32,u32>(14u32) }",
+  "new": "if atomic.load32(claim_p(base), 1u32) != 0u32 { return Err<u32,u32>(15u32) }",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests"
+  ]
+ },
+ {
+  "name": "B64 a claim is made with a load and a store",
+  "file": "examples/storage/mailbox.omni",
+  "old": "let seen u32 = atomic.cas32(claim_c(base), 0u32, 1u32, 3u32, 1u32)",
+  "new": "let seen u32 = atomic.load32(claim_c(base), 0u32)\n  let taken u32 = atomic.store32(claim_c(base), 1u32, 0u32)",
+  "tests": [
+   "tests/cp13_atomics.py",
+   "MailboxSingleTests",
+   "MailboxContractTests",
+   "MailboxHandoffTests",
+   "MailboxEndRaceTests"
+  ]
+ }
+]

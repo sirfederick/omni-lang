@@ -1,0 +1,94 @@
+[
+ {
+  "name": "P1 a relative import may leave the tree of its own package",
+  "file": "compiler/src/modules.cpp",
+  "old": "if(!inside(base,canon))fail(\"E_IMPORT_PATH\",\"import fuera de la raiz del proyecto\");",
+  "new": "",
+  "tests": [
+   "tests/cp05_packages.py"
+  ]
+ },
+ {
+  "name": "P2 the lock of the closure is not verified",
+  "file": "compiler/src/packages.cpp",
+  "old": "    (void)packageCommand(\"check\",pkg,true,fs::path{});   // the lock of the whole closure must still match its bytes\n",
+  "new": "",
+  "tests": [
+   "tests/cp05_packages.py"
+  ]
+ },
+ {
+  "name": "P3 a dependency that is not declared is looked up anyway",
+  "file": "compiler/src/packages.cpp",
+  "old": "    if(dependency==manifest.deps.end())fail(\"E_IMPORT_PATH\",\"dependencia no declarada en el manifest: @\"+name);\n",
+  "new": "    if(dependency==manifest.deps.end())return fs::path{};\n",
+  "tests": [
+   "tests/cp05_packages.py"
+  ]
+ },
+ {
+  "name": "P4 a path with .. components after the dependency name is accepted",
+  "file": "compiler/src/modules.cpp",
+  "old": "for(const auto& part:sub)if(part==\"..\"||part==\".\")fail(\"E_IMPORT_PATH\",\"ruta de dependencia no puede contener . ni ..\",i.loc);\n",
+  "new": "",
+  "tests": [
+   "tests/cp05_packages.py"
+  ]
+ },
+ {
+  "name": "P5 an absolute path after the dependency name is accepted",
+  "file": "compiler/src/modules.cpp",
+  "old": "if(sub.is_absolute()||sub.has_root_name()||sub.extension()!=\".omni\")fail(\"E_IMPORT_PATH\",\"ruta de dependencia debe ser relativa y .omni\",i.loc);",
+  "new": "if(sub.extension()!=\".omni\")fail(\"E_IMPORT_PATH\",\"ruta de dependencia debe ser relativa y .omni\",i.loc);",
+  "tests": [
+   "tests/cp05_packages.py"
+  ]
+ },
+ {
+  "name": "P6 a path that is not a .omni file is accepted",
+  "file": "compiler/src/modules.cpp",
+  "old": "if(sub.is_absolute()||sub.has_root_name()||sub.extension()!=\".omni\")fail(\"E_IMPORT_PATH\",\"ruta de dependencia debe ser relativa y .omni\",i.loc);",
+  "new": "if(sub.is_absolute()||sub.has_root_name())fail(\"E_IMPORT_PATH\",\"ruta de dependencia debe ser relativa y .omni\",i.loc);",
+  "tests": [
+   "tests/cp05_packages.py"
+  ]
+ },
+ {
+  "name": "P7 a file outside src/ of its package may import a dependency",
+  "file": "compiler/src/packages.cpp",
+  "old": "    if(!inside(pkg/\"src\",file))fail(\"E_IMPORT_PATH\",\"el archivo que importa una dependencia debe estar bajo src/ de su package\");\n",
+  "new": "",
+  "tests": [
+   "tests/cp05_packages.py"
+  ]
+ },
+ {
+  "name": "P8 a file under no package may import a dependency",
+  "file": "compiler/src/packages.cpp",
+  "old": "    if(pkg.empty())fail(\"E_IMPORT_PATH\",\"import de dependencia fuera de todo package: @\"+name);\n",
+  "new": "    if(pkg.empty())return fs::path{};\n",
+  "tests": [
+   "tests/cp05_packages.py"
+  ]
+ },
+ {
+  "name": "P9 the dependency name may be empty",
+  "file": "compiler/src/modules.cpp",
+  "old": "if(slash==std::string::npos||slash<2||slash+1>=i.path.size())fail(\"E_IMPORT_PATH\",\"import de dependencia requiere @nombre/ruta.omni\",i.loc);",
+  "new": "if(slash==std::string::npos||slash+1>=i.path.size())fail(\"E_IMPORT_PATH\",\"import de dependencia requiere @nombre/ruta.omni\",i.loc);",
+  "tests": [
+   "tests/cp05_packages.py"
+  ],
+  "equivalent": "A dependency name that is empty can never be declared: the manifest reader refuses an empty name (nameOk), so the lookup in lockedDependencySource fails with the same E_IMPORT_PATH (\"dependencia no declarada\") that the removed guard would have produced; the guard only gives the message a better text."
+ },
+ {
+  "name": "P10 the dependency source may be a symbolic link",
+  "file": "compiler/src/packages.cpp",
+  "old": "    noSymlink(src);\n    if(!fs::is_directory(src))fail(\"E_PACKAGE_PATH\",\"la dependencia no tiene src/: \"+name);",
+  "new": "    if(!fs::is_directory(src))fail(\"E_PACKAGE_PATH\",\"la dependencia no tiene src/: \"+name);",
+  "tests": [
+   "tests/cp05_packages.py"
+  ],
+  "equivalent": "The lock check that runs just before (packageCommand check -> readPackage -> semanticSourceHash) refuses a symbolic link in the source tree of every package of the closure with E_PACKAGE_PATH, so by the time this line is reached the directory cannot be a link; the check is a second guard."
+ }
+]

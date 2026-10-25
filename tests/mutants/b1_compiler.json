@@ -1,0 +1,445 @@
+[
+ {
+  "name": "C1 a false static assertion passes",
+  "file": "compiler/src/check.cpp",
+  "old": "if(!holds)fail(\"E_STATIC_ASSERT\",f.assertMessage,f.loc);",
+  "new": "if(!holds&&false)fail(\"E_STATIC_ASSERT\",f.assertMessage,f.loc);",
+  "tests": [
+   "tests/cp07_static_assert.py"
+  ]
+ },
+ {
+  "name": "C2 the assertions are not kept for the formatter",
+  "file": "compiler/src/check.cpp",
+  "old": "for(auto& f:p.functions) if(f.isStaticAssert) p.staticAsserts.push_back(f);",
+  "new": "",
+  "tests": [
+   "tests/cp07_static_assert.py"
+  ]
+ },
+ {
+  "name": "C3 an assertion that cannot be decided is true",
+  "file": "compiler/src/check.cpp",
+  "old": "catch(const Error& e) { fail(\"E_STATIC_ASSERT\",\"la aserci\u00f3n no se pudo evaluar en compilaci\u00f3n (\"+e.code+\"): \"+f.assertMessage,f.loc); }",
+  "new": "catch(const Error& e) { holds=1; }",
+  "tests": [
+   "tests/cp07_static_assert.py"
+  ]
+ },
+ {
+  "name": "C4 a constant that cannot be evaluated is accepted",
+  "file": "compiler/src/check.cpp",
+  "old": "if(!f.isConst||f.body.size()!=1)continue;",
+  "new": "continue;",
+  "tests": [
+   "tests/cp07_static_data.py"
+  ]
+ },
+ {
+  "name": "C5 target.little_endian is inverted",
+  "file": "compiler/src/check.cpp",
+  "old": "boolean(facts.littleEndian)",
+  "new": "boolean(!facts.littleEndian)",
+  "tests": [
+   "tests/cp07_target.py"
+  ]
+ },
+ {
+  "name": "C6 target.pointer_width is always 64",
+  "file": "compiler/src/check.cpp",
+  "old": "number(facts.pointerWidth)",
+  "new": "number(64)",
+  "tests": [
+   "tests/cp07_target.py"
+  ]
+ },
+ {
+  "name": "C7 target.has is always true",
+  "file": "compiler/src/check.cpp",
+  "old": "boolean(facts.features.count(name)!=0)",
+  "new": "boolean(true)",
+  "tests": [
+   "tests/cp07_target.py"
+  ]
+ },
+ {
+  "name": "C8 target.hosted is always true",
+  "file": "compiler/src/check.cpp",
+  "old": "boolean(facts.hosted)",
+  "new": "boolean(true)",
+  "tests": [
+   "tests/cp07_target.py"
+  ]
+ },
+ {
+  "name": "C9 an unknown feature is accepted",
+  "file": "compiler/src/check.cpp",
+  "old": "if(!known.count(name))fail(\"E_TARGET\",\"caracteristica de CPU desconocida: \"+name,e.loc);",
+  "new": "",
+  "tests": [
+   "tests/cp07_target.py"
+  ]
+ },
+ {
+  "name": "C10 the i386 profile is 64 bits",
+  "file": "compiler/src/main.cpp",
+  "old": "facts.arch=\"i386\"; facts.pointerWidth=32;",
+  "new": "facts.arch=\"i386\"; facts.pointerWidth=64;",
+  "tests": [
+   "tests/cp07_target.py"
+  ]
+ },
+ {
+  "name": "C11 --target-isa sse2 does not give sse2",
+  "file": "compiler/src/main.cpp",
+  "old": "if(targetIsa==\"sse2\")facts.features.insert(\"sse2\");",
+  "new": "",
+  "tests": [
+   "tests/cp07_target.py"
+  ]
+ },
+ {
+  "name": "C12 the freestanding profile is hosted",
+  "file": "compiler/src/main.cpp",
+  "old": "if(targetProfile==\"baremetal-x86_64\") { facts.hosted=false;",
+  "new": "if(targetProfile==\"baremetal-x86_64\") { facts.hosted=true;",
+  "tests": [
+   "tests/cp07_target.py"
+  ]
+ },
+ {
+  "name": "C13 an extern function need not declare ffi.call",
+  "file": "compiler/src/check.cpp",
+  "old": "if(f.isExtern&&!f.capabilities.count(\"ffi.call\"))fail(",
+  "new": "if(false)fail(",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C14 more than six parameters cross the C boundary",
+  "file": "compiler/src/check.cpp",
+  "old": "if(f.params.size()>6)fail(\"E_LINKAGE\"",
+  "new": "if(f.params.size()>7)fail(\"E_LINKAGE\"",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C15 the omni prefix is not reserved",
+  "file": "compiler/src/check.cpp",
+  "old": "sym.rfind(\"omni\",0)==0||sym.rfind(\"llvm.\",0)==0",
+  "new": "sym.rfind(\"omnx\",0)==0||sym.rfind(\"llvm.\",0)==0",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C16 a symbol may be exported twice",
+  "file": "compiler/src/check.cpp",
+  "old": "if(!linkNames.insert(sym).second)fail(",
+  "new": "if(false)fail(",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C17 the sections of the compiler can be taken",
+  "file": "compiler/src/check.cpp",
+  "old": "f.section.rfind(\".text.omni_\",0)==0",
+  "new": "f.section.rfind(\".text.omnx_\",0)==0",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C18 a float crosses the C boundary",
+  "file": "compiler/src/check.cpp",
+  "old": "if(!isInteger(f.result))fail(\"E_LINKAGE\"",
+  "new": "if(false)fail(\"E_LINKAGE\"",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C19 a parameter of a struct type crosses the C boundary",
+  "file": "compiler/src/check.cpp",
+  "old": "if(!isInteger(a.type)||!a.receiverMode.empty())fail(\"E_LINKAGE\"",
+  "new": "if(false)fail(\"E_LINKAGE\"",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C20 an extern function runs in the evaluator",
+  "file": "compiler/src/check.cpp",
+  "old": "if(f->isExtern)fail(\"E_TARGET_PROFILE\"",
+  "new": "if(false)fail(\"E_TARGET_PROFILE\"",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C21 a hosted build accepts extern",
+  "file": "compiler/src/llvm.cpp",
+  "old": "if(!prof)fail(\"E_TARGET_PROFILE\",\"una funcion extern solo existe",
+  "new": "if(false)fail(\"E_TARGET_PROFILE\",\"una funcion extern solo existe",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C22 an extern call has no sign extension",
+  "file": "compiler/src/llvm.cpp",
+  "old": "(t.kind==Type::I8||t.kind==Type::I16)?\" signext\":\"\"",
+  "new": "(t.kind==Type::I8||t.kind==Type::I16)?\"\":\"\"",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C23 zero extension is sign extension",
+  "file": "compiler/src/llvm.cpp",
+  "old": "(t.kind==Type::U8||t.kind==Type::U16)?\" zeroext\":",
+  "new": "(t.kind==Type::U8||t.kind==Type::U16)?\" signext\":",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C25 noinline is dropped",
+  "file": "compiler/src/llvm.cpp",
+  "old": "(f.noInline?\" noinline\":\"\")",
+  "new": "\"\"",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C27 the red zone is allowed",
+  "file": "compiler/src/llvm.cpp",
+  "old": "const bool noRedZone=prof&&prof->triple.rfind(\"x86_64\",0)==0&&!prof->exceptionHandler.empty();",
+  "new": "const bool noRedZone=false;",
+  "tests": [
+   "tests/cp09_freestanding.py"
+  ]
+ },
+ {
+  "name": "C28 the i386 profile gets the x86-64 attribute",
+  "file": "compiler/src/llvm.cpp",
+  "old": "const bool noRedZone=prof&&prof->triple.rfind(\"x86_64\",0)==0&&!prof->exceptionHandler.empty();",
+  "new": "const bool noRedZone=prof!=nullptr&&!prof->exceptionHandler.empty();",
+  "tests": [
+   "tests/cp09_freestanding.py"
+  ],
+  "equivalent": "--exception-handler is refused for any profile but baremetal-x86_64 (E_TARGET_PROFILE in llvm.cpp, `--exception-handler requiere el perfil baremetal-x86_64`), so `prof->exceptionHandler` is empty for the i386 boot profile and `prof!=nullptr&&!exceptionHandler.empty()` is the same predicate as the triple test for every program that gets as far as this line."
+ },
+ {
+  "name": "C29 the empty export symbol is accepted",
+  "file": "compiler/src/particle.cpp",
+  "old": "if(exportName.empty())fail(\"E_LINKAGE\",\"el nombre de export no puede ser vacio\",cur().loc);",
+  "new": "",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C30 extern accepts a body",
+  "file": "compiler/src/particle.cpp",
+  "old": "Function f=functionDecl(mod,pub,!externName.empty());",
+  "new": "Function f=functionDecl(mod,pub,false);",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C31 extern combines with export",
+  "file": "compiler/src/particle.cpp",
+  "old": "if(f.isExtern&&(!f.exportName.empty()||!f.section.empty()||f.noInline))fail(",
+  "new": "if(false)fail(",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C32 a generic function takes linkage attributes",
+  "file": "compiler/src/particle.cpp",
+  "old": "if(f.linkage()&&!f.generics.empty())fail(",
+  "new": "if(false)fail(",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C33 the formatter drops the export",
+  "file": "compiler/src/particle.cpp",
+  "old": "if(!f.exportName.empty())o<<\"export \"<<quote(f.exportName)<<\" \";",
+  "new": "",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C34 Wave drops the extern mark",
+  "file": "compiler/src/formats.cpp",
+  "old": "if(f.isExtern)o<<\" (extern \"<<quote(f.externName)<<\")\";",
+  "new": "",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C35 a program with linkage is not Wave21",
+  "file": "compiler/src/formats.cpp",
+  "old": "for(const auto& f:p.functions)if(f.linkage())return true;   // CP-07: export",
+  "new": "for(const auto& f:p.functions)if(f.linkage()&&false)return true;   // CP-07: export",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C36 Wire reads extern from the wrong bit",
+  "file": "compiler/src/formats.cpp",
+  "old": "target->isExtern=(flags&2)!=0;",
+  "new": "target->isExtern=(flags&1)!=0;",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C37 Wire accepts a linkage entry for a missing function",
+  "file": "compiler/src/formats.cpp",
+  "old": "if(!target)fail(\"E_WIRE\",\"la seccion de enlace nombra una funcion que no existe: \"+module+\".\"+name);",
+  "new": "if(!target)continue;",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C38 a computed table is accepted as a constant",
+  "file": "compiler/src/particle.cpp",
+  "old": "&&!isInteger(cf.result)&&cf.result.kind!=Type::Bool)fail(\"E_CONST\"",
+  "new": "&&false)fail(\"E_CONST\"",
+  "tests": [
+   "tests/cp07_static_data.py"
+  ]
+ },
+ {
+  "name": "C39 a static assertion in an imported module is lost",
+  "file": "compiler/src/modules.cpp",
+  "old": "for(auto&f:q.staticAsserts)all.staticAsserts.push_back(std::move(f));",
+  "new": "",
+  "tests": [
+   "tests/cp07_static_assert.py"
+  ]
+ },
+ {
+  "name": "C40 a static assertion may be pub",
+  "file": "compiler/src/particle.cpp",
+  "old": "if(pub)fail(\"E_STATIC_ASSERT\",\"static_assert no es exportable\",cur().loc);",
+  "new": "",
+  "tests": [
+   "tests/cp07_static_assert.py"
+  ]
+ },
+ {
+  "name": "X1 the extern mark is lost by the parser",
+  "file": "compiler/src/particle.cpp",
+  "old": "d.externC=externStruct;",
+  "new": "",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "X2 an extern struct may hold anything",
+  "file": "compiler/src/check.cpp",
+  "old": "for(const auto& d:p.records)if(d.externC) {",
+  "new": "for(const auto& d:p.records)if(false&&d.externC) {",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "X3 Wave drops the extern mark",
+  "file": "compiler/src/formats.cpp",
+  "old": "if(d.externC)o<<\" (extern)\";",
+  "new": "",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "X4 Wire drops the extern bit",
+  "file": "compiler/src/formats.cpp",
+  "old": "|(r.externC?8:0)));",
+  "new": "));",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "X5 Wave20 reads an extern struct",
+  "file": "compiler/src/formats.cpp",
+  "old": "if(waveVersion<21)for(const auto& r:p.records)if(r.externC)",
+  "new": "if(waveVersion<21)for(const auto& r:p.records)if(false&&r.externC)",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "X6 an extern struct is not Wave21",
+  "file": "compiler/src/formats.cpp",
+  "old": "if(r.packed||r.opaque||r.externC)return true;",
+  "new": "if(r.packed||r.opaque)return true;",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "X7 the memory identity ignores extern",
+  "file": "compiler/src/osnmf.cpp",
+  "old": "if(r.externC)z<<\"extern|\";",
+  "new": "",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "X8 an extern struct may be generic",
+  "file": "compiler/src/particle.cpp",
+  "old": "if(d.externC&&!d.generics.empty())fail(",
+  "new": "if(false)fail(",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "X9 extern combines with packed",
+  "file": "compiler/src/particle.cpp",
+  "old": "&&!externStruct&&!packedStruct&&!opaqueStruct) { p++; externStruct=true;",
+  "new": "&&!externStruct) { p++; externStruct=true;",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ],
+  "equivalent": "the `packed` and `opaque` modifier lines only continue when the next token is `struct` or the other of the two, never `extern`, so no modifier can precede `extern struct`; and the `extern` line only fires when the next token is `struct`, so `extern packed struct` / `extern opaque struct` never reach it. The guard on packedStruct/opaqueStruct is therefore never false-by-flag at that point: with or without it the same sources parse (the combinations are a parse error)."
+ },
+ {
+  "name": "X10 OMC20 reads an extern struct",
+  "file": "compiler/src/formats.cpp",
+  "old": "if(representationVersion<21)for(const auto& rd:p.records)if(rd.externC)",
+  "new": "if(representationVersion<21)for(const auto& rd:p.records)if(false&&rd.externC)",
+  "tests": [
+   "tests/cp09_linkage.py"
+  ]
+ },
+ {
+  "name": "C41 every x86-64 freestanding image gets noredzone (drift)",
+  "file": "compiler/src/llvm.cpp",
+  "old": "const bool noRedZone=prof&&prof->triple.rfind(\"x86_64\",0)==0&&!prof->exceptionHandler.empty();",
+  "new": "const bool noRedZone=prof&&prof->triple.rfind(\"x86_64\",0)==0;",
+  "tests": [
+   "tests/cp09_freestanding.py"
+  ]
+ }
+]

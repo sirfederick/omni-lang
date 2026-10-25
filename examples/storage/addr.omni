@@ -1,0 +1,72 @@
+module addr
+
+// CP-07 (spec/ADDRESS_DOMAINS_CANDIDATE.md): address DOMAINS. A physical address, a virtual address and a bus (device) address are different things, and a `u64` is none of them.
+// Each is an `opaque struct`: its literal and its field can only be written in THIS module, so the only way to obtain one is a constructor below, and the constructor checks what the
+// domain requires. Nothing converts one domain into another except an explicit translation (a policy type, like the allocator), and no operation truncates: every address is the
+// full 64 bits.
+//   Phys  a physical address: at most 52 bits (the architectural limit of x86-64 physical addresses); the platform may admit fewer, which is what `phys_within` asks
+//   Virt  a virtual address in canonical form (bits 63..47 equal to bit 47); the access functions below read and write memory through it
+//   Bus   an address a device uses (DMA); it has no relation to Phys except through a translation the platform declares
+// Outcome codes: 1 outside the domain (a physical address wider than 52 bits, or beyond the platform limit)   2 not canonical   3 the result would leave the domain or wrap
+//   4 no translation for that address
+pub opaque struct Phys { v u64 }
+pub opaque struct Virt { v u64 }
+pub opaque struct Bus { v u64 }
+
+func phys_limit() u64 { return 4503599627370496u64 }   // 2^52
+func canonical_hole_low() u64 { return 140737488355328u64 }   // 2^47: the first address of the non-canonical hole
+func canonical_hole_high() u64 { return 18446603336221196288u64 }   // 0xFFFF800000000000: the first canonical address of the upper half
+
+pub func phys(v u64) Result<Phys,u32> {
+  if v >= phys_limit() { return Err<Phys,u32>(1u32) }
+  return Ok<Phys,u32>(Phys { v: v })
+}
+
+// A physical address that the platform actually has: below `limit` (the end of its physical address space).
+pub func phys_within(v u64, limit u64) Result<Phys,u32> {
+  if v >= limit { return Err<Phys,u32>(1u32) }
+  return phys(v)
+}
+
+pub func virt(v u64) Result<Virt,u32> {
+  if v >= canonical_hole_low() {
+    if v < canonical_hole_high() { return Err<Virt,u32>(2u32) }
+  }
+  return Ok<Virt,u32>(Virt { v: v })
+}
+
+pub func bus(v u64) Result<Bus,u32> { return Ok<Bus,u32>(Bus { v: v }) }
+
+pub func phys_value(p Phys) u64 { return p.v }
+pub func virt_value(a Virt) u64 { return a.v }
+pub func bus_value(b Bus) u64 { return b.v }
+
+// Moving an address inside its domain: the result must still be a valid member of it, and the addition never wraps.
+pub func phys_add(p Phys, n u64) Result<Phys,u32> {
+  if n > phys_limit() { return Err<Phys,u32>(3u32) }
+  if p.v >= phys_limit() - n { return Err<Phys,u32>(3u32) }   // the result p + n must still be below the limit (the limit itself is not an address)
+  return Ok<Phys,u32>(Phys { v: p.v + n })
+}
+
+pub func virt_add(a Virt, n u64) Result<Virt,u32> {
+  if n > 18446744073709551615u64 - a.v { return Err<Virt,u32>(3u32) }
+  let r = virt(a.v + n)
+  match r { Ok(x) { return Ok<Virt,u32>(x) } Err(code) { return Err<Virt,u32>(3u32) } }
+}
+
+// A translation from virtual to physical addresses is a POLICY TYPE: the program names it, nothing is global. `Identity1G` is the translation of the identity map that the
+// conformance boot adapter builds (the first GiB), as an example of one; a real kernel supplies the one of its page tables.
+pub trait Translate {
+  func to_phys(a Virt) Result<Phys,u32>
+}
+
+pub struct Identity1G { tag u32 }
+
+impl Translate for Identity1G {
+  func to_phys(a Virt) Result<Phys,u32> {
+    if a.v >= 1073741824u64 { return Err<Phys,u32>(4u32) }
+    return phys(a.v)
+  }
+}
+
+pub func translate<T: Translate>(a Virt) Result<Phys,u32> { return Translate.to_phys<T>(a) }

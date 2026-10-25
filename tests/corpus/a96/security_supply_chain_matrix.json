@@ -1,0 +1,16 @@
+{
+  "schema": "omni.a96-security-supply-chain-matrix/1",
+  "version": "0.9.6",
+  "scenarios": [
+    {"id":"A96-S01","layer":"L2","attack":"unknown capability across Particle/Wave/Wire","oracle":"stable fail-closed diagnostic"},
+    {"id":"A96-S02","layer":"L2","attack":"semantic representation downgrade","oracle":"writer fence rejects downgrade"},
+    {"id":"A96-S03","layer":"L3","attack":"locked package source tamper","oracle":"lock drift rejects altered bytes"},
+    {"id":"A96-S04","layer":"L2","attack":"unknown/unsafe dependency path","oracle":"manifest resolver fails closed"},
+    {"id":"A96-S05","layer":"L3","attack":"scope/limit/expiry/generation mismatch","oracle":"host authority denies every mismatch"},
+    {"id":"A96-S06","layer":"L3","attack":"stale/cross-subject proposal replay","oracle":"no publication occurs"},
+    {"id":"A96-S07","layer":"L3","attack":"index/commit tamper","oracle":"durable reader rejects incoherent bytes"},
+    {"id":"A96-S08","layer":"L2","attack":"unbound build provenance","oracle":"receipt hashes compiler/runtime/backend/sources"},
+    {"id":"A96-S09","layer":"L1","attack":"unbound distribution component","oracle":"safe deterministic inventory binds every tracked Core component"},
+    {"id":"A96-S10","layer":"L0","attack":"tracked secret/bearer material","oracle":"bounded active-Core scan has zero secret-shaped values"}
+  ]
+}

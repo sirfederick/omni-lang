@@ -1,0 +1,121 @@
+module registry
+
+// CP-06 (spec/CALLBACK_REGISTRY_HOSTED_CANDIDATE.md): callables whose environment OWNS resources, stored, used later and retired, in the hosted profile.
+// A callable is an environment record `H` (a nominal resource: one u64 or one Resource<Buffer> field) plus the code of its `Handler` impl, selected statically:
+// no function pointers, no vtables. The registry keeps each environment in a typed slot of the owned slots (spec/OWNED_SLOTS_CANDIDATE.md), so it is moved in once,
+// lent for exactly one call at a time, and moved out and disposed exactly once at retirement.
+//   token:  (cell, generation). The generation of a cell rises every time its occupant leaves (slots.gen), and a cell that reached the maximum takes no more
+//           occupants, so a stale or reused token is refused with a typed result and can never reach another registration's environment. A token proves nothing by
+//           itself: every use re-checks it.
+//   a call: lends the environment mutably (BorrowMut<H>) for its whole duration. The registry is mutably borrowed for that time too, so the callback cannot
+//           register, retire or fire anything from inside the call (E_BORROW_CONFLICT): retiring from the callback is refused at compile time, and a retirement can
+//           never find a call in flight. (A second flow that retires while another fires is the concurrent profile, CP-13/CP-14, and is not claimed here.)
+// Outcome codes of fire / retire: 1 no live registration in that cell, 2 stale generation (the cell was reused). register hands the environment back on failure.
+pub trait Handler {
+  // Runs with the environment lent for the call only: it may use and change what the environment owns, and cannot keep the borrow.
+  func call(h BorrowMut<Self>, x u32) u32 !{memory.read,memory.write}
+  // Consumes the environment at retirement. Infallible by contract (as seq.Dispose); a handler whose release can fail ends through its own call.
+  func dispose(h Resource<Self>) u32 !{memory.read,memory.write}
+}
+
+// A plain record, so anyone can build one: that is why every use checks it against the generation of the cell.
+pub struct Token { slot u32, gen u32 }
+
+pub struct Registry<H> { buf Resource<Buffer> }
+
+pub func new<H>(capacity u32) Result<Resource<Registry<H>>,u32> !{memory.read,memory.write} {
+  let a = slots.alloc<H>(capacity)
+  match a {
+    Ok(b) {
+      let inner Registry<H> = Registry<H> { buf: move(b) }
+      return Ok<Resource<Registry<H>>,u32>(resource.seal(move(inner)))
+    }
+    Err(code) { return Err<Resource<Registry<H>>,u32>(code) }
+  }
+}
+
+pub func capacity<H>(r Borrow<Registry<H>>) u32 !{memory.read} { return slots.len(resource.inner(r)) }
+
+// Live registrations.
+pub func count<H>(r Borrow<Registry<H>>) u32 !{memory.read} { return slots.count(resource.inner(r)) }
+
+// 0 live; 1 nothing live in that cell (empty or out of range); 2 the token is of an earlier occupant.
+pub func check<H>(r Borrow<Registry<H>>, t Token) u32 !{memory.read} {
+  if t.slot >= slots.len(resource.inner(r)) { return 1u32 }
+  if slots.state<H>(resource.inner(r), t.slot) != 1u32 { return 1u32 }
+  if slots.gen<H>(resource.inner(r), t.slot) != t.gen { return 2u32 }
+  return 0u32
+}
+
+// The first cell that is empty and can still take an occupant (state 0: a cell whose generation reached the horizon is state 4), or the capacity when there is none.
+func free_cell<H>(r Borrow<Registry<H>>) u32 !{memory.read} {
+  let cap u32 = slots.len(resource.inner(r))
+  var i u32 = 0u32
+  for i < cap {
+    if slots.state<H>(resource.inner(r), i) == 0u32 { return i }
+    i = i + 1u32
+  }
+  return cap
+}
+
+// Moves the environment into the registry and returns the token of its registration. When no cell is free the registry grows (geometric, at least 4 cells); if it
+// cannot, or the cell refuses, the environment comes back as the error and nothing changed.
+pub func register<H>(r BorrowMut<Registry<H>>, env Resource<H>) Result<Token,Resource<H>> !{memory.read,memory.write} {
+  var idx u32 = free_cell<H>(borrow(r))
+  let cap u32 = capacity<H>(borrow(r))
+  if idx == cap {
+    var want u32 = cap * 2u32
+    if want < 4u32 { want = 4u32 }
+    let g = slots.grow(resource.inner_mut(r), want)
+    match g {
+      Ok(c) { idx = cap }
+      Err(code) { return Err<Token,Resource<H>>(move(env)) }
+    }
+  }
+  let p = slots.put<H>(resource.inner_mut(r), idx, move(env))
+  match p {
+    Ok(i) { return Ok<Token,Resource<H>>(Token { slot: i, gen: slots.gen<H>(resource.inner(borrow(r)), i) }) }
+    Err(back) { return Err<Token,Resource<H>>(move(back)) }
+  }
+}
+
+// Runs the registered callable with `x`. The registry is mutably borrowed while the call runs.
+pub func fire<H: Handler>(r BorrowMut<Registry<H>>, t Token, x u32) Result<u32,u32> !{memory.read,memory.write} {
+  let c u32 = check<H>(borrow(r), t)
+  if c != 0u32 { return Err<u32,u32>(c) }
+  let v u32 = Handler.call<H>(slots.borrow_mut<H>(resource.inner_mut(r), t.slot), x)
+  return Ok<u32,u32>(v)
+}
+
+// Unregisters: the token stops working at once, the environment is moved out and disposed exactly once, and the result of its dispose is returned.
+pub func retire<H: Handler>(r BorrowMut<Registry<H>>, t Token) Result<u32,u32> !{memory.read,memory.write} {
+  let c u32 = check<H>(borrow(r), t)
+  if c != 0u32 { return Err<u32,u32>(c) }
+  let taken = slots.take<H>(resource.inner_mut(r), t.slot)
+  match taken {
+    Ok(env) { return Ok<u32,u32>(Handler.dispose<H>(move(env))) }
+    Err(code) { return Err<u32,u32>(1u32) }
+  }
+}
+
+// Consumes the registry: every environment still registered is disposed (last cell first) and the buffer is released. Returns the sum of the dispose results.
+pub func destroy<H: Handler>(r Resource<Registry<H>>) u32 !{memory.read,memory.write} {
+  let inner Registry<H> = resource.unseal(move(r))
+  var total u32 = 0u32
+  var i u32 = slots.len(borrow(inner.buf))
+  for i > 0u32 {
+    i = i - 1u32
+    if slots.state<H>(borrow(inner.buf), i) == 1u32 {
+      let t = slots.take<H>(borrow_mut(inner.buf), i)
+      match t {
+        Ok(x) { total = total + Handler.dispose<H>(move(x)) }
+        Err(code) { total = total + 1000u32 }
+      }
+    }
+  }
+  let z = slots.release(move(inner.buf))
+  match z {
+    Ok(k) { return total }
+    Err(b) { return total + 1000u32 }
+  }
+}

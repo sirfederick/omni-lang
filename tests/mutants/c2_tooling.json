@@ -1,0 +1,198 @@
+[
+  {
+    "name": "L9 malformed document objects crash the server",
+    "file": "tools/omni_lsp.py",
+    "old": "if method.startswith(\"textDocument/\") and not isinstance(params.get(\"textDocument\"), dict):",
+    "new": "if False:",
+    "tests": ["tests/cp16_tooling.py", "CheckedBindingsTests"]
+  },
+  {
+    "name": "D6 byte columns are mislabeled as Unicode scalar columns",
+    "file": "compiler/src/main.cpp",
+    "old": "return scalar;",
+    "new": "return byteColumn;",
+    "tests": ["tests/cp16_tooling.py", "AdmissionAndFixitTests"]
+  },
+  {
+    "name": "D1 budget emitter is absent from the catalog",
+    "file": "compiler/src/main.cpp",
+    "old": "\"E_BUDGET\",\"E_INTERNAL_OR_IO\",\"E_BYTES_HANDLE\"",
+    "new": "\"E_INTERNAL_OR_IO\",\"E_BYTES_HANDLE\"",
+    "tests": ["tests/cp16_diagnostics.py"]
+  },
+  {
+    "name": "D2 allocator exhaustion loses the structured diagnostic",
+    "file": "compiler/src/main.cpp",
+    "old": "else if(diagnosticJsonMode)std::cerr<<diagnosticJson(budget,input);",
+    "new": "else if(false&&diagnosticJsonMode)std::cerr<<diagnosticJson(budget,input);",
+    "tests": ["tests/cp16_diagnostics.py"]
+  },
+  {
+    "name": "D3 a source is parsed but never checked",
+    "file": "compiler/src/main.cpp",
+    "old": "auto p=load(input,bundledStandardLibrary(root(argv[0])));",
+    "new": "auto p=parseParticle(readUtf8Text(input));",
+    "tests": ["tests/cp16_single_checker.py", "OneCheckerTests"]
+  },
+  {
+    "name": "D4 admission omits the checker refusal",
+    "file": "compiler/src/main.cpp",
+    "old": "if(admissionMode&&e.code!=\"E_CLI\")",
+    "new": "if(false&&admissionMode&&e.code!=\"E_CLI\")",
+    "tests": ["tests/cp16_tooling.py", "AdmissionAndFixitTests"]
+  },
+  {
+    "name": "D5 a fixit suggests ambiguous names instead of the unique binding",
+    "file": "compiler/src/check.cpp",
+    "old": "if(suggestions.size()==1){missing.expected=s;missing.replacement=*suggestions.begin();}",
+    "new": "if(suggestions.size()==2){missing.expected=s;missing.replacement=*suggestions.begin();}",
+    "tests": ["tests/cp16_tooling.py", "AdmissionAndFixitTests"]
+  },
+  {
+    "name": "L1 rename selects every homonym",
+    "file": "tools/omni_lsp.py",
+    "old": "if row[\"binding\"] == selected[\"binding\"]:",
+    "new": "if row[\"name\"] == selected[\"name\"]:",
+    "tests": ["tests/cp16_tooling.py", "CheckedBindingsTests"]
+  },
+  {
+    "name": "L2 stale full-content edits overwrite the snapshot",
+    "file": "tools/omni_lsp.py",
+    "old": "version <= document.version",
+    "new": "version < document.version",
+    "tests": ["tests/cp16_tooling.py", "CheckedBindingsTests"]
+  },
+  {
+    "name": "L3 a ranged edit is mistaken for full content",
+    "file": "tools/omni_lsp.py",
+    "old": "if \"range\" in changes[0] or \"rangeLength\" in changes[0]:",
+    "new": "if False:",
+    "tests": ["tests/cp16_tooling.py", "CheckedBindingsTests"]
+  },
+  {
+    "name": "L4 disk shadows the unsaved workspace buffer",
+    "file": "tools/omni_lsp.py",
+    "old": "destination.write_text(text, encoding=\"utf-8\", newline=\"\")",
+    "new": "destination.write_text(uri_path(uri, self.workspace).read_text(encoding=\"utf-8\"), encoding=\"utf-8\", newline=\"\")",
+    "tests": ["tests/cp16_tooling.py", "CheckedBindingsTests"]
+  },
+  {
+    "name": "L5 a type-correct rename silently captures another binding",
+    "file": "tools/omni_lsp.py",
+    "old": "if actual != expected:",
+    "new": "if False:",
+    "tests": ["tests/cp16_tooling.py", "CheckedBindingsTests"]
+  },
+  {
+    "name": "L6 a workspace race publishes obsolete edits",
+    "file": "tools/omni_lsp.py",
+    "old": "if self.sources() != texts or after_metadata != metadata or self.package_metadata(texts) != metadata:",
+    "new": "if False:",
+    "tests": ["tests/cp16_tooling.py", "CheckedBindingsTests"]
+  },
+  {
+    "name": "L7 an incomplete binding report is treated as complete",
+    "file": "tools/omni_lsp.py",
+    "old": "complete = complete and report.get(\"complete\") is True",
+    "new": "complete = complete",
+    "tests": ["tests/cp16_tooling.py", "CheckedBindingsTests"]
+  },
+  {
+    "name": "L8 rename edits lose their document version",
+    "file": "tools/omni_lsp.py",
+    "old": "self.documents[uri].version if uri in self.documents else None",
+    "new": "None",
+    "tests": ["tests/cp16_tooling.py", "CheckedBindingsTests"]
+  },
+  {
+    "name": "L10 a package commitment race publishes obsolete edits",
+    "file": "tools/omni_lsp.py",
+    "old": "if self.sources() != texts or after_metadata != metadata or self.package_metadata(texts) != metadata:",
+    "new": "if self.sources() != texts or after_metadata != metadata:",
+    "tests": ["tests/cp16_tooling.py", "CheckedBindingsTests"]
+  },
+  {
+    "name": "L11 package snapshots discard their commitments",
+    "file": "tools/omni_lsp.py",
+    "old": "destination.write_bytes(data)",
+    "new": "destination.write_bytes(b'{}')",
+    "tests": ["tests/cp16_tooling.py", "CheckedBindingsTests"]
+  },
+  {
+    "name": "L12 the installed LSP selects a development root",
+    "file": "tools/omni_lsp.py",
+    "old": "env ={**os.environ, \"OMNI_HOME\": str(self.sdk_root), \"PYTHONDONTWRITEBYTECODE\": \"1\"}",
+    "new": "env ={**os.environ, \"OMNI_HOME\": str(self.compiler.parents[2]), \"PYTHONDONTWRITEBYTECODE\": \"1\"}",
+    "tests": ["tests/cp16_tooling.py", "CheckedBindingsTests"]
+  },
+  {
+    "name": "L13 an omitted local dependency silently selects the SDK bundle",
+    "file": "tools/omni_lsp.py",
+    "old": "if declared.is_symlink() or not contains(self.workspace, declared.resolve()):",
+    "new": "if False:",
+    "tests": ["tests/cp16_tooling.py", "CheckedBindingsTests"]
+  },
+  {
+    "name": "P1 dependency imports disagree with the verified SDK lock",
+    "file": "compiler/src/packages.cpp",
+    "old": "(void)packageCommand(\"check\",pkg,true,bundledStdlib);",
+    "new": "(void)packageCommand(\"check\",pkg,true,fs::path{});",
+    "tests": ["tests/cp05_packages.py", "PackageImportTests.test_bundled_stdlib_imports_preserve_locks_round_trips_and_local_precedence"]
+  },
+  {
+    "name": "P2 a verified bundled dependency is loaded from a missing local path",
+    "file": "compiler/src/packages.cpp",
+    "old": "useBundled?bundledStdlib:declared",
+    "new": "useBundled?declared:bundledStdlib",
+    "tests": ["tests/cp05_packages.py", "PackageImportTests.test_bundled_stdlib_imports_preserve_locks_round_trips_and_local_precedence"]
+  },
+  {
+    "name": "P3 SDK stdlib resolution falls back to a compiler-pinned directory",
+    "file": "compiler/src/packages.cpp",
+    "old": "return selected;",
+    "new": "return root/\"packages/omni.std/0.8.4-alpha.8\";",
+    "tests": ["tests/cp05_packages.py", "PackageImportTests.test_bundled_stdlib_imports_preserve_locks_round_trips_and_local_precedence"]
+  },
+  {
+    "name": "P4 SDK stdlib manifest no longer matches its authoritative inventory",
+    "file": "compiler/src/packages.cpp",
+    "old": "if(text(component,\"sha256\")!=sha256(contents))",
+    "new": "if(false)",
+    "tests": ["tests/cp05_packages.py", "PackageImportTests.test_bundled_stdlib_imports_preserve_locks_round_trips_and_local_precedence"]
+  },
+  {
+    "name": "K1 the packager duplicates a pinned stdlib version",
+    "file": "tools/omni_sdk_package.py",
+    "old": "std_prefix=f'packages/{std_name}/{std_version}/'",
+    "new": "std_prefix='packages/omni.std/0.8.4-alpha.8/'",
+    "tests": ["tests/cp05_packages.py", "SdkPackagingManifestTests"]
+  },
+  {
+    "name": "K2 the SDK doctor ignores the manifested stdlib provider",
+    "file": "tools/omni_sdk_doctor.py",
+    "old": "{'component':'omni_std','status':'PASS' if len(libraries)==1 else 'FAIL'}",
+    "new": "{'component':'omni_std','status':'PASS' if (root/'packages/omni.std/0.8.4-alpha.8/omni.package.json').is_file() else 'FAIL'}",
+    "tests": ["tests/cp05_packages.py", "PackageImportTests.test_bundled_stdlib_imports_preserve_locks_round_trips_and_local_precedence"]
+  },
+  {
+    "name": "S1 semantic diagnostics lose the checked symbol identity",
+    "file": "compiler/src/check.cpp",
+    "old": "context.symbolId=semanticFunctionId(*fn,!fn->generics.empty());",
+    "new": "context.symbolId=std::string();",
+    "tests": ["tests/cp16_tooling.py", "AdmissionAndFixitTests"]
+  },
+  {
+    "name": "S2 semantic diagnostics misidentify the conflicting loan kind",
+    "file": "compiler/src/check.cpp",
+    "old": "context.loanKind=loan->second.kind==LoanKind::Shared?\"shared\":\"exclusive\";",
+    "new": "context.loanKind=loan->second.kind==LoanKind::Shared?\"exclusive\":\"shared\";",
+    "tests": ["tests/cp16_tooling.py", "AdmissionAndFixitTests"]
+  },
+  {
+    "name": "M1 a red baseline is allowed to start mutants",
+    "file": "tools/mutation_harness.py",
+    "old": "if clean['result'] != 'PASS':",
+    "new": "if False:",
+    "tests": ["tests/cp16_tooling.py", "MutationBaselineTests"]
+  }
+]

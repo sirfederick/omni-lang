@@ -1,0 +1,11 @@
+(omni-wave 4
+  (entry legacy4)
+  (module legacy4
+    (imports)
+    (func main (visibility private)
+      (params) (result u32) (effects data.read data.write io.print)
+      (block
+        (let r infer (call file.read_text (text-value "missing")))
+        (match (ref r) (ok t (block
+          (return (call text.len (ref t))))) (err e (block
+          (return (ref e)))))))))

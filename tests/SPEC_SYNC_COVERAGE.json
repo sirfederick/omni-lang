@@ -1,0 +1,1123 @@
+{
+  "schema": "omni.structural-check-coverage/1",
+  "scope": "Every original top-level check containing error diagnostics is accounted for. No historical release or editorial check is relabeled PASS.",
+  "original_check_groups": 77,
+  "checks": [
+    {
+      "id": "SC-001",
+      "original_lines": [
+        74,
+        75
+      ],
+      "original_diagnostics": [
+        "'README version mismatch'"
+      ],
+      "disposition": "NOT_PORTABLE_WITH_REASON",
+      "reason": "Editorial root README reserved to founder; current product identity is checked by verify_tree and executed CLI --version",
+      "new_check": null,
+      "evidence": "Explicitly excluded; never counted as PASS"
+    },
+    {
+      "id": "SC-002",
+      "original_lines": [
+        77,
+        87
+      ],
+      "original_diagnostics": [
+        "f'{name} historical release identity mismatch'"
+      ],
+      "disposition": "NOT_PORTABLE_WITH_REASON",
+      "reason": "Historical release identity presence across old versioned documents is not a current product invariant; technical ABI/format/stdlib identities remain independently checked",
+      "new_check": null,
+      "evidence": "Explicitly excluded; never counted as PASS"
+    },
+    {
+      "id": "SC-003",
+      "original_lines": [
+        89,
+        94
+      ],
+      "original_diagnostics": [
+        "f'{name} A82 contract identity mismatch'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-003",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-004",
+      "original_lines": [
+        96,
+        97
+      ],
+      "original_diagnostics": [
+        "'compiler VERSION mismatch'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-004",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-005",
+      "original_lines": [
+        101,
+        137
+      ],
+      "original_diagnostics": [
+        "'cannot parse Type::Kind'",
+        "f'cannot parse {signature} switch'",
+        "f'{signature} Type::Kind mismatch '\n                f'missing={missing} duplicate={duplicates} extra={extra}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-005",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-006",
+      "original_lines": [
+        140,
+        150
+      ],
+      "original_diagnostics": [
+        "f'grammar missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-006",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-007",
+      "original_lines": [
+        152,
+        157
+      ],
+      "original_diagnostics": [
+        "f'IR spec missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-007",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-008",
+      "original_lines": [
+        159,
+        175
+      ],
+      "original_diagnostics": [
+        "f'current writer/fence source missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-008",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-009",
+      "original_lines": [
+        177,
+        179
+      ],
+      "original_diagnostics": [
+        "f'A85 concurrency contract missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-009",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-010",
+      "original_lines": [
+        181,
+        183
+      ],
+      "original_diagnostics": [
+        "f'A86 hosted-effects contract missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-010",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-011",
+      "original_lines": [
+        184,
+        188
+      ],
+      "original_diagnostics": [
+        "f'A93 runtime-hardening contract missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-011",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-012",
+      "original_lines": [
+        190,
+        193
+      ],
+      "original_diagnostics": [
+        "f'A94 systemic-durability contract missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-012",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-013",
+      "original_lines": [
+        195,
+        198
+      ],
+      "original_diagnostics": [
+        "f'A95 interop-profile contract missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-013",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-014",
+      "original_lines": [
+        200,
+        204
+      ],
+      "original_diagnostics": [
+        "f'A96 security/supply-chain contract missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-014",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-015",
+      "original_lines": [
+        208,
+        209
+      ],
+      "original_diagnostics": [
+        "'A93 runtime-hardening executable test is missing'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-015",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-016",
+      "original_lines": [
+        210,
+        224
+      ],
+      "original_diagnostics": [
+        "'A93 runtime fault matrix is missing'",
+        "'A93 runtime fault matrix IDs are incomplete or out of order'",
+        "f'invalid A93 runtime fault matrix: {exc}'",
+        "f\"A93 runtime fault matrix invalid phase for {row.get('id')}\"",
+        "f\"A93 runtime fault matrix missing resource oracle for {row.get('id')}\""
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-016",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-017",
+      "original_lines": [
+        227,
+        228
+      ],
+      "original_diagnostics": [
+        "'A94 systemic-durability executable test is missing'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-017",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-018",
+      "original_lines": [
+        229,
+        239
+      ],
+      "original_diagnostics": [
+        "'A94 systemic durability matrix is missing'",
+        "'A94 systemic durability matrix IDs are incomplete or out of order'",
+        "'A94 systemic durability matrix lacks a causal layer/oracle'",
+        "f'invalid A94 systemic durability matrix: {exc}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-018",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-019",
+      "original_lines": [
+        242,
+        243
+      ],
+      "original_diagnostics": [
+        "'A95 interop-profile executable test is missing'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-019",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-020",
+      "original_lines": [
+        244,
+        257
+      ],
+      "original_diagnostics": [
+        "'A95 interop profile matrix is missing'",
+        "'A95 interop profile matrix IDs are incomplete or out of order'",
+        "'A95 interop profile matrix lacks layer/evidence/oracle'",
+        "f'invalid A95 interop profile matrix: {exc}'",
+        "f\"A95 {row.get('id')} falsely upgrades loopback/mock provider evidence\""
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-020",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-021",
+      "original_lines": [
+        261,
+        262
+      ],
+      "original_diagnostics": [
+        "'A96 security/supply-chain executable gate is missing'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-021",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-022",
+      "original_lines": [
+        263,
+        273
+      ],
+      "original_diagnostics": [
+        "'A96 security/supply-chain matrix is missing'",
+        "'A96 security/supply-chain matrix IDs are incomplete or out of order'",
+        "'A96 security/supply-chain matrix lacks causal layer/attack/oracle'",
+        "f'invalid A96 security/supply-chain matrix: {exc}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-022",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-023",
+      "original_lines": [
+        277,
+        278
+      ],
+      "original_diagnostics": [
+        "'A97 operations/maintenance executable gate is missing'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-023",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-024",
+      "original_lines": [
+        279,
+        292
+      ],
+      "original_diagnostics": [
+        "'A97 operations/maintenance matrix is missing'",
+        "'A97 prerelease operational gate exceeds the 1200-second maximum'",
+        "'A97 operations/maintenance matrix IDs are incomplete or out of order'",
+        "'A97 operations/maintenance matrix lacks causal layer/boundary/oracle'",
+        "f'invalid A97 operations/maintenance matrix: {exc}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-024",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-025",
+      "original_lines": [
+        293,
+        295
+      ],
+      "original_diagnostics": [
+        "f'A86 host-policy implementation missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-025",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-026",
+      "original_lines": [
+        296,
+        298
+      ],
+      "original_diagnostics": [
+        "f'A86 capability registry missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-026",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-027",
+      "original_lines": [
+        300,
+        302
+      ],
+      "original_diagnostics": [
+        "f'A87 tooling contract missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-027",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-028",
+      "original_lines": [
+        303,
+        305
+      ],
+      "original_diagnostics": [
+        "f'A87 LSP implementation missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-028",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-029",
+      "original_lines": [
+        306,
+        308
+      ],
+      "original_diagnostics": [
+        "f'A87 provenance implementation missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-029",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-030",
+      "original_lines": [
+        309,
+        311
+      ],
+      "original_diagnostics": [
+        "f'A88 target-profile contract missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-030",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-031",
+      "original_lines": [
+        312,
+        314
+      ],
+      "original_diagnostics": [
+        "f'A88 target registry implementation missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-031",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-032",
+      "original_lines": [
+        315,
+        316
+      ],
+      "original_diagnostics": [
+        "'A88 provenance missing target_id'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-032",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-033",
+      "original_lines": [
+        317,
+        319
+      ],
+      "original_diagnostics": [
+        "f'A89 hardening contract missing {token}'"
+      ],
+      "disposition": "ADAPTED",
+      "reason": "Keep hardening invariants; remove only the external application milestone token",
+      "new_check": "tools/check_spec_sync.py marker SC-033",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-034",
+      "original_lines": [
+        321,
+        327
+      ],
+      "original_diagnostics": [
+        "f'package source-identity contract missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-034",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-035",
+      "original_lines": [
+        328,
+        330
+      ],
+      "original_diagnostics": [
+        "f'package source-identity implementation missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-035",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-036",
+      "original_lines": [
+        332,
+        334
+      ],
+      "original_diagnostics": [
+        "f'A89 hardening harness missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-036",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-037",
+      "original_lines": [
+        336,
+        337
+      ],
+      "original_diagnostics": [
+        "'checker missing Wave18 reborrow fence'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-037",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-038",
+      "original_lines": [
+        338,
+        339
+      ],
+      "original_diagnostics": [
+        "'checker missing Wave18 structured-cleanup fence'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-038",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-039",
+      "original_lines": [
+        340,
+        341
+      ],
+      "original_diagnostics": [
+        "'native backend missing structured-cleanup lowering'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-039",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-040",
+      "original_lines": [
+        344,
+        346
+      ],
+      "original_diagnostics": [
+        "f'A85 native RuntimeContext missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-040",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-041",
+      "original_lines": [
+        347,
+        349
+      ],
+      "original_diagnostics": [
+        "f'A85 native entrypoint missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-041",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-042",
+      "original_lines": [
+        351,
+        356
+      ],
+      "original_diagnostics": [
+        "f'abstraction spec missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-042",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-043",
+      "original_lines": [
+        358,
+        363
+      ],
+      "original_diagnostics": [
+        "f'type identity doc missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-043",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-044",
+      "original_lines": [
+        365,
+        367
+      ],
+      "original_diagnostics": [
+        "f'header missing canonical TypeID seam {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-044",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-045",
+      "original_lines": [
+        368,
+        370
+      ],
+      "original_diagnostics": [
+        "f'type descriptor implementation missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-045",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-046",
+      "original_lines": [
+        372,
+        373
+      ],
+      "original_diagnostics": [
+        "'OSNMF does not consume the canonical semanticTypeId implementation'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-046",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-047",
+      "original_lines": [
+        374,
+        376
+      ],
+      "original_diagnostics": [
+        "f'type descriptor v2 migration surface missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-047",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-048",
+      "original_lines": [
+        378,
+        383
+      ],
+      "original_diagnostics": [
+        "f'product spec missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-048",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-049",
+      "original_lines": [
+        385,
+        387
+      ],
+      "original_diagnostics": [
+        "f'view spec missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-049",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-050",
+      "original_lines": [
+        389,
+        390
+      ],
+      "original_diagnostics": [
+        "f'historical/profile spec leaked into normative spec/: {p.name}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-050",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-051",
+      "original_lines": [
+        393,
+        398
+      ],
+      "original_diagnostics": [
+        "f'Alpha8 memory/authority spec missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-051",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-052",
+      "original_lines": [
+        400,
+        402
+      ],
+      "original_diagnostics": [
+        "f'Alpha8 compatibility spec missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-052",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-053",
+      "original_lines": [
+        404,
+        411
+      ],
+      "original_diagnostics": [
+        "f'Alpha8 checker missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-053",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-054",
+      "original_lines": [
+        413,
+        415
+      ],
+      "original_diagnostics": [
+        "f'Alpha8 diagnostics registry missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-054",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-055",
+      "original_lines": [
+        418,
+        423
+      ],
+      "original_diagnostics": [
+        "f'0.8.1/A8-T1 plan missing {token}'"
+      ],
+      "disposition": "NOT_PORTABLE_WITH_REASON",
+      "reason": "Historical roadmap identity and Vector/Owned/allocator planning text, not an implemented semantic control; current storage candidates are indexed without adoption claims",
+      "new_check": null,
+      "evidence": "Explicitly excluded; never counted as PASS"
+    },
+    {
+      "id": "SC-056",
+      "original_lines": [
+        425,
+        427
+      ],
+      "original_diagnostics": [
+        "f'0.8.1 compatibility contract missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-056",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-057",
+      "original_lines": [
+        428,
+        433
+      ],
+      "original_diagnostics": [
+        "f'0.8.1 conformance contract missing {token}'"
+      ],
+      "disposition": "NOT_PORTABLE_WITH_REASON",
+      "reason": "Historical CONFORMANCE document and monorepo release verifier omitted. Float/Unicode/Range grammar, reader-version and type invariants retained elsewhere in this checker; executable compatibility retained and dedicated suites indexed, NOT_RUN when not executed",
+      "new_check": null,
+      "evidence": "Explicitly excluded; never counted as PASS"
+    },
+    {
+      "id": "SC-058",
+      "original_lines": [
+        435,
+        440
+      ],
+      "original_diagnostics": [
+        "f'Unicode/Text contract missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-058",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-059",
+      "original_lines": [
+        442,
+        447
+      ],
+      "original_diagnostics": [
+        "f'A81.3 data/control contract missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-059",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-060",
+      "original_lines": [
+        449,
+        454
+      ],
+      "original_diagnostics": [
+        "f'A81.4 range/iterator contract missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-060",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-061",
+      "original_lines": [
+        458,
+        463
+      ],
+      "original_diagnostics": [
+        "f'Alpha8 closure plan missing {token}'"
+      ],
+      "disposition": "NOT_PORTABLE_WITH_REASON",
+      "reason": "Old CLOSED_CERTIFIED release plan and monorepo CI chain intentionally not imported",
+      "new_check": null,
+      "evidence": "Explicitly excluded; never counted as PASS"
+    },
+    {
+      "id": "SC-062",
+      "original_lines": [
+        465,
+        470
+      ],
+      "original_diagnostics": [
+        "f'Alpha8 conformance scope missing {token}'"
+      ],
+      "disposition": "NOT_PORTABLE_WITH_REASON",
+      "reason": "Historical Alpha.8 conformance-boundary and deferred-1.0-gates labels do not establish current behavior",
+      "new_check": null,
+      "evidence": "Explicitly excluded; never counted as PASS"
+    },
+    {
+      "id": "SC-063",
+      "original_lines": [
+        472,
+        478
+      ],
+      "original_diagnostics": [
+        "f'Alpha9 convergence plan missing {token}'"
+      ],
+      "disposition": "NOT_PORTABLE_WITH_REASON",
+      "reason": "Historical convergence dates/release roadmap superseded by current WIP product; no release succession asserted",
+      "new_check": null,
+      "evidence": "Explicitly excluded; never counted as PASS"
+    },
+    {
+      "id": "SC-064",
+      "original_lines": [
+        480,
+        489
+      ],
+      "original_diagnostics": [
+        "f'1.0 master plan release sequence missing {token}'"
+      ],
+      "disposition": "NOT_PORTABLE_WITH_REASON",
+      "reason": "Discarded release sequence and readiness-marker presence is not a current language invariant",
+      "new_check": null,
+      "evidence": "Explicitly excluded; never counted as PASS"
+    },
+    {
+      "id": "SC-065",
+      "original_lines": [
+        490,
+        491
+      ],
+      "original_diagnostics": [
+        "'enterprise readiness is not marked historical/superseded'"
+      ],
+      "disposition": "NOT_PORTABLE_WITH_REASON",
+      "reason": "Excluded old readiness document does not need a superseded marker in a new tree",
+      "new_check": null,
+      "evidence": "Explicitly excluded; never counted as PASS"
+    },
+    {
+      "id": "SC-066",
+      "original_lines": [
+        497,
+        502
+      ],
+      "original_diagnostics": [
+        "f'header missing inherited Alpha7 {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-066",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-067",
+      "original_lines": [
+        504,
+        511
+      ],
+      "original_diagnostics": [
+        "f'OSNMF implementation missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-067",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-068",
+      "original_lines": [
+        513,
+        518
+      ],
+      "original_diagnostics": [
+        "f'ONME implementation missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-068",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-069",
+      "original_lines": [
+        520,
+        526
+      ],
+      "original_diagnostics": [
+        "f'CLI missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-069",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-070",
+      "original_lines": [
+        528,
+        530
+      ],
+      "original_diagnostics": [
+        "f'constitution missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-070",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-071",
+      "original_lines": [
+        532,
+        537
+      ],
+      "original_diagnostics": [
+        "f'OCAP spec missing {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-071",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-072",
+      "original_lines": [
+        540,
+        542
+      ],
+      "original_diagnostics": [
+        "f'profile source leaked into Core src/: {forbidden}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-072",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-073",
+      "original_lines": [
+        544,
+        548
+      ],
+      "original_diagnostics": [
+        "f'core source manifest missing file: {rel}'",
+        "f'profile source in Core build manifest: {rel}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-073",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-074",
+      "original_lines": [
+        550,
+        552
+      ],
+      "original_diagnostics": [
+        "f'profile command/type leaked into Core main: {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-074",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-075",
+      "original_lines": [
+        554,
+        559
+      ],
+      "original_diagnostics": [
+        "f'profile capability leaked into Core registry: {token}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-075",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-076",
+      "original_lines": [
+        562,
+        565
+      ],
+      "original_diagnostics": [
+        "f'missing legacy{v}.{ext}'"
+      ],
+      "disposition": "RETAINED",
+      "reason": "Original general structural invariant retained with implementation paths relocated",
+      "new_check": "tools/check_spec_sync.py marker SC-076",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    },
+    {
+      "id": "SC-077",
+      "original_lines": [
+        568,
+        608
+      ],
+      "original_diagnostics": [
+        "'test matrix version mismatch'",
+        "'unlisted current tests: '+','.join(missing)",
+        "'test matrix references missing tests: '+','.join(stale)",
+        "'A86 matrix missing host-policy gate'",
+        "'A87 matrix missing tooling/DX gate'",
+        "'A88 matrix missing target-profile gate'",
+        "'A89 matrix missing release-hardening gate'",
+        "'A92 matrix missing semantic-conformance gate'",
+        "'A95 matrix missing interop-profile gate'",
+        "'A96 matrix missing security/supply-chain gate'",
+        "'A97 matrix missing operations/maintenance gate'",
+        "f'invalid tests/MATRIX.json: {exc}'",
+        "f'alpha8 matrix missing required gate: {required}'",
+        "f'0.8.1 matrix missing required gate: {required}'"
+      ],
+      "disposition": "ADAPTED",
+      "reason": "All tests must be listed, with explicit adapter input inventory for historical compatibility source files and four publication-only exclusions",
+      "new_check": "tools/check_spec_sync.py marker SC-077",
+      "evidence": "Executed by tools/check_spec_sync.py; static consistency, not release certification"
+    }
+  ],
+  "additional_current_checks": [
+    "tools/verify_tree.py: no Git, product identity, privacy, license coverage, links, filesystem inventory"
+  ],
+  "limits": "Static token checks are not semantic execution proof. Functional suites have separate receipts."
+}

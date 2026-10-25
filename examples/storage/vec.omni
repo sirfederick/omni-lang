@@ -1,0 +1,134 @@
+module vec
+import alloc "alloc.omni"
+
+// CP-02 / CP-05: a generic growable vector whose elements are encoded by a trait, owned through ONE Buffer that comes from the allocator `A` (alloc.omni) and handed around with ordinary
+// Borrow / BorrowMut. `Vec<T>` is a nominal resource that wraps the Resource<Buffer> (spec/NOMINAL_BUFFER_RESOURCE_CANDIDATE.md): only this module can
+// look inside it, a Resource<Vec<T,A>> is consumed by `destroy` exactly once or the program does not compile, and a failing operation never takes the
+// vector away from the caller because the caller only lends it.
+//   buffer layout: bytes 0..3 the element count (u32, little endian), bytes 4..7 reserved (zero), elements from byte 8, each `Codec.size<T>()` bytes
+// Outcome codes (a failing call changes neither the count nor any element):
+//   1 capacity: the buffer cannot hold that many elements (1 MiB per buffer)   2 budget   3 host out of memory   10 index >= len   11 empty
+//   12 arithmetic on sizes would overflow
+pub trait Codec {
+  func size() u32 !pure
+  func put(b BorrowMut<Buffer>, off u32, v Self) Result<u32,u32> !{memory.write}
+  func get(b Borrow<Buffer>, off u32) Result<Self,u32> !{memory.read}
+}
+
+impl Codec for u32 {
+  func size() u32 { return 4u32 }
+  func put(b BorrowMut<Buffer>, off u32, v u32) Result<u32,u32> !{memory.write} { return buffer.write_u32le(b, off, v) }
+  func get(b Borrow<Buffer>, off u32) Result<u32,u32> !{memory.read} { return buffer.read_u32le(b, off) }
+}
+
+impl Codec for u64 {
+  func size() u32 { return 8u32 }
+  func put(b BorrowMut<Buffer>, off u32, v u64) Result<u32,u32> !{memory.write} { return buffer.write_u64le(b, off, v) }
+  func get(b Borrow<Buffer>, off u32) Result<u64,u32> !{memory.read} { return buffer.read_u64le(b, off) }
+}
+
+pub struct Vec<T: Codec, A: alloc.Allocator> { buf Resource<Buffer> }
+
+func header_bytes() u32 { return 8u32 }
+func limit_bytes() u32 { return 1048576u32 }
+
+// Largest element count a buffer can hold for elements of `size` bytes.
+func max_elements(size u32) u32 { return (limit_bytes() - header_bytes()) / size }
+
+pub func new<T: Codec, A: alloc.Allocator>(capacity u32) Result<Resource<Vec<T,A>>,u32> !{memory.read,memory.write} {
+  let size u32 = Codec.size<T>()
+  if capacity > max_elements(size) { return Err<Resource<Vec<T,A>>,u32>(1u32) }
+  let a = alloc.Allocator.allocate<A>(header_bytes() + capacity * size)
+  match a {
+    Ok(b) {
+      let inner Vec<T,A> = Vec<T,A> { buf: move(b) }
+      return Ok<Resource<Vec<T,A>>,u32>(resource.seal(move(inner)))
+    }
+    Err(code) { return Err<Resource<Vec<T,A>>,u32>(code) }
+  }
+}
+
+pub func len<T: Codec, A: alloc.Allocator>(v Borrow<Vec<T,A>>) u32 !{memory.read} {
+  let r = buffer.read_u32le(resource.inner(v), 0u32)
+  match r { Ok(n) { return n } Err(code) { return 0u32 } }
+}
+
+pub func capacity<T: Codec, A: alloc.Allocator>(v Borrow<Vec<T,A>>) u32 !{memory.read} {
+  return (buffer.len(resource.inner(v)) - header_bytes()) / Codec.size<T>()
+}
+
+pub func get<T: Codec, A: alloc.Allocator>(v Borrow<Vec<T,A>>, index u32) Result<T,u32> !{memory.read} {
+  if index >= len<T,A>(v) { return Err<T,u32>(10u32) }
+  return Codec.get<T>(resource.inner(v), header_bytes() + index * Codec.size<T>())
+}
+
+pub func set<T: Codec, A: alloc.Allocator>(v BorrowMut<Vec<T,A>>, index u32, x T) Result<u32,u32> !{memory.read,memory.write} {
+  if index >= len<T,A>(borrow(v)) { return Err<u32,u32>(10u32) }
+  return Codec.put<T>(resource.inner_mut(v), header_bytes() + index * Codec.size<T>(), x)
+}
+
+func store_len<T: Codec, A: alloc.Allocator>(v BorrowMut<Vec<T,A>>, n u32) Result<u32,u32> !{memory.write} {
+  return buffer.write_u32le(resource.inner_mut(v), 0u32, n)
+}
+
+// Makes room for one more element. Growth is geometric and clamped to the buffer limit; arithmetic never wraps.
+func grow_for_one<T: Codec, A: alloc.Allocator>(v BorrowMut<Vec<T,A>>, count u32) Result<u32,u32> !{memory.read,memory.write} {
+  let size u32 = Codec.size<T>()
+  let cap u32 = capacity<T,A>(borrow(v))
+  if count < cap { return Ok<u32,u32>(cap) }
+  if count >= max_elements(size) { return Err<u32,u32>(1u32) }
+  var want u32 = cap * 2u32
+  if want < 4u32 { want = 4u32 }
+  if want > max_elements(size) { want = max_elements(size) }
+  let grown = alloc.Allocator.resize<A>(resource.inner_mut(v), header_bytes() + want * size)
+  match grown {
+    Ok(n) { return Ok<u32,u32>(want) }
+    Err(code) { return Err<u32,u32>(code) }
+  }
+}
+
+// Appends x and returns the new element count.
+pub func push<T: Codec, A: alloc.Allocator>(v BorrowMut<Vec<T,A>>, x T) Result<u32,u32> !{memory.read,memory.write} {
+  let count u32 = len<T,A>(borrow(v))
+  let room = grow_for_one<T,A>(v, count)
+  match room {
+    Ok(cap) {
+      let w = Codec.put<T>(resource.inner_mut(v), header_bytes() + count * Codec.size<T>(), x)
+      match w {
+        Ok(done) {
+          let n = store_len<T,A>(v, count + 1u32)
+          match n { Ok(d) { return Ok<u32,u32>(count + 1u32) } Err(code) { return Err<u32,u32>(code) } }
+        }
+        Err(code) { return Err<u32,u32>(code) }
+      }
+    }
+    Err(code) { return Err<u32,u32>(code) }
+  }
+}
+
+// Removes the last element, returns it and zeroes its slot.
+pub func pop<T: Codec, A: alloc.Allocator>(v BorrowMut<Vec<T,A>>) Result<T,u32> !{memory.read,memory.write} {
+  let count u32 = len<T,A>(borrow(v))
+  if count == 0u32 { return Err<T,u32>(11u32) }
+  let size u32 = Codec.size<T>()
+  let last = Codec.get<T>(resource.inner(v), header_bytes() + (count - 1u32) * size)
+  match last {
+    Ok(x) {
+      let z = buffer.zero(resource.inner_mut(v), header_bytes() + (count - 1u32) * size, size)
+      match z {
+        Ok(d) {
+          let n = store_len<T,A>(v, count - 1u32)
+          match n { Ok(e) { return Ok<T,u32>(x) } Err(code) { return Err<T,u32>(code) } }
+        }
+        Err(code) { return Err<T,u32>(code) }
+      }
+    }
+    Err(code) { return Err<T,u32>(code) }
+  }
+}
+
+// Releases the vector. Returns 0.
+pub func destroy<T: Codec, A: alloc.Allocator>(v Resource<Vec<T,A>>) u32 !{memory.write} {
+  let inner Vec<T,A> = resource.unseal(move(v))
+  return alloc.Allocator.release<A>(move(inner.buf))
+}

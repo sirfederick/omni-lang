@@ -1,0 +1,33 @@
+module t
+import rt "rt.omni"
+
+// Exact-width port I/O (spec/TARGET_BAREMETAL_PROFILE_CANDIDATE.md, port.in16 / port.in32 / port.out16). Owned by Omni Core; observed under
+// QEMU's default `pc` machine (i440FX), where three devices give width a visible meaning:
+//
+//  * PCI configuration mechanism 1: write 0x80000000 to 0xCF8, then 0xCFC.. reads bus 0 / device 0 / function 0 offset 0 (the host bridge,
+//    vendor 0x8086 device 0x1237). One 32-bit read returns both halves; 16-bit reads at 0xCFC and 0xCFE return one half each, zero-extended;
+//    the 8-bit read returns the lowest byte. A wide access composed of narrow ones would be indistinguishable here, so the three widths are
+//    printed side by side.
+//  * An unassigned port returns all ones at the access width (0xFF, 0xFFFF, 0xFFFFFFFF).
+//  * The 16550 UART at 0x3F8: an `outw` writes the low byte to the transmit register (0x3F8) and the high byte to the interrupt-enable
+//    register (0x3F9). Here the 16-bit value is 0x050A from a u32 whose bits 16..23 are 0xAB: the transmit byte is a newline, IER reads 5
+//    (high byte of the low 16 bits), and the FIFO-control register (0x3FA) was NOT written (bits 16..23 discarded), so IIR keeps 1; a
+//    32-bit write would have enabled the FIFO (IIR 0xC1).
+//
+// Output lines, in order: id32 id_lo id_hi id_byte | idle8 idle16 idle32 | (blank line from the UART newline) ier iir
+
+func main() u32 !{io.print,port.io,cpu.control} {
+  let sel u32 = port.out32(3320u32, 2147483648u32)
+  print(port.in32(3324u32))
+  print(port.in16(3324u32))
+  print(port.in16(3326u32))
+  print(port.in8(3324u32))
+  print(port.in8(832u32))
+  print(port.in16(832u32))
+  print(port.in32(832u32))
+  let w u32 = port.out16(1016u32, 11273482u32)
+  print(port.in8(1017u32))
+  print(port.in8(1018u32))
+  let restore u32 = port.out8(1017u32, 0u32)
+  return rt.finish(0u32)
+}

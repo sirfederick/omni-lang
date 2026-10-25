@@ -1,0 +1,9 @@
+{
+  "schema": "omni.compatibility-fixture/1",
+  "classification": "NEW_COMPATIBILITY_PROBE_NOT_HISTORICAL_CERTIFICATION",
+  "baseline_compiler_sha256": "4328a5efabfeef389b5f986365515f6b72e9899f0cf6844ef5b1180164f2066c",
+  "artifact_sha256": "fd68c606d761aec65449d6e24906391b4cbb35eef47c283a37ebfe46ef8f6d92",
+  "source_sha256": "98097ef2a50ca79430e7386c6ed73878a4e01426bcbcb99c78fc6e548d1a857b",
+  "baseline_check_exitcode": 0,
+  "expected_eval": 41
+}

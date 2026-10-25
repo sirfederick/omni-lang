@@ -1,0 +1,689 @@
+[
+  {
+    "name": "W1 the manifest always says OMC18",
+    "file": "compiler/src/buildmeta.cpp",
+    "old": "    const auto packed=wire(p);\n    const auto waveWriter=writerRepresentation(p);",
+    "new": "    const auto packed=wire(p);\n    const auto waveWriter=18u;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "WireProfileTests"
+    ]
+  },
+  {
+    "name": "W2 the receipt always says OMC18",
+    "file": "compiler/src/buildmeta.cpp",
+    "old": "    const auto programHash=sha256(encodedWave);\n    const auto waveWriter=writerRepresentation(p);",
+    "new": "    const auto programHash=sha256(encodedWave);\n    const auto waveWriter=18u;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "WireProfileTests"
+    ]
+  },
+  {
+    "name": "W3 the manifest never says more than OMC20",
+    "file": "compiler/src/buildmeta.cpp",
+    "old": "    const auto packed=wire(p);\n    const auto waveWriter=writerRepresentation(p);",
+    "new": "    const auto packed=wire(p);\n    const auto waveWriter=std::min<uint32_t>(writerRepresentation(p),20u);",
+    "tests": [
+      "tests/cp15_projection.py",
+      "WireProfileTests"
+    ]
+  },
+  {
+    "name": "W4 the receipt never says more than OMC21",
+    "file": "compiler/src/buildmeta.cpp",
+    "old": "    const auto programHash=sha256(encodedWave);\n    const auto waveWriter=writerRepresentation(p);",
+    "new": "    const auto programHash=sha256(encodedWave);\n    const auto waveWriter=std::min<uint32_t>(writerRepresentation(p),21u);",
+    "tests": [
+      "tests/cp15_projection.py",
+      "WireProfileTests"
+    ]
+  },
+  {
+    "name": "W5 an authoring capsule is said to be Wave21",
+    "file": "compiler/src/formats.cpp",
+    "old": "return p.authoringSource.empty()?emittedRepresentation(p):22u;",
+    "new": "return p.authoringSource.empty()?emittedRepresentation(p):21u;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "WireProfileTests"
+    ]
+  },
+  {
+    "name": "W6 the capsule and the plain program swap versions",
+    "file": "compiler/src/formats.cpp",
+    "old": "return p.authoringSource.empty()?emittedRepresentation(p):22u;",
+    "new": "return p.authoringSource.empty()?22u:emittedRepresentation(p);",
+    "tests": [
+      "tests/cp15_projection.py",
+      "WireProfileTests"
+    ]
+  },
+  {
+    "name": "R1 a generic parameter is taken for a nominal type",
+    "file": "compiler/src/formats.cpp",
+    "old": "if((!keyed&&!named)||(keyed&&!t.key.empty())||bound.count(t.name))return t;",
+    "new": "if((!keyed&&!named)||(keyed&&!t.key.empty()))return t;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "R2 the nominal of a Resource, Borrow or BorrowMut is not resolved",
+    "file": "compiler/src/formats.cpp",
+    "old": "named=t.kind==Type::Resource||t.kind==Type::Borrow||t.kind==Type::BorrowMut;\n        if((!keyed",
+    "new": "named=false;\n        if((!keyed",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "R3 the type is searched in the wrong module",
+    "file": "compiler/src/formats.cpp",
+    "old": "        std::string target=module,name=t.name;\n        const auto dot=name.find('.');",
+    "new": "        std::string target,name=t.name;\n        const auto dot=name.find('.');",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "R4 any alias names the last import",
+    "file": "compiler/src/formats.cpp",
+    "old": "for(const auto&im:m.imports)if(im.alias==alias)target=im.target;",
+    "new": "for(const auto&im:m.imports)target=im.target;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "R5 the declared structs are not looked for",
+    "file": "compiler/src/formats.cpp",
+    "old": "        for(const auto&r:p.records)known=known||r.module+\".\"+r.name==key;     // by module and name: the key of a record is assigned later than the declaration of a template\n",
+    "new": "",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "R6 the declared enums are not looked for",
+    "file": "compiler/src/formats.cpp",
+    "old": "        for(const auto&e:p.enums)known=known||e.module+\".\"+e.name==key;\n",
+    "new": "",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "R7 the generic structs are not looked for",
+    "file": "compiler/src/formats.cpp",
+    "old": "        for(const auto&r:p.genericRecordTemplates)known=known||r.module+\".\"+r.name==key;\n",
+    "new": "",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "R8 the generic enums are not looked for",
+    "file": "compiler/src/formats.cpp",
+    "old": "        for(const auto&e:p.genericEnumTemplates)known=known||e.module+\".\"+e.name==key;\n",
+    "new": "",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "R9 the resolved nominal of a Resource is stored as a key",
+    "file": "compiler/src/formats.cpp",
+    "old": "        if(keyed)t.key=key;else t.name=key;",
+    "new": "        t.key=key;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "R10 the arguments of a generic type are not resolved",
+    "file": "compiler/src/formats.cpp",
+    "old": "        for(auto&x:t.parts)x=resolveOpenType(p,module,bound,x);\n        const bool keyed",
+    "new": "        const bool keyed",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "R11 an unknown name is resolved to itself",
+    "file": "compiler/src/formats.cpp",
+    "old": "        if(!known)return t;\n        if(keyed)t.key=key;else t.name=key;",
+    "new": "        if(keyed)t.key=key;else t.name=key;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "R12 a name without a module resolves anywhere",
+    "file": "compiler/src/formats.cpp",
+    "old": "        if(target.empty())return t;\n        const auto key=target+\".\"+name;",
+    "new": "        const auto key=target+\".\"+name;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests",
+      "TemplateSignatureTests"
+    ],
+    "equivalent": "when the alias names no import `target` is empty and the key is \".NAME\", which no module-qualified key of a declared type can equal (a module name is not empty), so `known` is false and the type stays unresolved either way"
+  },
+  {
+    "name": "P1 a string may stand inside type arguments",
+    "file": "compiler/src/particle.cpp",
+    "old": "if(x.str||x.s.empty())return false;",
+    "new": "if(x.s.empty())return false;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "GenericCallDisambiguationTests"
+    ]
+  },
+  {
+    "name": "P2 a comma may not stand inside type arguments",
+    "file": "compiler/src/particle.cpp",
+    "old": "if(x.s==\"<\"||x.s==\">\"||x.s==\",\"||x.s==\".\")return true;",
+    "new": "if(x.s==\"<\"||x.s==\">\"||x.s==\".\")return true;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "GenericCallDisambiguationTests"
+    ]
+  },
+  {
+    "name": "P3 a dot may not stand inside type arguments",
+    "file": "compiler/src/particle.cpp",
+    "old": "if(x.s==\"<\"||x.s==\">\"||x.s==\",\"||x.s==\".\")return true;",
+    "new": "if(x.s==\"<\"||x.s==\">\"||x.s==\",\")return true;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "GenericCallDisambiguationTests"
+    ]
+  },
+  {
+    "name": "P4 a closing bracket may not stand inside type arguments",
+    "file": "compiler/src/particle.cpp",
+    "old": "if(x.s==\"<\"||x.s==\">\"||x.s==\",\"||x.s==\".\")return true;",
+    "new": "if(x.s==\"<\"||x.s==\",\"||x.s==\".\")return true;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "GenericCallDisambiguationTests"
+    ]
+  },
+  {
+    "name": "P5 a number may not stand inside type arguments",
+    "file": "compiler/src/particle.cpp",
+    "old": "return std::isalnum(c)||c=='_';\n        }",
+    "new": "return std::isalpha(c)||c=='_';\n        }",
+    "tests": [
+      "tests/cp15_projection.py",
+      "GenericCallDisambiguationTests"
+    ]
+  },
+  {
+    "name": "P6 an underscore may not stand inside type arguments",
+    "file": "compiler/src/particle.cpp",
+    "old": "return std::isalnum(c)||c=='_';\n        }",
+    "new": "return std::isalnum(c);\n        }",
+    "tests": [
+      "tests/cp15_projection.py",
+      "GenericCallDisambiguationTests"
+    ]
+  },
+  {
+    "name": "O1 the C layout contract is not part of the contract of a record",
+    "file": "compiler/src/osnmf.cpp",
+    "old": "((current&&r.externC)?\"|extern\":\"\")",
+    "new": "\"\"",
+    "tests": [
+      "tests/cp15_projection.py",
+      "ProjectionTests"
+    ]
+  },
+  {
+    "name": "O2 the C layout contract is also part of the historical contract",
+    "file": "compiler/src/osnmf.cpp",
+    "old": "((current&&r.externC)?\"|extern\":\"\")",
+    "new": "(r.externC?\"|extern\":\"\")",
+    "tests": [
+      "tests/cp15_projection.py",
+      "HistoricalIdentityTests"
+    ]
+  },
+  {
+    "name": "O3 an exported symbol is not part of the contract of a function",
+    "file": "compiler/src/osnmf.cpp",
+    "old": "if(current){if(!f.exportName.empty())cc<<\"|export=\"<<f.exportName;if(f.isExtern)cc<<\"|extern=\"<<f.externName;}",
+    "new": "if(current){if(f.isExtern)cc<<\"|extern=\"<<f.externName;}",
+    "tests": [
+      "tests/cp15_projection.py",
+      "ProjectionTests"
+    ]
+  },
+  {
+    "name": "O4 an imported symbol is not part of the contract of a function",
+    "file": "compiler/src/osnmf.cpp",
+    "old": "if(current){if(!f.exportName.empty())cc<<\"|export=\"<<f.exportName;if(f.isExtern)cc<<\"|extern=\"<<f.externName;}",
+    "new": "if(current){if(!f.exportName.empty())cc<<\"|export=\"<<f.exportName;}",
+    "tests": [
+      "tests/cp15_projection.py",
+      "ProjectionTests"
+    ]
+  },
+  {
+    "name": "O5 the symbols are also part of the historical contract",
+    "file": "compiler/src/osnmf.cpp",
+    "old": "if(current){if(!f.exportName.empty())cc<<\"|export=\"<<f.exportName;if(f.isExtern)cc<<\"|extern=\"<<f.externName;}",
+    "new": "{if(!f.exportName.empty())cc<<\"|export=\"<<f.exportName;if(f.isExtern)cc<<\"|extern=\"<<f.externName;}",
+    "tests": [
+      "tests/cp15_projection.py",
+      "HistoricalIdentityTests"
+    ]
+  },
+  {
+    "name": "O6 a declared capability is shown as required",
+    "file": "compiler/src/osnmf.cpp",
+    "old": "n.capabilities=((templ||!current)&&f.requiredCapabilities.empty())?f.capabilities:f.requiredCapabilities;",
+    "new": "n.capabilities=f.requiredCapabilities.empty()?f.capabilities:f.requiredCapabilities;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "ProjectionTests",
+      "OpenTemplateProjectionTests"
+    ]
+  },
+  {
+    "name": "O7 a template loses the capabilities it declares",
+    "file": "compiler/src/osnmf.cpp",
+    "old": "n.capabilities=((templ||!current)&&f.requiredCapabilities.empty())?f.capabilities:f.requiredCapabilities;",
+    "new": "n.capabilities=((!current)&&f.requiredCapabilities.empty())?f.capabilities:f.requiredCapabilities;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests"
+    ]
+  },
+  {
+    "name": "O8 the historical projection lists only what is required",
+    "file": "compiler/src/osnmf.cpp",
+    "old": "n.capabilities=((templ||!current)&&f.requiredCapabilities.empty())?f.capabilities:f.requiredCapabilities;",
+    "new": "n.capabilities=((templ)&&f.requiredCapabilities.empty())?f.capabilities:f.requiredCapabilities;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "HistoricalIdentityTests"
+    ]
+  },
+  {
+    "name": "O9 the types of a template signature are never resolved",
+    "file": "compiler/src/osnmf.cpp",
+    "old": "const auto f=qualified?resolveOpenSignature(p,f0):f0;add(f.result)",
+    "new": "const auto f=f0;(void)qualified;add(f.result)",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests",
+      "ProjectionTests"
+    ]
+  },
+  {
+    "name": "O10 the historical projection resolves the types of a template",
+    "file": "compiler/src/osnmf.cpp",
+    "old": "const auto f=qualified?resolveOpenSignature(p,f0):f0;add(f.result)",
+    "new": "const auto f=resolveOpenSignature(p,f0);(void)qualified;add(f.result)",
+    "tests": [
+      "tests/cp15_projection.py",
+      "HistoricalIdentityTests"
+    ]
+  },
+  {
+    "name": "O11 the historical identity of a template is the qualified one",
+    "file": "compiler/src/osnmf.cpp",
+    "old": "const Function f=(templ&&current)?resolveOpenSignature(p,f0):f0;",
+    "new": "const Function f=templ?resolveOpenSignature(p,f0):f0;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "HistoricalIdentityTests"
+    ]
+  },
+  {
+    "name": "O12 the identity of a template is never qualified",
+    "file": "compiler/src/osnmf.cpp",
+    "old": "const Function f=(templ&&current)?resolveOpenSignature(p,f0):f0;",
+    "new": "const Function f=f0;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "OpenTemplateProjectionTests"
+    ]
+  },
+  {
+    "name": "N1 a program the certified compilers could not project cannot be written as ONME",
+    "file": "compiler/src/onme.cpp",
+    "old": "}catch(const Error& error){ if(error.code!=\"E_TYPE\")throw; }",
+    "new": "}catch(const Error& error){ throw; }",
+    "tests": [
+      "tests/cp15_projection.py",
+      "HistoricalIdentityTests"
+    ]
+  },
+  {
+    "name": "C1 the result of a template is not checked",
+    "file": "compiler/src/check.cpp",
+    "old": "                demand(resolveOpenType(p,f.module,bound,f.result));\n",
+    "new": "",
+    "tests": [
+      "tests/cp15_projection.py",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "C2 the parameters of a template are not checked",
+    "file": "compiler/src/check.cpp",
+    "old": "                for(const auto& a:f.params)demand(resolveOpenType(p,f.module,bound,a.type));\n",
+    "new": "",
+    "tests": [
+      "tests/cp15_projection.py",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "C3 an unresolved struct or enum is accepted",
+    "file": "compiler/src/check.cpp",
+    "old": "if((u.kind==Type::Record||u.kind==Type::Enum)&&u.key.empty())fail(\"E_TYPE\",\"tipo inexistente: \"+u.name,f.loc);",
+    "new": "if(false)fail(\"E_TYPE\",\"tipo inexistente: \"+u.name,f.loc);",
+    "tests": [
+      "tests/cp15_projection.py",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "C4 an unknown nominal inside Resource, Borrow or BorrowMut is accepted",
+    "file": "compiler/src/check.cpp",
+    "old": "if(nominal&&u.name!=\"Buffer\"&&!bound.count(u.name)&&u.name.find('.')==std::string::npos)fail",
+    "new": "if(false&&nominal&&u.name!=\"Buffer\"&&!bound.count(u.name)&&u.name.find('.')==std::string::npos)fail",
+    "tests": [
+      "tests/cp15_projection.py",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "C5 Buffer is refused in a template",
+    "file": "compiler/src/check.cpp",
+    "old": "if(nominal&&u.name!=\"Buffer\"&&!bound.count(u.name)",
+    "new": "if(nominal&&!bound.count(u.name)",
+    "tests": [
+      "tests/cp15_projection.py",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "C6 a generic parameter is refused inside Resource, Borrow or BorrowMut",
+    "file": "compiler/src/check.cpp",
+    "old": "if(nominal&&u.name!=\"Buffer\"&&!bound.count(u.name)&&u.name.find",
+    "new": "if(nominal&&u.name!=\"Buffer\"&&u.name.find",
+    "tests": [
+      "tests/cp15_projection.py",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "C7 a resolved type is refused inside Resource, Borrow or BorrowMut",
+    "file": "compiler/src/check.cpp",
+    "old": "&&!bound.count(u.name)&&u.name.find('.')==std::string::npos)fail(\"E_RESOURCE_TYPE\"",
+    "new": "&&!bound.count(u.name))fail(\"E_RESOURCE_TYPE\"",
+    "tests": [
+      "tests/cp15_projection.py",
+      "TemplateSignatureTests",
+      "OpenTemplateProjectionTests"
+    ]
+  },
+  {
+    "name": "C8 the arguments of a type of a template are not checked",
+    "file": "compiler/src/check.cpp",
+    "old": "                    for(const auto& x:u.parts)demand(x);\n                };\n                demand(resolveOpenType",
+    "new": "                };\n                demand(resolveOpenType",
+    "tests": [
+      "tests/cp15_projection.py",
+      "TemplateSignatureTests"
+    ]
+  },
+  {
+    "name": "N2 the historical projection is never consulted",
+    "file": "compiler/src/onme.cpp",
+    "old": "        compatible=execRoot==rootOf(executable,IdentityProjection::Onme2Compatibility)&&authorRoot==rootOf(p,IdentityProjection::Onme2Compatibility);",
+    "new": "        compatible=false;",
+    "tests": [
+      "tests/cp15_projection.py",
+      "HistoricalIdentityTests"
+    ]
+  },
+  {
+    "name": "N3 the roots ignore the projection they are asked for",
+    "file": "compiler/src/onme.cpp",
+    "old": "return buildSystemMemory(q,projection).epoch.systemRoot; };",
+    "new": "(void)projection; return buildSystemMemory(q,IdentityProjection::Current).epoch.systemRoot; };",
+    "tests": [
+      "tests/cp15_projection.py",
+      "HistoricalIdentityTests"
+    ]
+  },
+  {
+    "name": "N4 ONME2 only needs the executable root to be historical",
+    "file": "compiler/src/onme.cpp",
+    "old": "&&authorRoot==rootOf(p,IdentityProjection::Onme2Compatibility);",
+    "new": ";",
+    "tests": [
+      "tests/cp15_projection.py",
+      "HistoricalIdentityTests"
+    ],
+    "equivalent": "The second conjunct of the ONME2 decision compares the HISTORICAL root of the authoring program with its current root. The executable is validate(parseWave(wave(p))) and the system node of a program carries wave(p): when the Wave of a program is a fixed point of its own reading, p and the executable have the same projection in every identity mode, so authorRoot==legacyAuthor holds exactly when execRoot==legacyExec holds and the conjunct adds nothing. That fixed point is what tests/cp15_scale.py (reads_back_everywhere, 17 programs) and tools/survey_roundtrip.py (86 repository programs, 0 mismatches) assert; the authoring and the executable root are equal in all 86 valid programs of the repository. A program for which they differ would be a defect of the Wave round trip, not of this decision."
+  },
+  {
+    "name": "B3 the work budget is never enforced",
+    "file": "compiler/src/omni.hpp",
+    "old": "if(deadline!=0&&std::chrono::duration_cast",
+    "new": "if(false&&deadline!=0&&std::chrono::duration_cast",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  },
+  {
+    "name": "B4 an input is read without asking whether it fits",
+    "file": "compiler/src/omni.hpp",
+    "old": "if(held>limit||bytes>limit-held)fail(",
+    "new": "if(false&&(held>limit||bytes>limit-held))fail(",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  },
+  {
+    "name": "B5 the stack budget never refuses",
+    "file": "compiler/src/omni.hpp",
+    "old": "if(used>a.stackBytes-a.stackBytes/8)fail(\"E_BUDGET\"",
+    "new": "if(false&&used>a.stackBytes-a.stackBytes/8)fail(\"E_BUDGET\"",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  },
+  {
+    "name": "B6 the stack budget leaves no reserve before the guard page",
+    "file": "compiler/src/omni.hpp",
+    "old": "used>a.stackBytes-a.stackBytes/8",
+    "new": "used>a.stackBytes",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  },
+  {
+    "name": "A1 the allocator never refuses",
+    "file": "compiler/src/main.cpp",
+    "old": "if(limit&&now>limit) {",
+    "new": "if(false&&limit&&now>limit) {",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  },
+  {
+    "name": "A2 the allocator tolerates 12.5% over the budget",
+    "file": "compiler/src/main.cpp",
+    "old": "if(limit&&now>limit) {",
+    "new": "if(limit&&now>limit+limit/8) {",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  },
+  {
+    "name": "H3 an explicit OMNI_MEMORY_MIB is ignored",
+    "file": "compiler/src/main.cpp",
+    "old": "if(end!=raw&&*end=='\\0'&&mib>0ull&&mib<(1ull<<40)) {",
+    "new": "if(false&&end!=raw&&*end=='\\0'&&mib>0ull&&mib<(1ull<<40)) {",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  },
+  {
+    "name": "H4 unlimited is not understood",
+    "file": "compiler/src/main.cpp",
+    "old": "if(value==\"0\"||value==\"unlimited\") {",
+    "new": "if(value==\"0\") {",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  },
+  {
+    "name": "S1 the automatic mode never refuses",
+    "file": "compiler/src/main.cpp",
+    "old": "if(grown+n>available) {",
+    "new": "if(false&&grown+n>available) {",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  },
+  {
+    "name": "S2 what the host reports is ignored",
+    "file": "compiler/src/main.cpp",
+    "old": "if(end!=raw&&*end=='\\0'&&mib>0ull) {",
+    "new": "if(false&&end!=raw&&*end=='\\0'&&mib>0ull) {",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  },
+  {
+    "name": "S3 an input is read without asking the host whether it fits",
+    "file": "compiler/src/omni.hpp",
+    "old": "if(bytes>available)fail(\"E_BUDGET\",std::string(\"memoria agotada: \")",
+    "new": "if(false&&bytes>available)fail(\"E_BUDGET\",std::string(\"memoria agotada: \")",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  },
+  {
+    "name": "H6 OMNI_WORK_SECONDS is ignored",
+    "file": "compiler/src/main.cpp",
+    "old": "if(end!=raw&&*end=='\\0'&&seconds>0.0)",
+    "new": "if(false&&end!=raw&&*end=='\\0'&&seconds>0.0)",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  },
+  {
+    "name": "W1 a count larger than the bytes left is not recognised",
+    "file": "compiler/src/formats.cpp",
+    "old": "if(n>v.size()-p)fail(\"E_WIRE\",\"Wire truncado: mas elementos que bytes\");",
+    "new": "if(false)fail(\"E_WIRE\",\"Wire truncado: mas elementos que bytes\");",
+    "tests": [
+      "tests/cp15_scale.py",
+      "HostileRepresentationTests"
+    ]
+  },
+  {
+    "name": "E1 the parser allows one variant over the tag width",
+    "file": "compiler/src/particle.cpp",
+    "old": "d.variants.size()>OMNI_ENUM_MAX_VARIANTS)fail(\"E_LIMIT\"",
+    "new": "d.variants.size()>OMNI_ENUM_MAX_VARIANTS+1)fail(\"E_LIMIT\"",
+    "tests": [
+      "tests/cp15_scale.py",
+      "WidthsOfARepresentationTests"
+    ]
+  },
+  {
+    "name": "E2 the checker allows one variant over the tag width",
+    "file": "compiler/src/check.cpp",
+    "old": "d.variants.empty()||d.variants.size()>OMNI_ENUM_MAX_VARIANTS)fail(\"E_MATCH\"",
+    "new": "d.variants.empty()||d.variants.size()>OMNI_ENUM_MAX_VARIANTS+1)fail(\"E_MATCH\"",
+    "tests": [
+      "tests/cp15_scale.py",
+      "WidthsOfARepresentationTests"
+    ]
+  },
+  {
+    "name": "E3 the Wire reader allows one variant over the tag width",
+    "file": "compiler/src/formats.cpp",
+    "old": "auto vs=r.count(static_cast<uint32_t>(OMNI_ENUM_MAX_VARIANTS));",
+    "new": "auto vs=r.count(static_cast<uint32_t>(OMNI_ENUM_MAX_VARIANTS+1));",
+    "tests": [
+      "tests/cp15_scale.py",
+      "WidthsOfARepresentationTests"
+    ]
+  },
+  {
+    "name": "L1 two files may declare the same module",
+    "file": "compiler/src/modules.cpp",
+    "old": "if(!moduleNames.insert(name).second)fail(\"E_DUPLICATE\"",
+    "new": "if(false&&!moduleNames.insert(name).second)fail(\"E_DUPLICATE\"",
+    "tests": [
+      "tests/cp15_scale.py",
+      "DeclarationsAreNotCountedTests"
+    ]
+  },
+  {
+    "name": "L2 a chain of imports is not bounded by the stack",
+    "file": "compiler/src/modules.cpp",
+    "old": "                stackGuard(\"la cadena de imports\");\n",
+    "new": "",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  },
+  {
+    "name": "L3 a source is read without asking whether it fits",
+    "file": "compiler/src/formats.cpp",
+    "old": "if(!ec)budgetReserve(static_cast<uint64_t>(size),\"el archivo de entrada\");",
+    "new": "(void)ec; (void)size;",
+    "tests": [
+      "tests/cp15_scale.py",
+      "BudgetTests"
+    ]
+  }
+]

@@ -1,0 +1,255 @@
+[
+ {
+  "name": "Q1 a function bound is read without its alias",
+  "file": "compiler/src/particle.cpp",
+  "old": "                    if(eat(\":\")){ gp.constraint=ident(); if(eat(\".\")) gp.constraint+=\".\"+ident(); }   // `Codec` or `alias.Allocator` (a trait of an imported module)\n                    f.generics.push_back(gp); genericNames.insert(gp.name);",
+  "new": "                    if(eat(\":\")){ gp.constraint=ident();  }   // `Codec` or `alias.Allocator` (a trait of an imported module)\n                    f.generics.push_back(gp); genericNames.insert(gp.name);",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "Q2 an enum bound is read without its alias",
+  "file": "compiler/src/particle.cpp",
+  "old": "                    // CP-05: enum Name<T, U: Constraint> { A(T), B(U), C } is a template; only concrete specializations survive validation.\n                    auto previousGenericNames=genericNames;\n                    if(eat(\"<\")) {\n                        if(at(\">\"))fail(\"E_GENERIC_DECL\",\"generic parameter list cannot be empty\",cur().loc);\n                        do {\n                            GenericParam gp; gp.loc=cur().loc; gp.name=ident();\n                            if(genericNames.count(gp.name))fail(\"E_GENERIC_DECL\",\"duplicate generic parameter: \"+gp.name,gp.loc);\n                            if(eat(\":\")){ gp.constraint=ident(); if(eat(\".\")) gp.constraint+=\".\"+ident(); }   // `Codec` or `alias.Allocator` (a trait of an imported module)",
+  "new": "                    // CP-05: enum Name<T, U: Constraint> { A(T), B(U), C } is a template; only concrete specializations survive validation.\n                    auto previousGenericNames=genericNames;\n                    if(eat(\"<\")) {\n                        if(at(\">\"))fail(\"E_GENERIC_DECL\",\"generic parameter list cannot be empty\",cur().loc);\n                        do {\n                            GenericParam gp; gp.loc=cur().loc; gp.name=ident();\n                            if(genericNames.count(gp.name))fail(\"E_GENERIC_DECL\",\"duplicate generic parameter: \"+gp.name,gp.loc);\n                            if(eat(\":\")){ gp.constraint=ident();  }   // `Codec` or `alias.Allocator` (a trait of an imported module)",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "Q3 a struct bound is read without its alias",
+  "file": "compiler/src/particle.cpp",
+  "old": "                    // CP-05: struct Name<T, U: Constraint> { ... } is a template; only concrete specializations survive validation.\n                    auto previousGenericNames=genericNames;\n                    if(eat(\"<\")) {\n                        if(at(\">\"))fail(\"E_GENERIC_DECL\",\"generic parameter list cannot be empty\",cur().loc);\n                        do {\n                            GenericParam gp; gp.loc=cur().loc; gp.name=ident();\n                            if(genericNames.count(gp.name))fail(\"E_GENERIC_DECL\",\"duplicate generic parameter: \"+gp.name,gp.loc);\n                            if(eat(\":\")){ gp.constraint=ident(); if(eat(\".\")) gp.constraint+=\".\"+ident(); }   // `Codec` or `alias.Allocator` (a trait of an imported module)",
+  "new": "                    // CP-05: struct Name<T, U: Constraint> { ... } is a template; only concrete specializations survive validation.\n                    auto previousGenericNames=genericNames;\n                    if(eat(\"<\")) {\n                        if(at(\">\"))fail(\"E_GENERIC_DECL\",\"generic parameter list cannot be empty\",cur().loc);\n                        do {\n                            GenericParam gp; gp.loc=cur().loc; gp.name=ident();\n                            if(genericNames.count(gp.name))fail(\"E_GENERIC_DECL\",\"duplicate generic parameter: \"+gp.name,gp.loc);\n                            if(eat(\":\")){ gp.constraint=ident();  }   // `Codec` or `alias.Allocator` (a trait of an imported module)",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "Q4 a qualified bound is looked up in the declaring module",
+  "file": "compiler/src/check.cpp",
+  "old": "const std::string key=im.target+\".\"+name;",
+  "new": "const std::string key=module+\".\"+name;",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "Q5 a private trait of another module is accepted as a bound",
+  "file": "compiler/src/check.cpp",
+  "old": "if(im.target!=module&&traits.count(key)&&!traits.at(key)->pub)fail(\"E_VISIBILITY\",\"trait privado: \"+constraint,l);",
+  "new": "(void)l;",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "A1 Vec allocates with the runtime instead of the allocator",
+  "file": "examples/storage/vec.omni",
+  "old": "let a = alloc.Allocator.allocate<A>(header_bytes() + capacity * size)",
+  "new": "let a = buffer.alloc(header_bytes() + capacity * size)",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "A2 Vec grows with the runtime instead of the allocator",
+  "file": "examples/storage/vec.omni",
+  "old": "let grown = alloc.Allocator.resize<A>(resource.inner_mut(v), header_bytes() + want * size)",
+  "new": "let grown = buffer.grow(resource.inner_mut(v), header_bytes() + want * size)",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "A3 Vec releases with the runtime instead of the allocator",
+  "file": "examples/storage/vec.omni",
+  "old": "return alloc.Allocator.release<A>(move(inner.buf))",
+  "new": "return buffer.release(move(inner.buf))",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "A4 Map allocates with the runtime instead of the allocator",
+  "file": "examples/storage/map.omni",
+  "old": "let a = alloc.Allocator.allocate<A>(slot_off<K,V>(slots))",
+  "new": "let a = buffer.alloc(slot_off<K,V>(slots))",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "A5 Map grows with the runtime instead of the allocator",
+  "file": "examples/storage/map.omni",
+  "old": "let g = alloc.Allocator.resize<A>(b, slot_off<K,V>(want))",
+  "new": "let g = buffer.grow(b, slot_off<K,V>(want))",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "A6 Map releases with the runtime instead of the allocator",
+  "file": "examples/storage/map.omni",
+  "old": "pub func destroy<K: Key, V: vec.Codec, A: alloc.Allocator>(m Resource<Map<K,V,A>>) u32 !{memory.write} {\n  let inner Map<K,V,A> = resource.unseal(move(m))\n  return alloc.Allocator.release<A>(move(inner.buf))",
+  "new": "pub func destroy<K: Key, V: vec.Codec, A: alloc.Allocator>(m Resource<Map<K,V,A>>) u32 !{memory.write} {\n  let inner Map<K,V,A> = resource.unseal(move(m))\n  return buffer.release(move(inner.buf))",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "A7 Set releases with the runtime instead of the allocator",
+  "file": "examples/storage/map.omni",
+  "old": "  let inner Set<K,A> = resource.unseal(move(s))\n  return alloc.Allocator.release<A>(move(inner.buf))",
+  "new": "  let inner Set<K,A> = resource.unseal(move(s))\n  return buffer.release(move(inner.buf))",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M1 two keys are the same whenever they probe to the same slot",
+  "file": "examples/storage/map.omni",
+  "old": "match k { Ok(x) { if Key.same<K>(x, key) { return i } } Err(code) { return slots } }",
+  "new": "match k { Ok(x) { return i } Err(code) { return slots } }",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M2 a tombstone is not reused",
+  "file": "examples/storage/map.omni",
+  "old": "    if st == 2u32 { return i }\n",
+  "new": "",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M3 the table is allowed to fill completely before it grows",
+  "file": "examples/storage/map.omni",
+  "old": "if (used + 1u32) * 4u32 > slots * 3u32 {",
+  "new": "if (used + 1u32) > slots {",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M4 a removal does not change the version",
+  "file": "examples/storage/map.omni",
+  "old": "      let cur5 u32 = rd(borrow(b), 12u32)\n      let ver u32 = wr(b, 12u32, cur5 + 1u32)\n      return Ok<V,u32>(x)",
+  "new": "      return Ok<V,u32>(x)",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M5 a replaced value is announced as a new key",
+  "file": "examples/storage/map.omni",
+  "old": "match w { Ok(d) { return Ok<u32,u32>(0u32) } Err(code) { return Err<u32,u32>(code) } }",
+  "new": "match w { Ok(d) { return Ok<u32,u32>(1u32) } Err(code) { return Err<u32,u32>(code) } }",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M6 an absent key is reported with another code",
+  "file": "examples/storage/map.omni",
+  "old": "if at >= rd(b, 8u32) { return Err<V,u32>(13u32) }",
+  "new": "if at >= rd(b, 8u32) { return Err<V,u32>(12u32) }",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M7 an exhausted cursor is reported as stale",
+  "file": "examples/storage/map.omni",
+  "old": "  return Err<Entry<K,V>,u32>(14u32)\n}",
+  "new": "  return Err<Entry<K,V>,u32>(15u32)\n}",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M8 the cursor does not check the version",
+  "file": "examples/storage/map.omni",
+  "old": "  if c.version != rd(b, 12u32) { return Err<Entry<K,V>,u32>(15u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M9 the rehash forgets the tombstones it could drop",
+  "file": "examples/storage/map.omni",
+  "old": "        if used == live { return Err<u32,u32>(code) }\n        want = old",
+  "new": "        return Err<u32,u32>(code)",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M10 the rehash drops no entry marked pending but leaves it where it was",
+  "file": "examples/storage/map.omni",
+  "old": "              e = wr8(b, off, 0u32)\n              let at u32 = free_slot<K,V>(borrow(b), kk)",
+  "new": "              let at u32 = free_slot<K,V>(borrow(b), kk)",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M11 the entry count is not raised by an insert",
+  "file": "examples/storage/map.omni",
+  "old": "  let c u32 = wr(b, 0u32, cur2 + 1u32)\n",
+  "new": "  let c u32 = 0u32\n",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M12 a Set remove reports the wrong thing",
+  "file": "examples/storage/map.omni",
+  "old": "match r { Ok(x) { return Ok<u32,u32>(1u32) } Err(code) { return Err<u32,u32>(code) } }",
+  "new": "match r { Ok(x) { return Ok<u32,u32>(0u32) } Err(code) { return Err<u32,u32>(code) } }",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M14 a table of tombstones is doubled instead of compacted",
+  "file": "examples/storage/map.omni",
+  "old": "    if live * 2u32 <= old { want = old }\n",
+  "new": "",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "M13 the u64 hash ignores the high half",
+  "file": "examples/storage/map.omni",
+  "old": "((v % 4294967291u64) * 2654435761u64 + (v / 4294967291u64) * 40503u64) % 4294967291u64",
+  "new": "(v % 4294967291u64) % 4294967291u64",
+  "tests": [
+   "tests/cp05_collections.py"
+  ],
+  "equivalent": "The hash only chooses where probing starts; the key comparison decides identity, so a worse hash changes the speed, not the result."
+ },
+ {
+  "name": "S1 the cursor of a sequence reaches one cell too far",
+  "file": "examples/storage/seq.omni",
+  "old": "return c.index < len<T>(v) }",
+  "new": "return c.index <= len<T>(v) }",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ },
+ {
+  "name": "S2 the cursor of a sequence skips a cell",
+  "file": "examples/storage/seq.omni",
+  "old": "return Cursor { index: c.index + 1u32 }",
+  "new": "return Cursor { index: c.index + 2u32 }",
+  "tests": [
+   "tests/cp05_collections.py"
+  ]
+ }
+]

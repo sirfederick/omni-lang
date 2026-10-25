@@ -1,0 +1,5 @@
+ONME2
+Rsha256:9f477c79b7019c1c94b01e04342408735d3563b08e3082443f63001c77459389
+Psha256:9f477c79b7019c1c94b01e04342408735d3563b08e3082443f63001c77459389
+Csha256:7f803acb83f7e60ec9c6f7b47f8da939f833c6f7c3d644bd0067d52b6ab4c688
+(!WA2:18(!EA9:sumatoria)(!MA9:sumatoria(!I)(!FA11:sumar_hasta(!V!p)(!A(A6:limite!3))(!R!3)(!X!0)(!B(!vA5:total!3(!3A1:0))(!vA1:iA5:infer(!3A1:0))(A3:for(!bQ4:"<="(!fA1:i)(!fA6:limite))(!B(!sA5:total(!bQ3:"+"(!fA5:total)(!fA1:i)))(!sA1:i(!bQ3:"+"(!fA1:i)(!3A1:1)))))(!r(!fA5:total))))(!FA4:main(!V!p)(!A)(!R!3)(!XA7:fs.readA8:fs.writeA8:io.print)(!B(!lA9:resultadoA5:infer(!cA11:sumar_hasta(!3A2:10)))(A5:print(!fA9:resultado))(!r(!3A1:0))))))

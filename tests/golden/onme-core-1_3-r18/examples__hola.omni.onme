@@ -1,0 +1,5 @@
+ONME2
+Rsha256:b70d775cea7f70ff4de28464436848734747f6de4bfb53509debc49f34f96391
+Psha256:b70d775cea7f70ff4de28464436848734747f6de4bfb53509debc49f34f96391
+Csha256:899356b6446f46166e408c1783d32730acd17e25dcc7613b5a40154a4df69faf
+(!WA2:18(!EA4:demo)(!MA4:demo(!I)(!FA9:factorial(!V!p)(!A(A1:n!3))(!R!3)(!X!0)(!B(!i(!bQ4:"<="(!fA1:n)(!3A1:1))(!B(!r(!3A1:1)))(!B(!r(!bQ3:"*"(!fA1:n)(!cA9:factorial(!bQ3:"-"(!fA1:n)(!3A1:1)))))))))(!FA4:main(!V!p)(!A)(!R!3)(!XA7:fs.readA8:fs.writeA8:io.print)(!B(A4:textQ12:"Hola, Omni")(A5:print(!cA9:factorial(!3A1:6)))(!r(!3A1:0))))))

@@ -1,0 +1,23 @@
+{
+  "schema": "omni.compatibility-coverage/1",
+  "retained": "All executable behavior cases in language_0_2_alpha through alpha4, except four publication/research-presence checks below",
+  "not_portable": {
+    "language_0_2_alpha1.py": [
+      "test_research_baseline_present",
+      "test_mainline_identity_not_ecu"
+    ],
+    "language_0_2_alpha2.py": [
+      "test_numeric_research_and_patent_scan_present"
+    ],
+    "language_0_2_alpha4.py": [
+      "test_research_and_fast_path_docs_exist"
+    ]
+  },
+  "reason": "Historical private research/editorial documents are excluded; these are not compiler behavior or passed cases",
+  "adapted": {
+    "test_normative_spec_set_exists": "Current INDEX replaces historical CONFORMANCE release document; remaining contract/grammar existence checks retained",
+    "test_grammar_tracks_option": "Option grammar tokens retained; distribution identity checked against compiler header rather than forcing a protocol grammar label",
+    "test_spec_research_and_design_around_present": "ADT contract assertions retained; patent research presence removed"
+  },
+  "runner": "tests/current_compatibility.py"
+}

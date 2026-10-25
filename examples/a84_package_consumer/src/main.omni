@@ -1,0 +1,5 @@
+module a84_consumer
+
+func main() u32 !pure {
+  return 84u32
+}

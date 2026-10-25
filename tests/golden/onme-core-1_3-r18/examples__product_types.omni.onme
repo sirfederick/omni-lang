@@ -1,0 +1,5 @@
+ONME2
+Rsha256:0496a98a53c1f102202d48bc24095b3d4275dd6d4d4695a146b4cc2bfdfcfc8a
+Psha256:0496a98a53c1f102202d48bc24095b3d4275dd6d4d4695a146b4cc2bfdfcfc8a
+Csha256:3ad9f1edd9599172400d39d079427ebdcd33eff6dfc9051d4968549dc1c71cb3
+(!WA2:18(!EA7:product)(!MA7:product(!I)(!FA6:rotate(!V!p)(!A(A1:aA12:Array<u32,4>))(!RA12:Array<u32,4>)(!X!0)(!B(!lA1:bA12:Array<u32,4>(!cA10:array.with(!fA1:a)(!3A1:0)(!cA9:array.get(!fA1:a)(!3A1:3))))(!r(!fA1:b))))(!FA4:main(!V!p)(!A)(!R!3)(!XA8:io.print)(!B(!lA4:metaA18:Tuple<u32,bool,u8>(!cA5:tuple(!3A2:42)(!tA4:true)(!1A1:7)))(!lA4:dataA12:Array<u32,4>(!cA5:array(!3A2:10)(!3A2:20)(!3A2:30)(!3A2:40)))(!lA4:nextA12:Array<u32,4>(!cA6:rotate(!fA4:data)))(A5:print(!cA9:tuple.get(!fA4:meta)(!3A1:0)))(A5:print(!cA9:array.len(!fA4:next)))(A5:print(!cA9:array.get(!fA4:data)(!3A1:0)))(A5:print(!cA9:array.get(!fA4:next)(!3A1:0)))(!r(!3A1:0))))))

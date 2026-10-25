@@ -1,0 +1,780 @@
+[
+ {
+  "name": "O1 a stack of 32 words is accepted",
+  "file": "examples/storage/coop.omni",
+  "old": "if words < 64u64 {",
+  "new": "if words < 32u64 {",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O2 a stack above 65536 words is accepted",
+  "file": "examples/storage/coop.omni",
+  "old": "if words > 65536u64 {",
+  "new": "if words > 131072u64 {",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O3 the largest stack is refused",
+  "file": "examples/storage/coop.omni",
+  "old": "if words > 65536u64 {",
+  "new": "if words >= 65536u64 {",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O4 an odd number of words is accepted",
+  "file": "examples/storage/coop.omni",
+  "old": "if bit.and(words, 1u64) != 0u64 {",
+  "new": "if bit.and(words, 1u64) != 99u64 {",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O5 a stack is not given back when the control block cannot be made",
+  "file": "examples/storage/coop.omni",
+  "old": "let undo = heap.free<Word>(hp, stack)",
+  "new": "let undo = heap.load<Word>(borrow(hp), stack)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O6 the top of the stack is at half its size",
+  "file": "examples/storage/coop.omni",
+  "old": "let top u64 = stack.addr + words * 8u64",
+  "new": "let top u64 = stack.addr + words * 4u64",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O7 the trampoline is stored below the slot the context points to",
+  "file": "examples/storage/coop.omni",
+  "old": "let tr u32 = raw.store64(top - 16u64, cpu.thread_trampoline())",
+  "new": "let tr u32 = raw.store64(top - 8u64, cpu.thread_trampoline())",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O8 a new task is already running",
+  "file": "examples/storage/coop.omni",
+  "old": "Ctrl { state: s_new(), stop: 0u32,",
+  "new": "Ctrl { state: s_running(), stop: 0u32,",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O9 a new task is already cancelled",
+  "file": "examples/storage/coop.omni",
+  "old": "stop: 0u32, result: 0u32, journal: 0u32, arg: arg",
+  "new": "stop: 1u32, result: 0u32, journal: 0u32, arg: arg",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O10 the context points to the top of the stack",
+  "file": "examples/storage/coop.omni",
+  "old": "c4: 0u64, c5: 0u64, c6: top - 16u64 })",
+  "new": "c4: 0u64, c5: 0u64, c6: top })",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O11 the scenario is lost",
+  "file": "examples/storage/coop.omni",
+  "old": "journal: 0u32, arg: arg, stack: stack.addr",
+  "new": "journal: 0u32, arg: 0u64, stack: stack.addr",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O12 a task that has not started is cancelled into DONE",
+  "file": "examples/storage/coop.omni",
+  "old": "atomic.cas32(blk.addr, s_new(), s_unstarted(), 3u32, 1u32)",
+  "new": "atomic.cas32(blk.addr, s_new(), s_done(), 3u32, 1u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O13 a request does not see that the task had not started",
+  "file": "examples/storage/coop.omni",
+  "old": "if seen == s_new() { return Ok<u32,u32>(1u32) }",
+  "new": "if seen != s_new() { return Ok<u32,u32>(1u32) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O14 a task that has not started is only asked to end",
+  "file": "examples/storage/coop.omni",
+  "old": "let seen u32 = atomic.cas32(blk.addr, s_new(), s_unstarted(), 3u32, 1u32)",
+  "new": "let seen u32 = 99u32",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O15 the request is a relaxed store",
+  "file": "examples/storage/coop.omni",
+  "old": "let flag u32 = atomic.store32(blk.addr + 4u64, 1u32, 2u32)",
+  "new": "let flag u32 = atomic.store32(blk.addr + 4u64, 1u32, 0u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O16 the request is stored at the wrong cell",
+  "file": "examples/storage/coop.omni",
+  "old": "let flag u32 = atomic.store32(blk.addr + 4u64, 1u32, 2u32)",
+  "new": "let flag u32 = atomic.store32(blk.addr + 8u64, 1u32, 2u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O17 the request stores zero",
+  "file": "examples/storage/coop.omni",
+  "old": "let flag u32 = atomic.store32(blk.addr + 4u64, 1u32, 2u32)",
+  "new": "let flag u32 = atomic.store32(blk.addr + 4u64, 0u32, 2u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O18 the wait is satisfied by any state",
+  "file": "examples/storage/coop.omni",
+  "old": "if st == s_done() { return Ok<u32,u32>(atomic.load32(blk.addr + 8u64, 1u32)) }",
+  "new": "if st != 0u32 { return Ok<u32,u32>(atomic.load32(blk.addr + 8u64, 1u32)) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests",
+   "TwoCpuTaskTests"
+  ]
+ },
+ {
+  "name": "O19 the wait answers another code on a timeout",
+  "file": "examples/storage/coop.omni",
+  "old": "return Err<u32,u32>(23u32)\n    }\n  }\n}\n\n// Waits (a bounded number of tries) until the CPU",
+  "new": "return Err<u32,u32>(24u32)\n    }\n  }\n}\n\n// Waits (a bounded number of tries) until the CPU",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests",
+   "TwoCpuTaskTests"
+  ]
+ },
+ {
+  "name": "P10 the wait for the retirement answers another code on a timeout",
+  "file": "examples/storage/coop.omni",
+  "old": "return Err<u32,u32>(23u32)\n    }\n  }\n}\n\n// What the end of the task means",
+  "new": "return Err<u32,u32>(24u32)\n    }\n  }\n}\n\n// What the end of the task means",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests",
+   "TwoCpuTaskTests"
+  ]
+ },
+ {
+  "name": "O20 the wait answers a result for a task that never started",
+  "file": "examples/storage/coop.omni",
+  "old": "if st == s_unstarted() { return Ok<u32,u32>(0u32) }",
+  "new": "if st == s_unstarted() { return Ok<u32,u32>(1u32) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O21 the wait reads the result of the wrong cell",
+  "file": "examples/storage/coop.omni",
+  "old": "if st == s_done() { return Ok<u32,u32>(atomic.load32(blk.addr + 8u64, 1u32)) }",
+  "new": "if st == s_done() { return Ok<u32,u32>(atomic.load32(blk.addr + 12u64, 1u32)) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O22 an unfinished task is reported as not applied",
+  "file": "examples/storage/coop.omni",
+  "old": "if st != s_retired() { return Ok<u32,u32>(4u32) }",
+  "new": "if st != s_retired() { return Ok<u32,u32>(1u32) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests",
+   "TwoCpuTaskTests"
+  ]
+ },
+ {
+  "name": "O23 a task that never started is reported as completed",
+  "file": "examples/storage/coop.omni",
+  "old": "if st == s_unstarted() { return Ok<u32,u32>(1u32) }\n      if st != s_done() {",
+  "new": "if st == s_unstarted() { return Ok<u32,u32>(0u32) }\n      if st != s_done() {",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O24 a failure is reported as cancelled",
+  "file": "examples/storage/coop.omni",
+  "old": "if result != 1u32 { return Ok<u32,u32>(3u32) }",
+  "new": "if result != 2u32 { return Ok<u32,u32>(3u32) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O25 a completed task is reported as failed",
+  "file": "examples/storage/coop.omni",
+  "old": "if result == 0u32 { return Ok<u32,u32>(0u32) }",
+  "new": "if result == 99u32 { return Ok<u32,u32>(0u32) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O26 a dispatched effect is reported as not applied",
+  "file": "examples/storage/coop.omni",
+  "old": "if journal == 1u32 { return Ok<u32,u32>(2u32) }",
+  "new": "if journal == 1u32 { return Ok<u32,u32>(1u32) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O27 a confirmed effect is reported as not applied",
+  "file": "examples/storage/coop.omni",
+  "old": "if journal == 2u32 { return Ok<u32,u32>(5u32) }",
+  "new": "if journal == 2u32 { return Ok<u32,u32>(1u32) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O28 the journal is read from the wrong cell",
+  "file": "examples/storage/coop.omni",
+  "old": "let journal u32 = atomic.load32(blk.addr + 12u64, 1u32)",
+  "new": "let journal u32 = atomic.load32(blk.addr + 4u64, 1u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O29 destroy frees a task that may still run",
+  "file": "examples/storage/coop.omni",
+  "old": "        if st != s_unstarted() { return 24u32 }\n",
+  "new": "        if st != s_unstarted() { let keep u32 = 0u32 }\n",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests",
+   "TwoCpuTaskTests"
+  ]
+ },
+ {
+  "name": "O30 destroy refuses a task that ended",
+  "file": "examples/storage/coop.omni",
+  "old": "if st != s_retired() {\n        if st != s_unstarted() { return 24u32 }",
+  "new": "if st != 99u32 {\n        if st != s_unstarted() { return 24u32 }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O31 destroy refuses a task that never started",
+  "file": "examples/storage/coop.omni",
+  "old": "if st != s_unstarted() { return 24u32 }",
+  "new": "if st != 99u32 { return 24u32 }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O32 destroy keeps the stack",
+  "file": "examples/storage/coop.omni",
+  "old": "let f1 = heap.free<Word>(hp, stack)",
+  "new": "let f1 = heap.load<Word>(borrow(hp), stack)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O33 destroy keeps the control block",
+  "file": "examples/storage/coop.omni",
+  "old": "let f2 = heap.free<Ctrl>(hp, blk)",
+  "new": "let f2 = heap.load<Ctrl>(borrow(hp), blk)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O34 destroy frees a stack of the wrong size",
+  "file": "examples/storage/coop.omni",
+  "old": "heap.descriptor_at<Word>(borrow(hp), c.stack, c.words)",
+  "new": "heap.descriptor_at<Word>(borrow(hp), c.stack, c.words + 1u64)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O35 the scheduler starts a task that was cancelled",
+  "file": "examples/storage/coop.omni",
+  "old": "let seen u32 = atomic.cas32(ctrl, s_new(), s_running(), 3u32, 1u32)",
+  "new": "let seen u32 = atomic.cas32(ctrl, s_unstarted(), s_running(), 3u32, 1u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O36 the scheduler switches into a task that is not running",
+  "file": "examples/storage/coop.omni",
+  "old": "if st != s_running() { return st }",
+  "new": "if st != s_running() && false { return st }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O37 the scheduler resumes the wrong context",
+  "file": "examples/storage/coop.omni",
+  "old": "let back u64 = cpu.switch_context(sched, ctrl + 40u64)",
+  "new": "let back u64 = cpu.switch_context(sched, ctrl + 48u64)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O38 the start is a relaxed compare-and-swap",
+  "file": "examples/storage/coop.omni",
+  "old": "let seen u32 = atomic.cas32(ctrl, s_new(), s_running(), 3u32, 1u32)",
+  "new": "let seen u32 = atomic.cas32(ctrl, s_new(), s_running(), 0u32, 0u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O39 a checkpoint saves the context in the wrong place",
+  "file": "examples/storage/coop.omni",
+  "old": "let y u64 = cpu.switch_context(ctrl + 40u64, sched)\n  return atomic.load32(ctrl + 4u64, 1u32)",
+  "new": "let y u64 = cpu.switch_context(ctrl + 48u64, sched)\n  return atomic.load32(ctrl + 4u64, 1u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O40 a checkpoint reads the wrong cell",
+  "file": "examples/storage/coop.omni",
+  "old": "let y u64 = cpu.switch_context(ctrl + 40u64, sched)\n  return atomic.load32(ctrl + 4u64, 1u32)",
+  "new": "let y u64 = cpu.switch_context(ctrl + 40u64, sched)\n  return atomic.load32(ctrl + 8u64, 1u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O41 a checkpoint reads with a relaxed load",
+  "file": "examples/storage/coop.omni",
+  "old": "let y u64 = cpu.switch_context(ctrl + 40u64, sched)\n  return atomic.load32(ctrl + 4u64, 1u32)",
+  "new": "let y u64 = cpu.switch_context(ctrl + 40u64, sched)\n  return atomic.load32(ctrl + 4u64, 0u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O42 cancelled() reads the wrong cell",
+  "file": "examples/storage/coop.omni",
+  "old": "pub func cancelled(ctrl u64) u32 !{memory.atomic} {\n  return atomic.load32(ctrl + 4u64, 1u32)",
+  "new": "pub func cancelled(ctrl u64) u32 !{memory.atomic} {\n  return atomic.load32(ctrl + 8u64, 1u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests",
+   "TwoCpuTaskTests"
+  ]
+ },
+ {
+  "name": "O43 the scenario is read from the wrong cell",
+  "file": "examples/storage/coop.omni",
+  "old": "return raw.load64(ctrl + 16u64)",
+  "new": "return raw.load64(ctrl + 24u64)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O44 dispatch journals a confirmation",
+  "file": "examples/storage/coop.omni",
+  "old": "pub func dispatch(ctrl u64) u32 !{memory.atomic} {\n  return atomic.store32(ctrl + 12u64, 1u32, 2u32)",
+  "new": "pub func dispatch(ctrl u64) u32 !{memory.atomic} {\n  return atomic.store32(ctrl + 12u64, 2u32, 2u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O45 confirm journals a dispatch",
+  "file": "examples/storage/coop.omni",
+  "old": "pub func confirm(ctrl u64) u32 !{memory.atomic} {\n  return atomic.store32(ctrl + 12u64, 2u32, 2u32)",
+  "new": "pub func confirm(ctrl u64) u32 !{memory.atomic} {\n  return atomic.store32(ctrl + 12u64, 1u32, 2u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O46 dispatch is a relaxed store",
+  "file": "examples/storage/coop.omni",
+  "old": "return atomic.store32(ctrl + 12u64, 1u32, 2u32)",
+  "new": "return atomic.store32(ctrl + 12u64, 1u32, 0u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O47 finish writes the result in the journal cell",
+  "file": "examples/storage/coop.omni",
+  "old": "let r u32 = atomic.store32(ctrl + 8u64, result, 2u32)",
+  "new": "let r u32 = atomic.store32(ctrl + 12u64, result, 2u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O48 finish acknowledges before it writes the result",
+  "file": "examples/storage/coop.omni",
+  "old": "let r u32 = atomic.store32(ctrl + 8u64, result, 2u32)\n  let s u32 = atomic.store32(ctrl, 3u32, 2u32)      // s_done(), written as the literal so that the order of the two stores can be read on the IR\n",
+  "new": "let s u32 = atomic.store32(ctrl, 3u32, 2u32)      // s_done(), written as the literal so that the order of the two stores can be read on the IR\n  let r u32 = atomic.store32(ctrl + 8u64, result, 2u32)\n",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O49 finish acknowledges with a relaxed store",
+  "file": "examples/storage/coop.omni",
+  "old": "let s u32 = atomic.store32(ctrl, 3u32, 2u32)",
+  "new": "let s u32 = atomic.store32(ctrl, 3u32, 0u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O50 finish acknowledges with the wrong state",
+  "file": "examples/storage/coop.omni",
+  "old": "let s u32 = atomic.store32(ctrl, 3u32, 2u32)",
+  "new": "let s u32 = atomic.store32(ctrl, 4u32, 2u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O51 finish returns to the wrong context",
+  "file": "examples/storage/coop.omni",
+  "old": "let y u64 = cpu.switch_context(ctrl + 40u64, sched)\n  }\n  return cpu.halt()",
+  "new": "let y u64 = cpu.switch_context(ctrl + 40u64, ctrl + 48u64)\n  }\n  return cpu.halt()",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O52 the state is read from the wrong cell",
+  "file": "examples/storage/coop.omni",
+  "old": "Ok(blk) { return Ok<u32,u32>(atomic.load32(blk.addr, 1u32)) }",
+  "new": "Ok(blk) { return Ok<u32,u32>(atomic.load32(blk.addr + 4u64, 1u32)) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O53 the control block address is shifted",
+  "file": "examples/storage/coop.omni",
+  "old": "Ok(blk) { return Ok<u64,u32>(blk.addr) }",
+  "new": "Ok(blk) { return Ok<u64,u32>(blk.addr + 8u64) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "O54 the control block is looked up as two blocks",
+  "file": "examples/storage/coop.omni",
+  "old": "return heap.descriptor_at<Ctrl>(hp, r.m, 1u64)",
+  "new": "return heap.descriptor_at<Ctrl>(hp, r.m, 2u64)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "P1 destroy trusts the acknowledgement instead of the retirement",
+  "file": "examples/storage/coop.omni",
+  "old": "if st != s_retired() {\n        if st != s_unstarted() { return 24u32 }",
+  "new": "if st != s_done() {\n        if st != s_unstarted() { return 24u32 }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests",
+   "TwoCpuTaskTests"
+  ]
+ },
+ {
+  "name": "P2 the scheduler never retires a task that ended",
+  "file": "examples/storage/coop.omni",
+  "old": "let left u32 = atomic.store32(ctrl, s_retired(), 2u32)",
+  "new": "let left u32 = 0u32",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests",
+   "TwoCpuTaskTests"
+  ]
+ },
+ {
+  "name": "P3 the scheduler retires with a relaxed store",
+  "file": "examples/storage/coop.omni",
+  "old": "let left u32 = atomic.store32(ctrl, s_retired(), 2u32)",
+  "new": "let left u32 = atomic.store32(ctrl, s_retired(), 0u32)",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "P4 the scheduler retires a task that did not end",
+  "file": "examples/storage/coop.omni",
+  "old": "if after == s_done() {\n    let left",
+  "new": "if after != 0u32 {\n    let left",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests",
+   "TwoCpuTaskTests"
+  ]
+ },
+ {
+  "name": "P5 the scheduler reports the retirement instead of the end",
+  "file": "examples/storage/coop.omni",
+  "old": "let left u32 = atomic.store32(ctrl, s_retired(), 2u32)      // the LAST access of the scheduler to the control block: the CPU is on its own stack again\n    return s_done()",
+  "new": "let left u32 = atomic.store32(ctrl, s_retired(), 2u32)      // the LAST access of the scheduler to the control block: the CPU is on its own stack again\n    return s_retired()",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "P6 the wait for the retirement is satisfied by the end",
+  "file": "examples/storage/coop.omni",
+  "old": "if st == s_retired() { return Ok<u32,u32>(1u32) }\n        if st == s_unstarted() { return Ok<u32,u32>(1u32) }",
+  "new": "if st == s_done() { return Ok<u32,u32>(1u32) }\n        if st == s_unstarted() { return Ok<u32,u32>(1u32) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests",
+   "TwoCpuTaskTests"
+  ]
+ },
+ {
+  "name": "P7 the wait for the end does not see a task that is already retired",
+  "file": "examples/storage/coop.omni",
+  "old": "if st == s_retired() { return Ok<u32,u32>(atomic.load32(blk.addr + 8u64, 1u32)) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "P8 the wait for the retirement does not see a task that never started",
+  "file": "examples/storage/coop.omni",
+  "old": "if st == s_retired() { return Ok<u32,u32>(1u32) }\n        if st == s_unstarted() { return Ok<u32,u32>(1u32) }",
+  "new": "if st == s_retired() { return Ok<u32,u32>(1u32) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ },
+ {
+  "name": "P9 the outcome of a retired task is pending",
+  "file": "examples/storage/coop.omni",
+  "old": "if st != s_done() {\n        if st != s_retired() { return Ok<u32,u32>(4u32) }",
+  "new": "if st != s_done() {\n        if st != 99u32 { return Ok<u32,u32>(4u32) }",
+  "tests": [
+   "tests/cp03_cancellation.py",
+   "CooperativeTaskTests",
+   "ProtocolOrderTests",
+   "TaskOwnershipLawTests"
+  ]
+ }
+]

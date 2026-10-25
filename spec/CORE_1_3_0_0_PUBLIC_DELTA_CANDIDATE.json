@@ -1,0 +1,404 @@
+{
+  "cli": {
+    "commands_added": [
+      "admit",
+      "context",
+      "component"
+    ],
+    "commands_removed": [],
+    "options_added": [
+      "check --bindings-json"
+    ],
+    "help_text_changed": true
+  },
+  "diagnostics": {
+    "added_codes": {
+      "E_ARRAY_OWNING_INDEX": "memory-resource",
+      "E_RESOURCE_DOUBLE_RELEASE": "memory-resource",
+      "E_RESOURCE_STALE_USE": "memory-resource",
+      "E_BUDGET": "tooling",
+      "E_INTERNAL_OR_IO": "internal",
+      "E_BYTES_HANDLE": "runtime",
+      "E_CHANNEL_OUT": "runtime",
+      "E_INVOCATION_CANCELLED": "runtime",
+      "E_INVOCATION_CLOCK": "runtime",
+      "E_INVOCATION_DEADLINE": "runtime",
+      "E_IO": "runtime",
+      "E_MEMORY": "runtime",
+      "E_RUNTIME": "runtime",
+      "E_RUNTIME_CONTEXT": "runtime",
+      "E_RUNTIME_REENTRY": "runtime",
+      "E_TEXT_HANDLE": "runtime",
+      "E_ATOMIC_ALIGN": "runtime",
+      "E_ATOMIC_OP": "types",
+      "E_ATOMIC_ORDER": "types",
+      "E_CHAR_RANGE": "runtime",
+      "E_CLOSURE": "types",
+      "E_CLOSURE_CAPTURE": "memory-resource",
+      "E_CLOSURE_RETURN": "types",
+      "E_CONST": "types",
+      "E_DURABILITY": "toolchain",
+      "E_EXCEPTION_HANDLER": "toolchain",
+      "E_HOST_ENTRY": "tooling",
+      "E_HOST_SDK_SCHEMA": "representation",
+      "E_LAYOUT": "types",
+      "E_LINKAGE": "toolchain",
+      "E_METHOD_RECEIVER": "types",
+      "E_OMID_IDENTITY": "representation",
+      "E_OMI_LIMIT": "representation",
+      "E_OMI_MALFORMED": "representation",
+      "E_OMI_TYPE": "representation",
+      "E_OMI_VERSION": "representation",
+      "E_OPAQUE": "types",
+      "E_PACKAGE_CYCLE": "toolchain",
+      "E_PACKAGE_LOCK": "toolchain",
+      "E_PACKAGE_MANIFEST": "toolchain",
+      "E_PACKAGE_OFFLINE": "toolchain",
+      "E_PACKAGE_PATH": "toolchain",
+      "E_PACKAGE_RESOLVE": "toolchain",
+      "E_PARTICLE": "syntax",
+      "E_RESOURCE_PRIVATE": "memory-resource",
+      "E_RESOURCE_UNCONSUMED": "memory-resource",
+      "E_SERVICE_BINDING": "toolchain",
+      "E_SIMD": "types",
+      "E_SLOTS": "types",
+      "E_SLOT_OCCUPIED": "runtime",
+      "E_SLOT_STATE": "runtime",
+      "E_STATIC_ASSERT": "types",
+      "E_TARGET": "types",
+      "E_TARGET_HALT": "runtime",
+      "E_TARGET_PROFILE": "toolchain",
+      "E_THREAD_ENTRY": "toolchain",
+      "E_THREAD_LOCAL": "types",
+      "E_TRAIT_EFFECT": "capability",
+      "E_TRAIT_METHOD": "types",
+      "E_TRY_CONTEXT": "flow",
+      "E_TRY_ORDER": "flow",
+      "E_TRY_POSITION": "flow"
+    },
+    "additive_json_fields": [
+      {
+        "field": "symbol_id",
+        "presence": "optional existing OSNMF declaration identity on checked failure, never body attestation or authority",
+        "schema": "omni.diagnostic/1"
+      },
+      {
+        "field": "symbol",
+        "presence": "optional checked function key",
+        "schema": "omni.diagnostic/1"
+      },
+      {
+        "field": "place",
+        "presence": "optional checked root/projections; null when unknown",
+        "schema": "omni.diagnostic/1"
+      },
+      {
+        "field": "owner",
+        "presence": "optional actual root binding name; null when unknown",
+        "schema": "omni.diagnostic/1"
+      },
+      {
+        "field": "active_loan",
+        "presence": "optional conflicting ledger entry; null when unknown",
+        "schema": "omni.diagnostic/1"
+      },
+      {
+        "field": "constraint",
+        "presence": "optional failed semantic constraint",
+        "schema": "omni.diagnostic/1"
+      },
+      {
+        "field": "required_fix_classes",
+        "presence": "optional advisory classes, never applied or presumed verified edits",
+        "schema": "omni.diagnostic/1"
+      },
+      {
+        "field": "required_capability",
+        "presence": "optional static effect requirement, never a runtime grant",
+        "schema": "omni.diagnostic/1"
+      },
+      {
+        "field": "fixits",
+        "presence": "optional exact replacement proposals; never autoapplied",
+        "schema": "omni.diagnostic/1"
+      },
+      {
+        "field": "related",
+        "presence": "optional, omitted when empty",
+        "schema": "omni.diagnostic/1"
+      }
+    ],
+    "count_from": 113,
+    "count_to": 175,
+    "recategorized_codes": [
+      "E_CALL",
+      "E_ONME",
+      "E_OSNMF",
+      "E_EPOCH",
+      "E_QUERY",
+      "E_COGNITION"
+    ],
+    "registry_schema": "omni.diagnostics-registry/1",
+    "removed_codes": []
+  },
+  "language": {
+    "added_intrinsics": [
+      "bit.and",
+      "bit.or",
+      "bit.xor",
+      "bit.not",
+      "bit.shl",
+      "bit.shr",
+      "buffer.grow",
+      "buffer.zero",
+      "resource.inner",
+      "resource.inner_mut",
+      "slots.alloc",
+      "slots.borrow",
+      "slots.borrow_mut",
+      "slots.count",
+      "slots.gen",
+      "slots.grow",
+      "slots.len",
+      "slots.put",
+      "slots.release",
+      "slots.state",
+      "slots.take",
+      "target.pointer_width",
+      "target.little_endian",
+      "target.hosted",
+      "target.arch_is",
+      "target.has",
+      "cpu.cpuid_sub",
+      "simd.splat",
+      "simd.add",
+      "simd.sub",
+      "simd.mul",
+      "simd.div",
+      "simd.and",
+      "simd.or",
+      "simd.xor",
+      "simd.eq",
+      "simd.ne",
+      "simd.lt",
+      "simd.le",
+      "simd.gt",
+      "simd.ge",
+      "simd.select",
+      "simd.mask_and",
+      "simd.mask_or",
+      "simd.mask_xor",
+      "simd.mask_not",
+      "simd.any",
+      "simd.all",
+      "simd.bitmask",
+      "simd.reduce_add",
+      "simd.load",
+      "simd.load_aligned",
+      "simd.store",
+      "simd.store_aligned"
+    ],
+    "new_syntax": [
+      "impl alias.Trait for LocalType { ... } (trait of an imported module; orphan rule)",
+      "packed struct Name { ... } (alignment 1, no padding; Wave21/OMC21)",
+      "thread_local NAME Type = literal (integer types; private to its module; Wave21/OMC21; baremetal-x86_64 only)",
+      "struct Name<T, U: Constraint> { ... } (generic struct declaration)",
+      "Name<A, B> (type use) and Name<A, B> { field: value } (initializer)",
+      "enum Name<T, U: Constraint> { A(T), B(U), C } and Name.A<args>(payload) (constructor)",
+      "trait Name { func m(x Self) R !caps } (method signatures), impl Name for T { func m(..) .. { .. } } (bodies), Name.m<T>(args) (static-dispatch call)",
+      "expr? (postfix Result/Option propagation, lowered before checking)",
+      "move(r) of a struct that owns Resources (rewritten to field moves)",
+      "opaque struct Name { ... } (literal and fields only inside its module; Wave21/OMC21)",
+      "extern struct Name { ... } (C layout contract: integers and plain structs, natural C alignment, reached through an explicit address; Wave21/OMC21)",
+      "const NAME Type = literal | array(literals) | pure scalar expression (a pure function without parameters, evaluated when validated)",
+      "static_assert(condition, \"message\") (module item; decided by the checker with the evaluator; leaves no trace in the program)",
+      "export \"sym\" | extern \"sym\" | section \".name\" | noinline before func (link-time identity; C ABI v1: SysV integers, up to 6 parameters; extern needs ffi.call; Wave21/OMC21 linkage form and LNK1 trailer)"
+    ],
+    "origin_core_pro_x64_conformance": {
+      "builtins_added": [
+        "cpu.fxsave",
+        "cpu.fxrstor",
+        "cpu.read_mxcsr",
+        "cpu.write_mxcsr",
+        "cpu.fninit",
+        "cpu.read_flags",
+        "tls.load32",
+        "tls.load64",
+        "tls.store32",
+        "tls.store64",
+        "tls.get",
+        "tls.set",
+        "tls.init",
+        "tls.block_size",
+        "tls.teardown",
+        "layout.size<R>",
+        "layout.align<R>",
+        "layout.offset<R>",
+        "raw.read<R>",
+        "raw.write<R>",
+        "pcpu.load32",
+        "pcpu.load64",
+        "pcpu.store32",
+        "pcpu.store64",
+        "port.in16",
+        "port.in32",
+        "port.out16",
+        "cpu.enter_ring3_interruptible"
+      ],
+      "capabilities_added": [
+        "memory.tls",
+        "memory.pcpu"
+      ],
+      "cli_options_added": [
+        "--target-isa gpr|sse2",
+        "--exception-save-fpu",
+        "--isr-count",
+        "--isr-extra-vector",
+        "--ring3-support"
+      ],
+      "conformance": "tests/x64 (Core-owned minimal provider, test-owned boot adapter, programs) exercised by A83X64* classes",
+      "isa_modes": {
+        "gpr": "default: general-purpose registers only; f32/f64 and the FP-state primitives are rejected with E_TARGET_PROFILE",
+        "sse2": "floating point allowed; arithmetic lowered to LLVM constrained intrinsics (round.dynamic, fpexcept.strict) in strictfp functions"
+      },
+      "not_claimed": [
+        "real hardware",
+        "XSAVE/AVX",
+        "lazy FPU switching",
+        "PT_TLS / dynamic TLS / destructors / non-integer or exported thread-locals / typed per-CPU variables",
+        "no-migration guards",
+        "quiescence",
+        "memory-model proof"
+      ],
+      "services_not_available_in_freestanding": [
+        "float-to-integer conversion (omni_cast_float_to_int)",
+        "printing floating point (omni_print_f32/f64)"
+      ],
+      "status": "IMPLEMENTED_IN_CANDIDATE_QEMU_TCG_ONLY_NOT_CERTIFIED",
+      "trap_codes_added": {
+        "12": "extended-state fault (misaligned/null FXSAVE area, reserved MXCSR bits)",
+        "13": "thread/CPU block fault (unset base, bad magic, offset inside the 16-byte header, past the block size, or wrapping)",
+        "14": "typed raw access to a native record: misaligned or null address"
+      }
+    },
+    "general_hardware_primitives": {
+      "builtin_families_added": [
+        "raw.load8/32/64, raw.store8/32/64",
+        "port.in8, port.out8, port.out32",
+        "cpu.* privileged operations (cpuid, rdtsc, rdmsr, wrmsr, lgdt, lidt, ltr, cli, sti, halt, read/write_cr, switch_context, enter/leave_ring3, ...)",
+        "atomic.load32, atomic.store32, atomic.cas32, atomic.fetch_add32, atomic.fence",
+        "buffer.read_u32le/u64le, buffer.write_u32le/u64le",
+        "resource.seal, resource.unseal, resource.peek (nominal resources)"
+      ],
+      "capabilities_added": [
+        "memory.raw",
+        "memory.atomic",
+        "port.io",
+        "cpu.control",
+        "cpu.syscall"
+      ],
+      "cli_options_added": [
+        "--target-profile",
+        "--service-module",
+        "--exception-handler",
+        "--exception-resume",
+        "--thread-entry"
+      ],
+      "nominal_resources": "Resource<R>/Borrow<R>/BorrowMut<R> for a declared struct R with one u64 field; must be consumed (E_RESOURCE_UNCONSUMED), no automatic cleanup; immutable records recursively preserve the same typed consumption entry at each nominal field (NOMINAL_AFFINE_RESOURCE_CANDIDATE.md, CP-01 amendment). Admitted Option/enum payloads transfer the record's leaf obligations, never duplicate them.",
+      "status": "MERGED_LOCALLY_CHECKER_AND_EVALUATOR_VERIFIED_QEMU_AND_HARDWARE_NOT_RUN",
+      "target_profiles_added": [
+        "baremetal-x86_64",
+        "baremetal-i386-boot"
+      ]
+    },
+    "relaxed_rejections": [
+      "Borrow/BorrowMut function result when tied to exactly one borrowed parameter (BORROW_RETURN_REGIONS_CANDIDATE.md)",
+      "Option<Resource<T>> as a linear match-consumed value (OPTION_RESOURCE_CANDIDATE.md)",
+      "Option<Record> with recursive Resource leaves as a pending value; Some transfers projected ownership and structured cleanup (OPTION_RESOURCE_CANDIDATE.md, owning record amendment); CP-01 remains open",
+      "Nested pending Option/Result/enum payloads use the same consumption ledger recursively, including Result with Copy alternatives (OWNERSHIP_COMPOSITION_CANDIDATE.md, nested pending sums amendment)",
+      "Immutable records may own pending fields under the existing typed projected obligations; Copy classification follows pending obligations even without Resource leaves. Array ownership is covered by the owning Array amendment (PRODUCT_TYPES_LAYOUT_0_2.md)",
+      "generic struct declarations (GENERIC_STRUCT_CANDIDATE.md); generic enum declarations (same spec)",
+      "Immutable owning Tuple elements use the same typed projected obligations as records, including whole moves, literal-index loans and named destructuring; Borrow/async/View element restrictions remain (PRODUCT_TYPES_LAYOUT_0_2.md, Core 1.3 amendment)",
+      "Immutable owning Array<T,N> with 1 <= N <= 16: literal-index element Places (loans, moves, pending transfer), whole-array move, per-element cleanup; dynamic index, array.fill, array.with, view and for-in over an owning Array are rejected (new diagnostic E_ARRAY_OWNING_INDEX; PRODUCT_TYPES_LAYOUT_0_2.md, owning Array amendment). Dynamic collections of resources remain CP-04/CP-05"
+    ]
+  },
+  "representations": {
+    "onme_writer": "ONME2 when current executable/authoring roots equal the historical projections; ONME3 otherwise (complete function identities, envelope domain /3). ONME2 reader checks current semantics and the historical root algorithm; active OSNMF always uses complete identities. OSM2/OSMI2 unchanged.",
+    "added_writer_versions": [
+      21
+    ],
+    "hardware_primitives_fence": "DECIDED (spec/HARDWARE_REPRESENTATION_FENCE_CANDIDATE.md): raw./port./cpu./atomic./tls./pcpu. calls, the nominal-resource builtins and types, and the machine capabilities share the Wave21/OMC21 fence (no new version number, no new grammar). Measured before: such programs were written as Wire 18 and a core-v1.2.1.0 reader rejected them only with E_CAPABILITY.",
+    "manifest_and_receipt_version": "wire_profile and wave_writer of omni manifest and of the build receipt are the version the writer emits (OMC18..OMC22), taken from the function the writers use; before, every program above Wave20 was reported as OMC18.",
+    "onme3_for_new_identities": "A program the certified compilers could not project (an identity left unresolved in the signature of a generic template) is written as ONME3. The signature of a generic template has a module-qualified identity in the current projection; the Onme2Compatibility projection keeps the historical algorithm, and ONME2 files written by the certified compiler still verify.",
+    "limits_scope": {
+      "count_and_size_limits": "none: modules, functions, structs, enums, fields, variants, parameters, arguments, match arms, traits, impls, static_assert, thread_local, tokens, nodes and the bytes of a source file, a project or a representation are bounded by the memory budget (E_BUDGET), not by a count (Adenda 015E)",
+      "memory_budget": "OMNI_MEMORY_MIB=n is an exact ceiling on the heap counted by the allocator (0 or unlimited removes it); by default the mode is automatic: no ceiling of the compiler, and the allocator refuses what the host reports it cannot provide (MemAvailable bounded by the cgroup and by an address-space limit of the caller). A reserve for other tenants of the host is the policy of whoever starts the compiler",
+      "work_budget": "optional: OMNI_WORK_SECONDS",
+      "stack_budget": "OMNI_STACK_KIB (256 MiB by default, 256 KiB to 4 GiB); a chain of imports stops before the guard page with E_BUDGET",
+      "representation_width": "an enum has at most 256 variants: its tag is one byte (i8)",
+      "structural_depths": "nesting of types (8), blocks (32), height of an expression (64), parentheses (192) and aggregates in a layout (16): provisional, registered as a blocker until they are derived from the stack budget",
+      "runtime_contract": "Text and Bytes values, host.read, host grants and the captured output of a run are at most 1 MiB"
+    },
+    "older_reader_behaviour": "E_VERSION",
+    "readers_added": [
+      "Wave21",
+      "OMC21"
+    ],
+    "writer_rule": "Wave21/OMC21 minimum for returned Borrow/BorrowMut, bit.*, owning Options or nested pending sum composition, a pending enum declaration, owning Tuple and Array declarations/signatures/expressions, a record declaration with nominal Resource or pending fields, machine primitives/capabilities, packed records, opaque records, function linkage attributes (export/extern/section/noinline) or thread_local; otherwise 18/19/20 unchanged. Wave22/OMC22 authoring capsules retain their existing precedence."
+  },
+  "schema": "omni.public-delta-candidate/1",
+  "specs_added": [
+    "spec/CP17_SDK_INTEGRATION_CANDIDATE.md",
+    "spec/CP16_TOOLING_CANDIDATE.md",
+    "spec/BORROW_RETURN_REGIONS_CANDIDATE.md",
+    "spec/BIT_INTRINSICS_CANDIDATE.md",
+    "spec/OPTION_RESOURCE_CANDIDATE.md",
+    "spec/GENERIC_STRUCT_CANDIDATE.md",
+    "spec/TRAIT_METHODS_CANDIDATE.md",
+    "spec/TRY_PROPAGATION_CANDIDATE.md",
+    "spec/DIAGNOSTIC_RELATED_LOCATIONS_CANDIDATE.md",
+    "spec/AGGREGATE_MOVE_CANDIDATE.md",
+    "spec/ATOMICS_CANDIDATE_ST09.md",
+    "spec/BUFFER_TYPED_ACCESS_CANDIDATE_007.md",
+    "spec/NOMINAL_AFFINE_RESOURCE_CANDIDATE.md",
+    "spec/TARGET_BAREMETAL_PROFILE_CANDIDATE.md",
+    "spec/HARDWARE_REPRESENTATION_FENCE_CANDIDATE.md",
+    "spec/FPU_SSE_STATE_CANDIDATE.md",
+    "spec/GUARDS_AND_LOCKS_CANDIDATE.md",
+    "spec/TLS_AND_PERCPU_CANDIDATE.md",
+    "spec/QUIESCENCE_CANDIDATE.md",
+    "spec/NO_MIGRATION_CANDIDATE.md",
+    "spec/THREAD_LOCAL_CANDIDATE.md",
+    "spec/NATIVE_LAYOUT_CANDIDATE.md",
+    "spec/CROSS_MODULE_TRAITS_CANDIDATE.md",
+    "spec/CALLBACK_REGISTRY_CANDIDATE.md",
+    "spec/ENTER_RING3_INTERRUPTIBLE_CANDIDATE.md",
+    "spec/ADDRESS_DOMAINS_CANDIDATE.md",
+    "spec/STATIC_DATA_CANDIDATE.md",
+    "spec/STATIC_ASSERT_CANDIDATE.md",
+    "spec/TARGET_INTROSPECTION_CANDIDATE.md",
+    "spec/MMIO_PORTS_CANDIDATE.md",
+    "spec/REGISTER_FIELDS_CANDIDATE.md",
+    "spec/ENDIAN_UNALIGNED_CANDIDATE.md",
+    "spec/RAW_BOUNDARY_CANDIDATE.md",
+    "spec/LINKAGE_ABI_CANDIDATE.md",
+    "spec/SIMD_BASELINE_CANDIDATE.md"
+  ],
+  "status": "UNCERTIFIED_CANDIDATE",
+  "status_scope": "Current WIP implementation delta; not release certification. Historical design revision is independent of product identity.",
+  "to": {
+    "certification": "NOT_RUN",
+    "version": "0.1.0.00"
+  },
+  "tooling": {
+    "target_context": "actual compiler target facts, canonical layouts, capability registry and complete shipped normative intrinsic/profile contracts; no execution or authority grant",
+    "component_descriptor": "one checked program, per-module OSNMF identities, functions/templates/types/ownership/effects/linkage/ABI/profile constraints; unavailable layouts explicit and no granted capabilities",
+    "lsp": "real workspace snapshots, Unicode-to-UTF-16 ranges, checked function/local bindings, versioned rename proposals rechecked for capture; unsupported or incomplete mappings reject; full-content synchronization rejects stale or ranged changes",
+    "admission": "omni admit FILE: static YES/NO through the ordinary checker; no execution, grants, persistent edits or artifacts",
+    "diagnostic_coordinates": "primary/related Particle byte positions rendered as Unicode scalar columns; decoded representation positions without original-source mapping use null spans",
+    "fixits": "optional exact replacement proposals in diagnostic JSON and versioned LSP quick fixes; never autoapplied"
+  },
+  "distribution_version": "0.1.0.00",
+  "distribution_status": "NOT_RELEASED",
+  "implementation_design_revision": "1.3.0.0"
+}

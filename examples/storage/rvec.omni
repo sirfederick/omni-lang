@@ -1,0 +1,196 @@
+module rvec
+import heap "heap.omni"
+
+// Row 4.9: a growable typed vector for the profiles without a host (it keeps its elements in the blocks of `heap.omni`, not in a Resource<Buffer>). `RVec<T>` is a nominal
+// resource: only this module can look inside it, `destroy` consumes it exactly once or the program does not compile, and a failing call never takes the vector away
+// because the caller only lends it. The heap is passed to every call (nothing is ambient): the vector is two blocks of that heap,
+//   the resource holds the address of one block of Meta { data, serial, cap, len } (the descriptor is rebuilt with heap.descriptor_at; the exclusivity of the blocks is that of the resource, which only this module can build or open); the element block is Block<T> { addr: data, count: cap, serial }
+// Growth is geometric (4, 8, 16, ...) through heap.realloc_array, so an element address is not stable across a push; a failing push changes nothing.
+// Outcome codes are the heap's (1 out of memory, 4 stale, 6 overflow, 10/11/12 damage) plus: 7 index >= len, 13 pop from an empty vector.
+struct Meta { data u64, serial u64, cap u64, len u64 }
+
+pub struct RVec<T> { m u64 }
+
+func meta_block<T>(hp Borrow<heap.Heap>, v Borrow<RVec<T>>) Result<heap.Block<Meta>,u32> !{memory.raw} {
+  let r RVec<T> = resource.peek(v)
+  return heap.descriptor_at<Meta>(hp, r.m, 1u64)
+}
+
+func meta_of<T>(hp Borrow<heap.Heap>, v Borrow<RVec<T>>) Result<Meta,u32> !{memory.raw} {
+  let b = meta_block<T>(hp, v)
+  match b {
+    Err(code) { return Err<Meta,u32>(code) }
+    Ok(blk) { return heap.load<Meta>(hp, blk) }
+  }
+}
+
+func put_meta<T>(hp Borrow<heap.Heap>, v Borrow<RVec<T>>, m Meta) Result<u32,u32> !{memory.raw} {
+  let b = meta_block<T>(hp, v)
+  match b {
+    Err(code) { return Err<u32,u32>(code) }
+    Ok(blk) { return heap.store<Meta>(hp, blk, m) }
+  }
+}
+
+func data_of<T>(m Meta) heap.Block<T> { return heap.Block<T> { addr: m.data, count: m.cap, serial: m.serial } }
+
+// A vector with room for `capacity` elements (0 is fine: the first push allocates).
+pub func new<T>(hp BorrowMut<heap.Heap>, capacity u64) Result<Resource<RVec<T>>,u32> !{memory.raw} {
+  let mb = heap.alloc<Meta>(hp)
+  match mb {
+    Err(code) { return Err<Resource<RVec<T>>,u32>(code) }
+    Ok(meta) {
+      let db = heap.alloc_array<T>(hp, capacity)
+      match db {
+        Err(code) {
+          let undo = heap.free<Meta>(hp, meta)
+          match undo {
+            Ok(n) { return Err<Resource<RVec<T>>,u32>(code) }
+            Err(c) { return Err<Resource<RVec<T>>,u32>(c) }
+          }
+        }
+        Ok(data) {
+          let w = heap.store<Meta>(borrow(hp), meta, Meta { data: data.addr, serial: data.serial, cap: capacity, len: 0u64 })
+          match w {
+            Err(code) { return Err<Resource<RVec<T>>,u32>(code) }
+            Ok(n) { return Ok<Resource<RVec<T>>,u32>(resource.seal(RVec<T> { m: meta.addr })) }
+          }
+        }
+      }
+    }
+  }
+}
+
+pub func len<T>(hp Borrow<heap.Heap>, v Borrow<RVec<T>>) u64 !{memory.raw} {
+  let m = meta_of<T>(hp, v)
+  match m { Ok(x) { return x.len } Err(code) { return 0u64 } }
+}
+
+pub func capacity<T>(hp Borrow<heap.Heap>, v Borrow<RVec<T>>) u64 !{memory.raw} {
+  let m = meta_of<T>(hp, v)
+  match m { Ok(x) { return x.cap } Err(code) { return 0u64 } }
+}
+
+pub func get<T>(hp Borrow<heap.Heap>, v Borrow<RVec<T>>, index u64) Result<T,u32> !{memory.raw} {
+  let m = meta_of<T>(hp, v)
+  match m {
+    Err(code) { return Err<T,u32>(code) }
+    Ok(x) {
+      if index >= x.len { return Err<T,u32>(7u32) }
+      return heap.load_at<T>(hp, data_of<T>(x), index)
+    }
+  }
+}
+
+pub func set<T>(hp Borrow<heap.Heap>, v Borrow<RVec<T>>, index u64, value T) Result<u32,u32> !{memory.raw} {
+  let m = meta_of<T>(hp, v)
+  match m {
+    Err(code) { return Err<u32,u32>(code) }
+    Ok(x) {
+      if index >= x.len { return Err<u32,u32>(7u32) }
+      return heap.store_at<T>(hp, data_of<T>(x), index, value)
+    }
+  }
+}
+
+// Appends `value` and returns the new length.
+pub func push<T>(hp BorrowMut<heap.Heap>, v Borrow<RVec<T>>, value T) Result<u64,u32> !{memory.raw} {
+  let m = meta_of<T>(borrow(hp), v)
+  match m {
+    Err(code) { return Err<u64,u32>(code) }
+    Ok(x) {
+      var cur Meta = x
+      if x.len == x.cap {
+        var want u64 = x.cap * 2u64
+        if x.cap > 9223372036854775807u64 { return Err<u64,u32>(6u32) }
+        if want < 4u64 { want = 4u64 }
+        let grown = heap.realloc_array<T>(hp, data_of<T>(x), want)
+        match grown {
+          Err(code) { return Err<u64,u32>(code) }
+          Ok(nb) { cur = Meta { data: nb.addr, serial: nb.serial, cap: nb.count, len: x.len } }
+        }
+      }
+      let st = heap.store_at<T>(borrow(hp), data_of<T>(cur), cur.len, value)
+      match st {
+        Err(code) { return Err<u64,u32>(code) }
+        Ok(n) {
+          let w = put_meta<T>(borrow(hp), v, Meta { data: cur.data, serial: cur.serial, cap: cur.cap, len: cur.len + 1u64 })
+          match w {
+            Err(code) { return Err<u64,u32>(code) }
+            Ok(k) { return Ok<u64,u32>(cur.len + 1u64) }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Makes room for `additional` more elements: the capacity becomes len + additional when the vector has to grow (and stays as it is when it already has room). Returns the
+// capacity. The elements move to a new block when they must; a failing call (out of memory, arithmetic that would wrap) changes neither the length, the elements nor the blocks.
+pub func reserve<T>(hp BorrowMut<heap.Heap>, v Borrow<RVec<T>>, additional u64) Result<u64,u32> !{memory.raw} {
+  let m = meta_of<T>(borrow(hp), v)
+  match m {
+    Err(code) { return Err<u64,u32>(code) }
+    Ok(x) {
+      if additional > 18446744073709551615u64 - x.len { return Err<u64,u32>(6u32) }
+      let want u64 = x.len + additional
+      if want <= x.cap { return Ok<u64,u32>(x.cap) }
+      let grown = heap.realloc_array<T>(hp, data_of<T>(x), want)
+      match grown {
+        Err(code) { return Err<u64,u32>(code) }
+        Ok(nb) {
+          let w = put_meta<T>(borrow(hp), v, Meta { data: nb.addr, serial: nb.serial, cap: nb.count, len: x.len })
+          match w {
+            Err(code) { return Err<u64,u32>(code) }
+            Ok(k) { return Ok<u64,u32>(nb.count) }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Removes and returns the last element; the slot is not zeroed (the next push overwrites it), the length drops by one.
+pub func pop<T>(hp Borrow<heap.Heap>, v Borrow<RVec<T>>) Result<T,u32> !{memory.raw} {
+  let m = meta_of<T>(hp, v)
+  match m {
+    Err(code) { return Err<T,u32>(code) }
+    Ok(x) {
+      if x.len == 0u64 { return Err<T,u32>(13u32) }
+      let got = heap.load_at<T>(hp, data_of<T>(x), x.len - 1u64)
+      match got {
+        Err(code) { return Err<T,u32>(code) }
+        Ok(item) {
+          let w = put_meta<T>(hp, v, Meta { data: x.data, serial: x.serial, cap: x.cap, len: x.len - 1u64 })
+          match w {
+            Err(code) { return Err<T,u32>(code) }
+            Ok(k) { return Ok<T,u32>(item) }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Gives both blocks back to the heap and consumes the vector. Returns 0, or the heap's code if a block could not be released (damage).
+pub func destroy<T>(hp BorrowMut<heap.Heap>, v Resource<RVec<T>>) u32 !{memory.raw} {
+  let r RVec<T> = resource.unseal(move(v))
+  let b = heap.descriptor_at<Meta>(borrow(hp), r.m, 1u64)
+  match b {
+    Err(c) { return c }
+    Ok(blk) {
+      var code u32 = 0u32
+      let m = heap.load<Meta>(borrow(hp), blk)
+      match m {
+        Err(c) { code = c }
+        Ok(x) {
+          let f1 = heap.free<T>(hp, data_of<T>(x))
+          match f1 { Err(c) { code = c } Ok(n) { } }
+        }
+      }
+      let f2 = heap.free<Meta>(hp, blk)
+      match f2 { Err(c) { if code == 0u32 { code = c } } Ok(n) { } }
+      return code
+    }
+  }
+}

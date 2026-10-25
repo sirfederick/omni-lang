@@ -1,0 +1,365 @@
+[
+ {
+  "name": "R1 buffer.alloc is no longer an injection point",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(acquisition_fails())return 3; return buffer_alloc_impl(n,out_h); }",
+  "new": "return buffer_alloc_impl(n,out_h); }",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R2 buffer.grow is no longer an injection point",
+  "file": "runtime/omni_runtime.c",
+  "old": "    if(acquisition_fails())return 3;\n    if(n<s->n)return 4;",
+  "new": "    if(n<s->n)return 4;",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R3 slots.alloc is no longer an injection point",
+  "file": "runtime/omni_runtime.c",
+  "old": "    if(acquisition_fails())return 3;\n    if(cells>OMNI_BUFFER_VALUE_MAX/OMNI_SLOT_CELL)return 1;",
+  "new": "    if(cells>OMNI_BUFFER_VALUE_MAX/OMNI_SLOT_CELL)return 1;",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R4 slots.grow is no longer an injection point",
+  "file": "runtime/omni_runtime.c",
+  "old": "    if(acquisition_fails())return 3;\n    uint32_t old=s->n/OMNI_SLOT_CELL;",
+  "new": "    uint32_t old=s->n/OMNI_SLOT_CELL;",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R5 slots.alloc counts as two acquisition points",
+  "file": "runtime/omni_runtime.c",
+  "old": "uint32_t r=buffer_alloc_impl(cells*OMNI_SLOT_CELL,&h);",
+  "new": "uint32_t r=omni_buffer_alloc(cells*OMNI_SLOT_CELL,&h);",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R6 a release leaves no event in the audit",
+  "file": "runtime/omni_runtime.c",
+  "old": "buffer_total-=s->n;free(s->p);s->p=NULL;s->n=0;s->live=0;++audit_rel;audit_event(\"rel\",s->audit_id);return 0;",
+  "new": "buffer_total-=s->n;free(s->p);s->p=NULL;s->n=0;s->live=0;++audit_rel;return 0;",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R7 the double release and the use after release swap their faults",
+  "file": "runtime/omni_runtime.c",
+  "old": "fault(releasing?\"E_RESOURCE_DOUBLE_RELEASE\":\"E_RESOURCE_STALE_USE\")",
+  "new": "fault(releasing?\"E_RESOURCE_STALE_USE\":\"E_RESOURCE_DOUBLE_RELEASE\")",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R8 a handle with a generation never issued is taken for a stale one",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(gen==0||gen>s->generation)fault(\"E_RESOURCE_HANDLE\");",
+  "new": "if(gen==0)fault(\"E_RESOURCE_HANDLE\");",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R9 slots.release classifies a second release as a use",
+  "file": "runtime/omni_runtime.c",
+  "old": "uint32_t omni_slots_release(uint64_t h){OmniBufferSlot *s=buffer_get_op(h,1);",
+  "new": "uint32_t omni_slots_release(uint64_t h){OmniBufferSlot *s=buffer_get(h);",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R10 freeze classifies a second freeze as a use",
+  "file": "runtime/omni_runtime.c",
+  "old": "OmniBufferSlot *s=buffer_get_op(h,1); if(s->slots){omni_buffer_release(h);return 8;}",
+  "new": "OmniBufferSlot *s=buffer_get(h); if(s->slots){omni_buffer_release(h);return 8;}",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R11 the summary always says nothing is live",
+  "file": "runtime/omni_runtime.c",
+  "old": "live+=buffer_slots[i].live!=0;",
+  "new": "live+=0;",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R12 a release is not counted",
+  "file": "runtime/omni_runtime.c",
+  "old": "buffer_total-=s->n;free(s->p);s->p=NULL;s->n=0;s->live=0;++audit_rel;audit_event(\"rel\",s->audit_id);return 0;",
+  "new": "buffer_total-=s->n;free(s->p);s->p=NULL;s->n=0;s->live=0;audit_event(\"rel\",s->audit_id);return 0;",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R13 the injection counts from zero",
+  "file": "runtime/omni_runtime.c",
+  "old": "return ++fail_seen==fail_at; }",
+  "new": "return fail_seen++==fail_at; }",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R14 a malformed injection value is read as its numeric prefix",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(e&&*e==0&&v<=0xffffffffUL)fail_at=(uint32_t)v;",
+  "new": "if(e&&v<=0xffffffffUL)fail_at=(uint32_t)v;",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R15 a fault does not say what was still live",
+  "file": "runtime/omni_runtime.c",
+  "old": "    audit_report();   /* the context is not torn down on this path: say what was still live (OMNI_RESOURCE_AUDIT) */\n",
+  "new": "",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "R16 an acquisition is numbered with the previous number",
+  "file": "runtime/omni_runtime.c",
+  "old": "s->audit_id=++audit_acq;",
+  "new": "s->audit_id=audit_acq;",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "S1 the closing digest does not depend on the order",
+  "file": "examples/storage/seq.omni",
+  "old": "trace = (trace * 7u32 + (n % 65521u32)) % 65521u32",
+  "new": "trace = (trace + (n % 65521u32)) % 65521u32",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "S2 the last error replaces the first",
+  "file": "examples/storage/seq.omni",
+  "old": "if failed == 0u32 { first = code }",
+  "new": "if failed >= 0u32 { first = code }",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "S3 a failed close is not counted",
+  "file": "examples/storage/seq.omni",
+  "old": "            failed = failed + 1u32\n            trace = (trace * 7u32 + (code % 65521u32) + 1u32) % 65521u32",
+  "new": "            trace = (trace * 7u32 + (code % 65521u32) + 1u32) % 65521u32",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "S4 the first failure stops the closing of the rest",
+  "file": "examples/storage/seq.omni",
+  "old": "            trace = (trace * 7u32 + (code % 65521u32) + 1u32) % 65521u32\n",
+  "new": "            trace = (trace * 7u32 + (code % 65521u32) + 1u32) % 65521u32\n            break\n",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "S5 the results of the closes are counted as one each",
+  "file": "examples/storage/seq.omni",
+  "old": "closed = closed + n",
+  "new": "closed = closed + 1u32",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "S6 a failure is not told apart from a success in the digest",
+  "file": "examples/storage/seq.omni",
+  "old": "(code % 65521u32) + 1u32) % 65521u32",
+  "new": "(code % 65521u32)) % 65521u32",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "S7 the sequence is closed from the first element",
+  "file": "examples/storage/seq.omni",
+  "old": "var trace u32 = 0u32\n  for slots.count(borrow(inner.buf)) > 0u32 {\n    let last u32 = slots.count(borrow(inner.buf)) - 1u32",
+  "new": "var trace u32 = 0u32\n  for slots.count(borrow(inner.buf)) > 0u32 {\n    let last u32 = 0u32",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "S8 a take that cannot happen is not reported as a failure",
+  "file": "examples/storage/seq.omni",
+  "old": "        if first == 0u32 { first = 1000u32 }\n",
+  "new": "",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ],
+  "equivalent": "After the loop guard slots.count > 0 the cell `count-1` is occupied by the invariant (occupied cells are exactly 0..len-1), so slots.take cannot return Err; the arm exists for totality (every Result is matched) and no program can reach it."
+ },
+ {
+  "name": "S9 a buffer that cannot be released is not reported",
+  "file": "examples/storage/seq.omni",
+  "old": "Err(b) { return CloseReport { closed: closed, failed: failed + 1u32, first: first, trace: trace } }",
+  "new": "Err(b) { return CloseReport { closed: closed, failed: failed, first: first, trace: trace } }",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ],
+  "equivalent": "slots.release refuses only while a cell is occupied; the loop above exits only when slots.count is 0, so the refusal cannot happen here; the arm exists for totality."
+ },
+ {
+  "name": "E1 the evaluator never injects",
+  "file": "compiler/src/check.cpp",
+  "old": "bool acquisitionFails() { return failAt!=0&&++failSeen==failAt; }",
+  "new": "bool acquisitionFails() { return false; }",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E2 buffer.alloc is no longer an injection point in the evaluator",
+  "file": "compiler/src/check.cpp",
+  "old": "if(acquisitionFails()){r.fields.push_back(Value(Type::U32,3));return r;} if(n>1024u*1024u)",
+  "new": "if(n>1024u*1024u)",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E3 slots.alloc is no longer an injection point in the evaluator",
+  "file": "compiler/src/check.cpp",
+  "old": "                                if(acquisitionFails())return failure(3);\n                                if(cells>1024u*1024u/8u)return failure(1);",
+  "new": "                                if(cells>1024u*1024u/8u)return failure(1);",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E4 slots.grow is no longer an injection point in the evaluator",
+  "file": "compiler/src/check.cpp",
+  "old": "                                if(acquisitionFails())return failure(3);\n                                if(cells<old)return failure(4);",
+  "new": "                                if(cells<old)return failure(4);",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E5 buffer.grow is no longer an injection point in the evaluator",
+  "file": "compiler/src/check.cpp",
+  "old": "                            if(acquisitionFails()){r.fields.push_back(Value(Type::U32,3));return r;}\n                            if(n<old){",
+  "new": "                            if(n<old){",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E6 the automatic cleanup of a buffer leaves no release event",
+  "file": "compiler/src/check.cpp",
+  "old": "                    auditRelease(value.handle);\n                    buffers.erase(it);",
+  "new": "                    buffers.erase(it);",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E7 a slot buffer is acquired without an event",
+  "file": "compiler/src/check.cpp",
+  "old": "Value v(bt); v.handle=nextBuffer++; auditAcquire(v.handle);",
+  "new": "Value v(bt); v.handle=nextBuffer++;",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E8 a byte buffer is acquired without an event",
+  "file": "compiler/src/check.cpp",
+  "old": "Value v(rt);v.handle=nextBuffer++; auditAcquire(v.handle);",
+  "new": "Value v(rt);v.handle=nextBuffer++;",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E9 the evaluator summary always says nothing is live",
+  "file": "compiler/src/check.cpp",
+  "old": "auditAcq,auditRel,buffers.size());",
+  "new": "auditAcq,auditRel,(size_t)0);",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E10 a malformed injection value is read as its numeric prefix in the evaluator",
+  "file": "compiler/src/check.cpp",
+  "old": "if(end&&*end==0&&*f!=0)failAt=v;",
+  "new": "if(end)failAt=v;",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E11 buffer.release leaves no release event",
+  "file": "compiler/src/check.cpp",
+  "old": "bufferBytes-=it->second.size();auditRelease(a[0].handle);buffers.erase(it);return Value(Type::U32,0);",
+  "new": "bufferBytes-=it->second.size();buffers.erase(it);return Value(Type::U32,0);",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E12 slots.release leaves no release event",
+  "file": "compiler/src/check.cpp",
+  "old": "bufferBytes-=b->second.size(); auditRelease(a[0].handle); buffers.erase(b);",
+  "new": "bufferBytes-=b->second.size(); buffers.erase(b);",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E13 freeze of a byte buffer leaves no release event",
+  "file": "compiler/src/check.cpp",
+  "old": "bufferBytes-=it->second.size(); auditRelease(a[0].handle); buffers.erase(it); }catch(...)",
+  "new": "bufferBytes-=it->second.size(); buffers.erase(it); }catch(...)",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E14 freeze of a slot buffer leaves no release event",
+  "file": "compiler/src/check.cpp",
+  "old": "bufferBytes-=it->second.size(); auditRelease(a[0].handle); buffers.erase(it);\n                            }",
+  "new": "bufferBytes-=it->second.size(); buffers.erase(it);\n                            }",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ]
+ },
+ {
+  "name": "E15 a handle never issued is reported as a released one",
+  "file": "compiler/src/check.cpp",
+  "old": "if(h==0||h>=nextBuffer)fail(\"E_RESOURCE_HANDLE\",\"Buffer invalido\");",
+  "new": "if(h==0)fail(\"E_RESOURCE_HANDLE\",\"Buffer invalido\");",
+  "tests": [
+   "tests/cp03_cleanup_failure.py"
+  ],
+  "equivalent": "badBuffer is reached only when a handle is absent from the evaluator table, which the checker makes impossible for a checked program (a released or never issued handle cannot be named in Omni: Resource values are affine and unforgeable). It is defence in depth; the classification itself is validated on the C runtime, where the same misuse is reachable."
+ }
+]

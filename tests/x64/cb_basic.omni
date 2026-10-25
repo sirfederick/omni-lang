@@ -1,0 +1,44 @@
+module t
+import rt "rt.omni"
+import cbreg "cbreg.omni"
+
+// CP-06 on one vCPU (spec/CALLBACK_REGISTRY_CANDIDATE.md): register a callable with a retained environment, use it later, retire it; late and reused-slot calls
+// are intercepted by the mechanism. Slot 0x5D0000 (6094848), epoch cell 0x5D0200 (6095360), reader slot 0x5D0240 (6095424), "closed" counter 0x5D0080 (6094976).
+
+struct Adder { base u32, closed u64 }
+
+impl cbreg.Handler for Adder {
+  func call(h Adder, x u32) u32 !{memory.raw} { return h.base + x }
+  func dispose(h Adder) u32 !{memory.atomic} { return atomic.fetch_add32(h.closed, 1u32, 4u32) }
+}
+
+func show(r Result<u32,u32>) u32 !{io.print} {
+  match r {
+    Ok(v) { print(v); return 0u32 }
+    Err(code) { print(1000u32 + code); return 0u32 }
+  }
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let g0 u32 = atomic.store32(6095360u64, 1u32, 4u32)
+  let first = cbreg.register<Adder>(6094848u64, Adder { base: 10u32, closed: 6094976u64 })
+  let t1 u64 = cbreg.handle(borrow(first))
+  let a u32 = show(cbreg.fire<Adder>(6094848u64, t1, 5u32))
+  let b u32 = show(cbreg.fire<Adder>(6094848u64, t1, 6u32))
+  let c u32 = cbreg.retire<Adder>(move(first), 6095360u64, 6095424u64, 1000u32)
+  print(atomic.load32(6094976u64, 4u32))
+  let late u32 = show(cbreg.fire<Adder>(6094848u64, t1, 7u32))
+  let second = cbreg.register<Adder>(6094848u64, Adder { base: 20u32, closed: 6094976u64 })
+  let t2 u64 = cbreg.handle(borrow(second))
+  let reused u32 = show(cbreg.fire<Adder>(6094848u64, t1, 8u32))
+  let fresh u32 = show(cbreg.fire<Adder>(6094848u64, t2, 8u32))
+  let forged u32 = show(cbreg.fire<Adder>(6094912u64, t2, 8u32))
+  let moved u32 = show(cbreg.fire<Adder>(6094848u64, bit.xor(t2, 4096u64), 8u32))
+  let d u32 = cbreg.retire<Adder>(move(second), 6095360u64, 6095424u64, 1000u32)
+  print(atomic.load32(6094976u64, 4u32))
+  print(raw.load8(6094888u64))
+  print(raw.load8(6094903u64))
+  let wrap u32 = raw.store32(6094852u64, 16777215u32)
+  print(cbreg.next_generation(6094848u64))
+  return rt.finish(0u32)
+}

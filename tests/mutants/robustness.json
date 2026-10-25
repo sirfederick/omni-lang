@@ -1,0 +1,119 @@
+[
+ {
+  "name": "Z1 no height guard on field chains",
+  "file": "compiler/src/particle.cpp",
+  "old": "                    node(); lift(e); continue;\n                }\n                break;",
+  "new": "                    node(); continue;\n                }\n                break;",
+  "tests": [
+   "tests/robustness_limits.py"
+  ]
+ },
+ {
+  "name": "Z2 no height guard on binary chains",
+  "file": "compiler/src/particle.cpp",
+  "old": "                node(); lift(e);\n            }\n            if(min==1&&eat(\"..\")) {",
+  "new": "                node();\n            }\n            if(min==1&&eat(\"..\")) {",
+  "tests": [
+   "tests/robustness_limits.py"
+  ]
+ },
+ {
+  "name": "Z3 no height guard on method chains",
+  "file": "compiler/src/particle.cpp",
+  "old": "expect(\")\"); e=std::move(q); node(); lift(e); continue;",
+  "new": "expect(\")\"); e=std::move(q); node(); continue;",
+  "tests": [
+   "tests/robustness_limits.py"
+  ]
+ },
+ {
+  "name": "Z4 no height guard on index chains",
+  "file": "compiler/src/particle.cpp",
+  "old": "expect(\"]\");\n                    e=std::move(q); node(); lift(e); continue;",
+  "new": "expect(\"]\");\n                    e=std::move(q); node(); continue;",
+  "tests": [
+   "tests/robustness_limits.py"
+  ]
+ },
+ {
+  "name": "Z5 no height guard on try chains",
+  "file": "compiler/src/particle.cpp",
+  "old": "q.args.push_back(std::move(e)); e=std::move(q); node(); lift(e); continue;",
+  "new": "q.args.push_back(std::move(e)); e=std::move(q); node(); continue;",
+  "tests": [
+   "tests/robustness_limits.py"
+  ]
+ },
+ {
+  "name": "Z6 limit far too high",
+  "file": "compiler/src/particle.cpp",
+  "old": "if(q.height>64u)fail",
+  "new": "if(q.height>64000u)fail",
+  "tests": [
+   "tests/robustness_limits.py"
+  ]
+ },
+ {
+  "name": "Z7 limit off by one",
+  "file": "compiler/src/particle.cpp",
+  "old": "if(q.height>64u)fail",
+  "new": "if(q.height>65u)fail",
+  "tests": [
+   "tests/robustness_limits.py"
+  ]
+ },
+ {
+  "name": "Z8 heights not propagated through nesting",
+  "file": "compiler/src/particle.cpp",
+  "old": "            for(const auto& a:q.args)if(a.height>h)h=a.height;",
+  "new": "            h=0;",
+  "tests": [
+   "tests/robustness_limits.py"
+  ]
+ },
+ {
+  "name": "Z9 manifest depth guard removed",
+  "file": "compiler/src/packages.cpp",
+  "old": "if(++d>8)fail(\"E_PACKAGE_MANIFEST\",\"JSON package demasiado profundo\");",
+  "new": "",
+  "tests": [
+   "tests/robustness_limits.py"
+  ]
+ },
+ {
+  "name": "Z10 manifest depth bound too high",
+  "file": "compiler/src/packages.cpp",
+  "old": "if(++d>8)fail",
+  "new": "if(++d>800000)fail",
+  "tests": [
+   "tests/robustness_limits.py"
+  ]
+ },
+ {
+  "name": "Z11 compiler runs on the caller stack",
+  "file": "compiler/src/main.cpp",
+  "old": "        if(pthread_attr_setstacksize(&attr,kStackBytes)==0&&pthread_create(&thread,&attr,mainThread,&call)==0) {",
+  "new": "        if(false&&pthread_attr_setstacksize(&attr,kStackBytes)==0&&pthread_create(&thread,&attr,mainThread,&call)==0) {",
+  "tests": [
+   "tests/robustness_limits.py"
+  ]
+ },
+ {
+  "name": "Z12 dedicated stack far too small",
+  "file": "compiler/src/main.cpp",
+  "old": "    size_t kStackBytes=static_cast<size_t>(256)<<20;",
+  "new": "    size_t kStackBytes=static_cast<size_t>(64)<<10;",
+  "tests": [
+   "tests/robustness_limits.py"
+  ]
+ },
+ {
+  "name": "Z13 the stack override is ignored",
+  "file": "compiler/src/main.cpp",
+  "old": "kStackBytes=static_cast<size_t>(kib)<<10;",
+  "new": "(void)kib;",
+  "tests": [
+   "tests/robustness_limits.py"
+  ]
+ }
+]

@@ -1,0 +1,112 @@
+module t
+import rt "rt.omni"
+
+// G4: two vCPUs execute Omni code. The bootstrap processor (main) starts application processor 1 with INIT/SIPI through the local APIC
+// (the 16-bit/32-bit/64-bit wake-up path is the test-owned adapter in boot64.S, not an Omni feature); ap_main is Omni code that runs on it.
+//
+// Shared cells (identity-mapped RAM, 0x510100..):
+//   5308672 ATOMIC counter (u32)   5308736 PLAIN counter (u32, relaxed load + relaxed store: NOT a read-modify-write)
+//   5308800 AP identity (apic id + 100)  5308864 AP_UP   5308928 GO   5308992 AP_DONE
+//   5309056 DATA   5309120 FLAG   5309184 ACK
+// Local APIC (0xFEE00000): SVR 4276093168, ICR low 4276093696, ICR high 4276093712.
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func hammer_atomic(n u32) u32 !{memory.atomic} {
+  for i in 0u32..n {
+    let p u32 = atomic.fetch_add32(5308672u64, 1u32, 4u32)
+  }
+  return 0u32
+}
+
+func hammer_plain(n u32) u32 !{memory.atomic} {
+  for i in 0u32..n {
+    let v u32 = atomic.load32(5308736u64, 0u32)
+    let s u32 = atomic.store32(5308736u64, v + 1u32, 0u32)
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+// Stack isolation: each CPU recurses with its own tag while the other does the same. A frame that is overwritten by the other CPU
+// (a shared stack) changes a returned sum or a return address. Returns the number of wrong sums (sum of 1..16 = 136 plus the tag).
+func deep(n u32, tag u32) u32 {
+  if n == 0u32 { return tag }
+  let below u32 = deep(n - 1u32, tag)
+  return below + n
+}
+
+func stack_hammer(tag u32) u32 {
+  var bad u32 = 0u32
+  for i in 0u32..20000u32 {
+    if deep(16u32, tag) != tag + 136u32 { bad = bad + 1u32 }
+  }
+  return bad
+}
+
+// Runs on application processor 1.
+func ap_main() u32 !{memory.raw,memory.atomic,cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  let who u32 = raw.store32(5308800u64, id + 100u32)
+  let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+  let go u32 = wait_flag(5308928u64)
+  let a u32 = hammer_atomic(200000u32)
+  let b u32 = hammer_plain(200000u32)
+  let sb u32 = stack_hammer(2000u32)
+  let sc u32 = raw.store32(5309248u64, sb)
+  let done u32 = atomic.store32(5308992u64, 1u32, 2u32)
+  let seen u32 = wait_flag(5309120u64)
+  let data u32 = raw.load32(5309056u64)
+  let ack u32 = atomic.store32(5309184u64, data + 1u32, 2u32)
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+  let init u32 = raw.store32(4276093696u64, 17664u32)
+  let w1 u32 = delay()
+  let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+  let w2 u32 = delay()
+  let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+  let up u32 = wait_flag(5308864u64)
+  if up == 0u32 {
+    print(999u32)
+    return rt.finish(2u32)
+  }
+  let go u32 = atomic.store32(5308928u64, 1u32, 2u32)
+  let a u32 = hammer_atomic(200000u32)
+  let b u32 = hammer_plain(200000u32)
+  let bsb u32 = stack_hammer(1000u32)
+  let done u32 = wait_flag(5308992u64)
+  print(raw.load32(5308800u64))
+  print(atomic.load32(5308672u64, 4u32))
+  print(atomic.load32(5308736u64, 4u32))
+  let data u32 = raw.store32(5309056u64, 4660u32)
+  let flag u32 = atomic.store32(5309120u64, 1u32, 2u32)
+  let acked u32 = wait_flag(5309184u64)
+  print(atomic.load32(5309184u64, 1u32))
+  print(bsb)
+  print(raw.load32(5309248u64))
+  // provider accounting is per CPU: the AP's own slot (0x500100) was initialized and its fuel was spent independently of the BSP's
+  print(raw.load32(5243136u64 + 12u64))
+  if raw.load64(5243136u64) < 4000000000u64 {
+    print(1u32)
+  } else {
+    print(0u32)
+  }
+  return rt.finish(0u32)
+}

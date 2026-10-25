@@ -1,0 +1,191 @@
+[
+ {
+  "name": "B1 parser drops the generic arguments of a nominal resource",
+  "file": "compiler/src/particle.cpp",
+  "old": "r.name=n; r.parts=std::move(args); return r;\n            }\n            if(eat(\"Borrow\")) {",
+  "new": "r.name=n; return r;\n            }\n            if(eat(\"Borrow\")) {",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B2 the monomorphizer ignores nominal uses",
+  "file": "compiler/src/check.cpp",
+  "old": "const bool nominalUse=t.kind==Type::Resource||t.kind==Type::Borrow||t.kind==Type::BorrowMut;",
+  "new": "const bool nominalUse=false;",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B3 a Buffer-wrapping struct is not nominal",
+  "file": "compiler/src/check.cpp",
+  "old": "if(f.kind==Type::Resource&&f.name==\"Buffer\")return 2;",
+  "new": "if(false)return 2;",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B4 anyone may look inside a nominal resource",
+  "file": "compiler/src/check.cpp",
+  "old": "if(ri->second->module!=fn->module)fail(\"E_RESOURCE_PRIVATE\",e.text+\" solo es valido en el modulo que declara \"+rk,e.loc);",
+  "new": "",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B5 inner accepts a u64 handle",
+  "file": "compiler/src/check.cpp",
+  "old": "if(inward&&inner!=2)fail(\"E_RESOURCE_TYPE\",e.text+\" requiere un recurso nominal que envuelve un Resource<Buffer>\",e.loc);",
+  "new": "",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B6 peek accepts a wrapped buffer",
+  "file": "compiler/src/check.cpp",
+  "old": "if(e.text==\"resource.peek\"&&inner!=1)fail(\"E_RESOURCE_TYPE\",\"resource.peek no admite un recurso nominal que posee un Buffer: use resource.inner\",e.loc);",
+  "new": "",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B7 inner_mut accepts a shared borrow",
+  "file": "compiler/src/check.cpp",
+  "old": "const bool kindOk=mut?a0.kind==Type::BorrowMut:(a0.kind==Type::Borrow||a0.kind==Type::BorrowMut);",
+  "new": "const bool kindOk=a0.kind==Type::Borrow||a0.kind==Type::BorrowMut;",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B8 borrow parameters are not loans",
+  "file": "compiler/src/check.cpp",
+  "old": "for(auto&a:f.params)if(a.type.kind==Type::Borrow||a.type.kind==Type::BorrowMut)\n                        loanLedger[a.binding]=",
+  "new": "for(auto&a:f.params)if(false)\n                        loanLedger[a.binding]=",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B9 every borrow parameter is a shared loan",
+  "file": "compiler/src/check.cpp",
+  "old": "a.type.kind==Type::Borrow?LoanKind::Shared:LoanKind::Exclusive,Region{scopes.size()},a.name,true,-1,false,a.loc};",
+  "new": "LoanKind::Shared,Region{scopes.size()},a.name,true,-1,false,a.loc};",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B10 inner does not stand on the Place of its borrow",
+  "file": "compiler/src/check.cpp",
+  "old": "if(e.args[0].kind==Expr::Ref){ const auto pl=loanPlaceForBinding(e.args[0].binding); e.placeRoot=pl.root; e.placePath=pl.projections; }\n                                else if(e.args[0].placeRoot>=0){ e.placeRoot=e.args[0].placeRoot; e.placePath=e.args[0].placePath; }\n                                else fail(\"E_PLACE\",e.text+\" requiere un Borrow/BorrowMut con Place probado\",e.loc);",
+  "new": "e.placeRoot=e.args[0].binding;",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B11 the call loan does not see through inner",
+  "file": "compiler/src/check.cpp",
+  "old": "return topLevelCallLoan(e.args[0],place,kind);   // the same storage",
+  "new": "return false;   // the same storage",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B12 the evaluator seals the wrong handle",
+  "file": "compiler/src/check.cpp",
+  "old": "if(e.resolved==\"@builtin:resource.seal_buffer\") { Value v(e.type); v.handle=a[0].fields.at(0).handle; return v; }",
+  "new": "if(e.resolved==\"@builtin:resource.seal_buffer\") { Value v(e.type); v.handle=a[0].fields.at(0).bits; return v; }",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B13 the evaluator unseals into the wrong field",
+  "file": "compiler/src/check.cpp",
+  "old": "Value inner(bt); inner.handle=a[0].handle; Value v(e.type); v.fields={inner}; return v; }",
+  "new": "Value inner(bt); inner.handle=0; Value v(e.type); v.fields={inner}; return v; }",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B14 native lowering of inner drops the handle",
+  "file": "compiler/src/llvm.cpp",
+  "old": "if(e.resolved==\"@builtin:resource.inner\"||e.resolved==\"@builtin:resource.inner_mut\") return av[0];",
+  "new": "if(e.resolved==\"@builtin:resource.inner\"||e.resolved==\"@builtin:resource.inner_mut\") return \"0\";",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B15 the version fence omits inner",
+  "file": "compiler/src/formats.cpp",
+  "old": "n==\"resource.inner\"||n==\"resource.inner_mut\"||",
+  "new": "",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B16 type identity ignores the arguments of a nominal use",
+  "file": "compiler/src/omni.hpp",
+  "old": "if(t.parts.empty())return {};\n        std::string r=\"<\";",
+  "new": "return {};\n        std::string r=\"<\";",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B17 growth does not double",
+  "file": "examples/storage/vec.omni",
+  "old": "  var want u32 = cap * 2u32\n  if want < 4u32 { want = 4u32 }",
+  "new": "  var want u32 = cap + 1u32\n  if want < 4u32 { want = 4u32 }",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B18 push forgets to store the length",
+  "file": "examples/storage/vec.omni",
+  "old": "          let n = store_len<T,A>(v, count + 1u32)\n          match n { Ok(d) { return Ok<u32,u32>(count + 1u32) } Err(code) { return Err<u32,u32>(code) } }",
+  "new": "          return Ok<u32,u32>(count + 1u32)",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B19 pop leaves the slot",
+  "file": "examples/storage/vec.omni",
+  "old": "      let z = buffer.zero(resource.inner_mut(v), header_bytes() + (count - 1u32) * size, size)",
+  "new": "      let z = buffer.zero(resource.inner_mut(v), header_bytes() + (count - 1u32) * size, 0u32)",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B20 get does not check the index",
+  "file": "examples/storage/vec.omni",
+  "old": "  if index >= len<T,A>(v) { return Err<T,u32>(10u32) }\n  return Codec.get<T>",
+  "new": "  return Codec.get<T>",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ },
+ {
+  "name": "B21 capacity limit unchecked",
+  "file": "examples/storage/vec.omni",
+  "old": "  if capacity > max_elements(size) { return Err<Resource<Vec<T>>,u32>(1u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp02_borrowed_containers.py"
+  ]
+ }
+]

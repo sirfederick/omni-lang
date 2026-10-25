@@ -1,0 +1,19 @@
+module t
+import rt "rt.omni"
+import idt "idt.omni"
+
+// A typed read above 4 GiB keeps all 64 bits of the address (CP-07): the page fault the unmapped access raises reports CR2 = the exact address.
+struct Mixed { a u8, b u32, c u16, d u64 }
+
+func on_exception(frame u64) u32 !{io.print,memory.raw,port.io,cpu.control} {
+  print(raw.load64(frame))
+  print(cpu.read_cr64(2u32))
+  return rt.finish(100u32)
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let installed u32 = idt.install()
+  let m Mixed = raw.read<Mixed>(4294971392u64)
+  print(999u32)
+  return rt.finish(0u32)
+}

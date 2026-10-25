@@ -1,0 +1,48 @@
+{
+  "schema": "omni.malformed-corpus/1",
+  "version": "0.8.9-alpha.8",
+  "cases": [
+    {
+      "id": "invalid-utf8",
+      "extension": ".omni",
+      "base64": "//79",
+      "sha256": "8ca9f8c269c0a4b1d8bf0efc67d97df8ad5e0ea93630fd9099860d36c0fe75ea",
+      "expected_diagnostic": "E_UTF8"
+    },
+    {
+      "id": "embedded-nul",
+      "extension": ".omni",
+      "base64": "bW9kdWxlIHgACg==",
+      "sha256": "e3aafc3a530bd22269c5e5e44bae0880e803ef04f517f574a6f104bbc4a8c23b",
+      "expected_diagnostic": "E_UTF8"
+    },
+    {
+      "id": "future-wire",
+      "extension": ".owire",
+      "base64": "T01DWBcAAAA=",
+      "sha256": "e44eed2557f3cff0e05728d29e8fcfd2f2c74eed25c1bd63449011c18d3513d3",
+      "expected_diagnostic": "E_VERSION"
+    },
+    {
+      "id": "truncated-wire",
+      "extension": ".owire",
+      "base64": "T01DWA==",
+      "sha256": "78c04b8dd6e9647b6aecf5c1db73af7a9ce1e2fe03bf46440f14b32a07350504",
+      "expected_diagnostic": "E_WIRE"
+    },
+    {
+      "id": "invalid-source",
+      "extension": ".omni",
+      "base64": "bW9kdWxlIGJyb2tlbgpmdW5jIG1haW4oCg==",
+      "sha256": "a128a68b76cd112f25ec818a29d6f3289ad5f3794e686eb4c19b8fa53e13f92d",
+      "expected_diagnostic": "E_NAME"
+    },
+    {
+      "id": "truncated-authoring-capsule22",
+      "extension": ".owire",
+      "base64": "T01DWBYAAAA=",
+      "sha256": "8c88a7e0fb6e448b6827fd182e5ec4a413c016c3854e03a5b6cbced99c28a90f",
+      "expected_diagnostic": "E_WIRE"
+    }
+  ]
+}

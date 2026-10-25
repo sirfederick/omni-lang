@@ -1,0 +1,141 @@
+module mailbox
+
+// CP-13 row 13.5 (spec/MEMORY_MODEL_X86_64_CANDIDATE.md): a bounded single-producer / single-consumer mailbox for two CPUs, written in Omni over raw cells and `atomic.*`. SDK Systems
+// library: it needs no host, no allocator and no scheduler, and it carries PLAIN data only (a record that has a native layout: integers and plain records; a `Resource`, a loan,
+// `Text` or an enum has no layout and is refused with E_LAYOUT, so ownership never travels through the queue as bytes).
+//   cells (every field on its own 64-byte line, `base` is 64-aligned):
+//     +0 magic u64   +64 capacity u64 (a power of two)   +128 stride u64 (bytes per slot, a multiple of 8)   +192 tail u64 (written by the producer only)
+//     +256 head u64 (written by the consumer only)   +320 producer end claimed u32   +384 consumer end claimed u32   +448 slots
+// Ownership of the two ends: `open_producer` / `open_consumer` hand out ONE nominal resource each (claimed with a compare-and-swap on the cell, so a second open answers 14 while the first
+// is alive); `push` needs the producer end, `pop` the consumer end. The checker therefore enforces "single producer, single consumer" and that an end is closed exactly once.
+// Orders (the contract of the memory model, checked on the emitted IR by the tests):
+//   push : tail  relaxed load (only this end writes it)  | head ACQUIRE load (the consumer is done with the slot)  | payload written with plain stores | tail RELEASE store
+//   pop  : head  relaxed load (only this end writes it)  | tail ACQUIRE load (the payload is visible)             | payload read with plain loads    | head RELEASE store
+//   open : magic ACQUIRE load; create: magic RELEASE store after every other cell; close: claim RELEASE store of 0
+// The release store of `tail` publishes the payload; the acquire load of `tail` is what lets the consumer read it. Nothing here is a lock and nothing blocks: a full queue answers 15 and an
+// empty one 16, and the caller decides how long to try (a bounded loop; there is no unbounded spin in this library).
+// `create` over a mailbox that is formatted and has an end open answers 14 and changes nothing: the claims are what makes the ends exclusive, so they are not reset under a live end.
+// Outcome codes: 5 bad range or geometry, 6 arithmetic would wrap, 8 the message does not fit a slot, 12 cells damaged (head beyond tail, or more than `capacity` pending), 13 not a mailbox
+// (magic), 14 that end is already open, 15 full, 16 empty.
+pub struct Producer { m u64 }
+pub struct Consumer { m u64 }
+
+func magic() u64 { return 5714309578938797912u64 }
+func max64() u64 { return 18446744073709551615u64 }
+func cap_cell(b u64) u64 { return b + 64u64 }
+func stride_cell(b u64) u64 { return b + 128u64 }
+func tail_cell(b u64) u64 { return b + 192u64 }
+func head_cell(b u64) u64 { return b + 256u64 }
+func claim_p(b u64) u64 { return b + 320u64 }
+func claim_c(b u64) u64 { return b + 384u64 }
+func slots(b u64) u64 { return b + 448u64 }
+
+// Formats a mailbox of `capacity` slots (a power of two, 1..1048576) of `stride` bytes (a multiple of 8, 8..4096) at `base`. One CPU formats, then publishes the address.
+pub func create(base u64, capacity u64, stride u64) Result<u32,u32> !{memory.raw,memory.atomic} {
+  if base == 0u64 { return Err<u32,u32>(5u32) }
+  if bit.and(base, 63u64) != 0u64 { return Err<u32,u32>(5u32) }
+  if capacity == 0u64 { return Err<u32,u32>(5u32) }
+  if capacity > 1048576u64 { return Err<u32,u32>(5u32) }
+  if bit.and(capacity, capacity - 1u64) != 0u64 { return Err<u32,u32>(5u32) }
+  if stride < 8u64 { return Err<u32,u32>(5u32) }
+  if stride > 4096u64 { return Err<u32,u32>(5u32) }
+  if bit.and(stride, 7u64) != 0u64 { return Err<u32,u32>(5u32) }
+  if base > max64() - 448u64 { return Err<u32,u32>(6u32) }
+  if capacity * stride > max64() - base - 448u64 { return Err<u32,u32>(6u32) }
+  if atomic.load64(base, 1u32) == magic() {
+    if atomic.load32(claim_p(base), 1u32) != 0u32 { return Err<u32,u32>(14u32) }
+    if atomic.load32(claim_c(base), 1u32) != 0u32 { return Err<u32,u32>(14u32) }
+  }
+  let a u32 = atomic.store64(cap_cell(base), capacity, 0u32)
+  let b u32 = atomic.store64(stride_cell(base), stride, 0u32)
+  let c u32 = atomic.store64(tail_cell(base), 0u64, 0u32)
+  let d u32 = atomic.store64(head_cell(base), 0u64, 0u32)
+  let e u32 = atomic.store32(claim_p(base), 0u32, 0u32)
+  let f u32 = atomic.store32(claim_c(base), 0u32, 0u32)
+  let g u32 = atomic.store64(base, magic(), 2u32)
+  return Ok<u32,u32>(1u32)
+}
+
+func formatted(base u64) bool !{memory.atomic} {
+  if bit.and(base, 63u64) != 0u64 { return false }
+  if base == 0u64 { return false }
+  return atomic.load64(base, 1u32) == magic()
+}
+
+pub func open_producer(base u64) Result<Resource<Producer>,u32> !{memory.atomic} {
+  if formatted(base) == false { return Err<Resource<Producer>,u32>(13u32) }
+  let seen u32 = atomic.cas32(claim_p(base), 0u32, 1u32, 3u32, 1u32)
+  if seen != 0u32 { return Err<Resource<Producer>,u32>(14u32) }
+  return Ok<Resource<Producer>,u32>(resource.seal(Producer { m: base }))
+}
+
+pub func open_consumer(base u64) Result<Resource<Consumer>,u32> !{memory.atomic} {
+  if formatted(base) == false { return Err<Resource<Consumer>,u32>(13u32) }
+  let seen u32 = atomic.cas32(claim_c(base), 0u32, 1u32, 3u32, 1u32)
+  if seen != 0u32 { return Err<Resource<Consumer>,u32>(14u32) }
+  return Ok<Resource<Consumer>,u32>(resource.seal(Consumer { m: base }))
+}
+
+// Gives the end back: the claim is released (with a release store), so the end can be opened again later. Returns 0.
+pub func close_producer(p Resource<Producer>) u32 !{memory.atomic} {
+  let e Producer = resource.unseal(move(p))
+  return atomic.store32(claim_p(e.m), 0u32, 2u32)
+}
+
+pub func close_consumer(c Resource<Consumer>) u32 !{memory.atomic} {
+  let e Consumer = resource.unseal(move(c))
+  return atomic.store32(claim_c(e.m), 0u32, 2u32)
+}
+
+// Appends one message. Err(15) when `capacity` messages are pending, Err(8) when T is larger than a slot. Nothing is written on an error.
+pub func push<T>(p BorrowMut<Producer>, v T) Result<u32,u32> !{memory.raw,memory.atomic} {
+  let e Producer = resource.peek(p)
+  let base u64 = e.m
+  let size u64 = layout.size<T>()
+  let stride u64 = atomic.load64(stride_cell(base), 0u32)
+  if size > stride { return Err<u32,u32>(8u32) }
+  let cap u64 = atomic.load64(cap_cell(base), 0u32)
+  let tail u64 = atomic.load64(tail_cell(base), 0u32)
+  let head u64 = atomic.load64(head_cell(base), 1u32)
+  if head > tail { return Err<u32,u32>(12u32) }
+  if tail - head > cap { return Err<u32,u32>(12u32) }
+  if tail - head == cap { return Err<u32,u32>(15u32) }
+  let w u32 = raw.write<T>(slots(base) + bit.and(tail, cap - 1u64) * stride, v)
+  let s u32 = atomic.store64(tail_cell(base), tail + 1u64, 2u32)
+  return Ok<u32,u32>(1u32)
+}
+
+// Takes the oldest message. Err(16) when none is pending.
+pub func pop<T>(c BorrowMut<Consumer>) Result<T,u32> !{memory.raw,memory.atomic} {
+  let e Consumer = resource.peek(c)
+  let base u64 = e.m
+  let size u64 = layout.size<T>()
+  let stride u64 = atomic.load64(stride_cell(base), 0u32)
+  if size > stride { return Err<T,u32>(8u32) }
+  let cap u64 = atomic.load64(cap_cell(base), 0u32)
+  let head u64 = atomic.load64(head_cell(base), 0u32)
+  let tail u64 = atomic.load64(tail_cell(base), 1u32)
+  if head > tail { return Err<T,u32>(12u32) }
+  if tail - head > cap { return Err<T,u32>(12u32) }
+  if head == tail { return Err<T,u32>(16u32) }
+  let v T = raw.read<T>(slots(base) + bit.and(head, cap - 1u64) * stride)
+  let s u32 = atomic.store64(head_cell(base), head + 1u64, 2u32)
+  return Ok<T,u32>(v)
+}
+
+// Messages pending as seen by the producer (it is exact for the producer: only it adds) and by the consumer (exact for it: only it removes).
+pub func pending_p(p Borrow<Producer>) u64 !{memory.atomic} {
+  let e Producer = resource.peek(p)
+  let head u64 = atomic.load64(head_cell(e.m), 1u32)
+  let tail u64 = atomic.load64(tail_cell(e.m), 0u32)
+  if head > tail { return 0u64 }
+  return tail - head
+}
+
+pub func pending_c(c Borrow<Consumer>) u64 !{memory.atomic} {
+  let e Consumer = resource.peek(c)
+  let tail u64 = atomic.load64(tail_cell(e.m), 1u32)
+  let head u64 = atomic.load64(head_cell(e.m), 0u32)
+  if head > tail { return 0u64 }
+  return tail - head
+}

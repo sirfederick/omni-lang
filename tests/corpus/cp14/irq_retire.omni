@@ -1,0 +1,62 @@
+module t
+import rt "rt.omni"
+import idt "idt.omni"
+import epoch "epoch.omni"
+
+// CP-14 row 14.6, priority and reentrancy on one CPU (spec/QUIESCENCE_CANDIDATE.md section 4): a timer interrupt is a higher priority context that preempts the main thread. The handler tries to
+// RETIRE an object (advance the epoch, wait for the reader to leave) while the main thread it interrupted is inside its read section. The reader cannot run while the handler waits, so the
+// wait can never succeed: the profile reports it as the bounded deadlock (exit value 95) instead of reclaiming the object under the reader or spinning forever. MODE (replaced by the test):
+//   0  the main thread is inside its read section when the timer fires      -> the handler's wait ends the guest with exit value 95
+//   1  the main thread is NOT inside a read section when the timer fires    -> the handler retires at once and the program ends normally (the control)
+// Cells: epoch 0x5E4000 (6176768), reader slot 0x5E4040 (6176832), handler retired flag 0x5E4080 (6176896), handler entered counter 0x5E40C0 (6176960).
+// Local APIC (0xFEE00000): SVR 4276093168, EOI 4276093104, LVT timer 4276093728, initial count 4276093824, divide 4276093952.
+
+func mode() u32 { return 0u32 }
+
+func on_exception(frame u64) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  if raw.load64(frame) == 32u64 {
+    let n u32 = atomic.fetch_add32(6176960u64, 1u32, 4u32)
+    if atomic.load32(6176896u64, 1u32) == 0u32 {
+      let e u32 = epoch.advance(6176768u64)
+      let w u32 = epoch.wait(6176832u64, e, 20000u32)
+      let r u32 = atomic.store32(6176896u64, 1u32, 2u32)
+    }
+    return raw.store32(4276093104u64, 0u32)
+  }
+  return rt.finish(100u32 + u32(raw.load64(frame)))
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let g0 u32 = atomic.store32(6176768u64, 1u32, 4u32)
+  let installed u32 = idt.install_count(33u32)
+  let pic1 u32 = port.out8(33u32, 255u32)
+  let pic2 u32 = port.out8(161u32, 255u32)
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let div u32 = raw.store32(4276093952u64, 11u32)
+  let lvt u32 = raw.store32(4276093728u64, 131104u32)
+  if mode() == 0u32 {
+    let g = epoch.enter(6176768u64, 6176832u64)
+    let init u32 = raw.store32(4276093824u64, 100000u32)
+    let on u32 = cpu.sti()
+    var acc u64 = 0u64
+    for i in 0u32..30000000u32 {
+      acc = acc + u64(i)
+    }
+    let off u32 = cpu.cli()
+    let x u32 = epoch.exit(move(g))
+    print(1u32)
+  }
+  if mode() == 1u32 {
+    let init u32 = raw.store32(4276093824u64, 100000u32)
+    let on u32 = cpu.sti()
+    var acc u64 = 0u64
+    for i in 0u32..30000000u32 {
+      acc = acc + u64(i)
+    }
+    let off u32 = cpu.cli()
+    let mask u32 = raw.store32(4276093728u64, 65568u32)
+    print(atomic.load32(6176896u64, 1u32))
+    if atomic.load32(6176960u64, 1u32) > 0u32 { print(1u32) } else { print(0u32) }
+  }
+  return rt.finish(0u32)
+}

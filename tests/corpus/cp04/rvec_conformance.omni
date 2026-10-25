@@ -1,0 +1,165 @@
+module t
+import rt "rt.omni"
+import heap "heap.omni"
+import rvec "rvec.omni"
+
+// Row 4.9: the vector over the freestanding heap (examples/storage/rvec.omni), one scenario per line of output; evaluator and QEMU image must print the same lines.
+//   heap A at 0x800000 with 2048 bytes, heap B at 0x900000 with 190 bytes (too small for the second growth step)
+struct W32 { v u32 }
+struct Pair { a u64, b u8 }
+struct Raw32 { a u64, b u64, c u64, d u64 }
+
+func status(r Result<u32,u32>) u64 {
+  match r {
+    Ok(n) { return 0u64 }
+    Err(e) { return u64(e) }
+  }
+}
+func pushed(r Result<u64,u32>) u64 {
+  match r {
+    Ok(n) { return n }
+    Err(e) { return 1000u64 + u64(e) }
+  }
+}
+func got(r Result<W32,u32>) u64 {
+  match r {
+    Ok(x) { return u64(x.v) }
+    Err(e) { return 1000u64 + u64(e) }
+  }
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let base u64 = 8388608u64
+  let c = heap.create(base, 2048u64)
+  match c { Ok(hp) {
+    // A: an empty vector takes a metadata block and an empty element block
+    let nv = rvec.new<W32>(borrow_mut(hp), 0u64)
+    match nv { Ok(v) {
+      print(rvec.len<W32>(borrow(hp), borrow(v)))
+      print(rvec.capacity<W32>(borrow(hp), borrow(v)))
+      print(heap.carved(borrow(hp)))
+      // B: growth 0 -> 4 (in place) -> 8 -> 16 (moves); the elements follow
+      var i u32 = 1u32
+      for i <= 10u32 {
+        let n u64 = pushed(rvec.push<W32>(borrow_mut(hp), borrow(v), W32 { v: i }))
+        if i == 1u32 || i == 4u32 || i == 5u32 || i == 9u32 || i == 10u32 { print(n); print(rvec.capacity<W32>(borrow(hp), borrow(v))) }
+        i = i + 1u32
+      }
+      print(heap.free_blocks(borrow(hp)))
+      print(heap.free_bytes(borrow(hp)))
+      print(heap.carved(borrow(hp)))
+      var sum u64 = 0u64
+      var k u64 = 0u64
+      for k < 10u64 {
+        sum = sum + got(rvec.get<W32>(borrow(hp), borrow(v), k))
+        k = k + 1u64
+      }
+      print(sum)
+      print(got(rvec.get<W32>(borrow(hp), borrow(v), 10u64)))
+      // C: set, pop, and the empty case
+      print(status(rvec.set<W32>(borrow(hp), borrow(v), 3u64, W32 { v: 99u32 })))
+      print(got(rvec.get<W32>(borrow(hp), borrow(v), 3u64)))
+      print(status(rvec.set<W32>(borrow(hp), borrow(v), 10u64, W32 { v: 1u32 })))
+      print(got(rvec.pop<W32>(borrow(hp), borrow(v))))
+      print(rvec.len<W32>(borrow(hp), borrow(v)))
+      print(pushed(rvec.push<W32>(borrow_mut(hp), borrow(v), W32 { v: 55u32 })))
+      print(got(rvec.get<W32>(borrow(hp), borrow(v), 9u64)))
+      let nv2 = rvec.new<Pair>(borrow_mut(hp), 2u64)
+      match nv2 { Ok(p) {
+        let e0 = rvec.pop<Pair>(borrow(hp), borrow(p))
+        match e0 { Ok(x) { print(1u64) } Err(e) { print(u64(e)) } }
+        print(pushed(rvec.push<Pair>(borrow_mut(hp), borrow(p), Pair { a: 4294967296u64, b: 7u8 })))
+        print(pushed(rvec.push<Pair>(borrow_mut(hp), borrow(p), Pair { a: 2u64, b: 8u8 })))
+        print(pushed(rvec.push<Pair>(borrow_mut(hp), borrow(p), Pair { a: 3u64, b: 9u8 })))
+        print(rvec.capacity<Pair>(borrow(hp), borrow(p)))
+        let q = rvec.get<Pair>(borrow(hp), borrow(p), 0u64)
+        match q { Ok(x) { print(x.a); print(u64(x.b)) } Err(e) { print(1000u64 + u64(e)) } }
+        let q2 = rvec.get<Pair>(borrow(hp), borrow(p), 2u64)
+        match q2 { Ok(x) { print(x.a); print(u64(x.b)) } Err(e) { print(1000u64 + u64(e)) } }
+        print(rvec.destroy<Pair>(borrow_mut(hp), move(p)))
+      } Err(e) { print(2000u64 + u64(e)) } }
+      print(heap.live(borrow(hp)))
+      // D: teardown gives both blocks back, in whatever order they sit, and the carved area retreats to the first block
+      print(rvec.destroy<W32>(borrow_mut(hp), move(v)))
+      print(heap.live(borrow(hp)))
+      print(heap.free_blocks(borrow(hp)))
+      print(heap.carved(borrow(hp)))
+    } Err(e) { print(2000u64 + u64(e)) } }
+    print(heap.destroy(move(hp)))
+  } Err(e) { print(3000u64) } }
+  // E: a push that cannot grow is a typed out-of-memory and changes nothing
+  let base2 u64 = 9437184u64
+  let c2 = heap.create(base2, 190u64)
+  match c2 { Ok(hq) {
+    let nv3 = rvec.new<W32>(borrow_mut(hq), 4u64)
+    match nv3 { Ok(w) {
+      var j u32 = 1u32
+      for j <= 4u32 {
+        let n u64 = pushed(rvec.push<W32>(borrow_mut(hq), borrow(w), W32 { v: j * 10u32 }))
+        j = j + 1u32
+      }
+      let before u64 = heap.carved(borrow(hq))
+      print(pushed(rvec.push<W32>(borrow_mut(hq), borrow(w), W32 { v: 50u32 })))
+      print(rvec.len<W32>(borrow(hq), borrow(w)))
+      print(rvec.capacity<W32>(borrow(hq), borrow(w)))
+      print(heap.carved(borrow(hq)) - before)
+      print(got(rvec.get<W32>(borrow(hq), borrow(w), 3u64)))
+      print(heap.live(borrow(hq)))
+      print(rvec.destroy<W32>(borrow_mut(hq), move(w)))
+    } Err(e) { print(2000u64 + u64(e)) } }
+    // F: a vector that does not fit at all is refused whole: the metadata block it took is given back
+    let nv4 = rvec.new<W32>(borrow_mut(hq), 1000u64)
+    match nv4 { Ok(w) { print(0u64); print(rvec.destroy<W32>(borrow_mut(hq), move(w))) } Err(e) { print(u64(e)) } }
+    print(heap.live(borrow(hq)))
+    print(heap.carved(borrow(hq)))
+    print(heap.destroy(move(hq)))
+  } Err(e) { print(3000u64) } }
+  // G: reserve grows in place when the block has room, moves the elements when it has not, and a failing reserve changes nothing
+  let base3 u64 = 9486336u64
+  let c3 = heap.create(base3, 1024u64)
+  match c3 { Ok(hr) {
+    let nv5 = rvec.new<W32>(borrow_mut(hr), 2u64)
+    match nv5 { Ok(r) {
+      print(pushed(rvec.push<W32>(borrow_mut(hr), borrow(r), W32 { v: 1u32 })))
+      print(pushed(rvec.push<W32>(borrow_mut(hr), borrow(r), W32 { v: 2u32 })))
+      print(pushed(rvec.reserve<W32>(borrow_mut(hr), borrow(r), 0u64)))
+      print(pushed(rvec.reserve<W32>(borrow_mut(hr), borrow(r), 1u64)))
+      print(pushed(rvec.reserve<W32>(borrow_mut(hr), borrow(r), 10u64)))
+      print(got(rvec.get<W32>(borrow(hr), borrow(r), 0u64)))
+      print(got(rvec.get<W32>(borrow(hr), borrow(r), 1u64)))
+      print(pushed(rvec.reserve<W32>(borrow_mut(hr), borrow(r), 18446744073709551615u64)))
+      let before u64 = heap.carved(borrow(hr))
+      print(pushed(rvec.reserve<W32>(borrow_mut(hr), borrow(r), 1000000u64)))
+      print(heap.carved(borrow(hr)) - before)
+      print(rvec.len<W32>(borrow(hr), borrow(r)))
+      print(rvec.capacity<W32>(borrow(hr), borrow(r)))
+      print(got(rvec.get<W32>(borrow(hr), borrow(r), 1u64)))
+      // H: the blocks of a vector can be released behind its back only by code that forges a descriptor; the vector then answers with typed errors and the heap stays consistent
+      let meta = heap.descriptor_at<Raw32>(borrow(hr), base3 + 80u64, 1u64)
+      match meta { Ok(mb) {
+        print(mb.addr - base3)
+        let fr = heap.free<Raw32>(borrow_mut(hr), mb)
+        match fr { Ok(n) { print(0u64) } Err(e) { print(u64(e)) } }
+      } Err(e) { print(u64(e)) } }
+      print(rvec.len<W32>(borrow(hr), borrow(r)))
+      print(got(rvec.get<W32>(borrow(hr), borrow(r), 0u64)))
+      print(pushed(rvec.push<W32>(borrow_mut(hr), borrow(r), W32 { v: 3u32 })))
+      print(pushed(rvec.reserve<W32>(borrow_mut(hr), borrow(r), 1u64)))
+      print(rvec.destroy<W32>(borrow_mut(hr), move(r)))
+      print(heap.live(borrow(hr)))
+    } Err(e) { print(2000u64 + u64(e)) } }
+    print(heap.destroy(move(hr)))
+  } Err(e) { print(3000u64) } }
+  // I: when even the metadata block does not fit, nothing is taken
+  let c4 = heap.create(9490432u64, 128u64)
+  match c4 { Ok(hs) {
+    let fill = heap.alloc_array<W32>(borrow_mut(hs), 8u64)
+    match fill { Ok(f) { print(f.addr - 9490432u64) } Err(e) { print(u64(e)) } }
+    let nv6 = rvec.new<W32>(borrow_mut(hs), 0u64)
+    match nv6 { Ok(w) { print(0u64); print(rvec.destroy<W32>(borrow_mut(hs), move(w))) } Err(e) { print(u64(e)) } }
+    print(heap.live(borrow(hs)))
+    print(heap.carved(borrow(hs)))
+    print(heap.destroy(move(hs)))
+  } Err(e) { print(3000u64) } }
+  return rt.finish(0u32)
+}

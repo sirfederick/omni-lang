@@ -1,0 +1,78 @@
+module t
+import rt "rt.omni"
+import epoch "epoch.omni"
+import cbreg "cbreg.omni"
+
+// CP-14 row 14.6, adenda 009A CBREG-01: the generation of a registration has 24 bits and is never reused. One CPU, one slot, the generation cell preloaded near its end (no millions of callbacks):
+// a token from an occupation before the horizon is refused as stale after the slot is reused, the last allowed generation works and retires, and the next registration of that slot is REFUSED
+// (exit value 93) instead of wrapping to generation 1 and letting a token from the first occupation invoke the new environment. VARIANT (replaced by the test):
+//   1  the horizon: ends with the refused registration (exit value 93)
+//   2  retiring with the epoch exhausted: the retirement is refused BEFORE it unpublishes anything (exit value 96); the environment is not disposed
+//   3  the baseline: the token of the first occupation is refused after its retirement
+//   4  as 2, with the retirement that waits for every reader (retire_all): refused before it touches the registration (exit value 96)
+// Cells: slot 0x5E8000 (6193152), epoch 0x5E8100 (6193408), reader slot 0x5E8140 (6193472), disposed counter 0x5E8180 (6193536).
+struct Adder { base u32, closed u64 }
+
+impl cbreg.Handler for Adder {
+  func call(h Adder, x u32) u32 !{memory.raw} { return h.base + x }
+  func dispose(h Adder) u32 !{memory.atomic} { return atomic.fetch_add32(h.closed, 1u32, 4u32) }
+}
+
+func variant() u32 { return 1u32 }
+
+func code(r Result<u32,u32>) u32 {
+  match r {
+    Ok(v) { return v }
+    Err(e) { return 1000u32 + e }
+  }
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let g0 u32 = atomic.store32(6193408u64, 1u32, 4u32)
+  if variant() == 1u32 {
+    // three occupations around the horizon: 16777213 -> 16777214 (A), 16777215 (B); the next one would be 16777216
+    let pre u32 = atomic.store32(6193152u64 + 4u64, 16777213u32, 4u32)
+    let ra = cbreg.register<Adder>(6193152u64, Adder { base: 100u32, closed: 6193536u64 })
+    let ta u64 = cbreg.handle(borrow(ra))
+    print(u32(bit.shr(ta, 40u32)))
+    print(code(cbreg.fire<Adder>(6193152u64, ta, 1u32)))
+    let ca u32 = cbreg.retire<Adder>(move(ra), 6193408u64, 6193472u64, 1000u32)
+    let rb = cbreg.register<Adder>(6193152u64, Adder { base: 200u32, closed: 6193536u64 })
+    let tb u64 = cbreg.handle(borrow(rb))
+    print(u32(bit.shr(tb, 40u32)))
+    print(code(cbreg.fire<Adder>(6193152u64, ta, 1u32)))
+    print(code(cbreg.fire<Adder>(6193152u64, tb, 1u32)))
+    let cb u32 = cbreg.retire<Adder>(move(rb), 6193408u64, 6193472u64, 1000u32)
+    print(code(cbreg.fire<Adder>(6193152u64, tb, 1u32)))
+    print(code(cbreg.fire<Adder>(6193152u64, ta, 1u32)))
+    print(atomic.load32(6193536u64, 4u32))
+    print(cbreg.next_generation(6193152u64))
+    let rc = cbreg.register<Adder>(6193152u64, Adder { base: 300u32, closed: 6193536u64 })
+    print(777u32)
+    let cc u32 = cbreg.retire<Adder>(move(rc), 6193408u64, 6193472u64, 1000u32)
+  }
+  if variant() == 2u32 {
+    let ra = cbreg.register<Adder>(6193152u64, Adder { base: 100u32, closed: 6193536u64 })
+    let ta u64 = cbreg.handle(borrow(ra))
+    let spent u32 = atomic.store32(6193408u64, 4294967295u32, 4u32)
+    print(code(cbreg.fire<Adder>(6193152u64, ta, 1u32)))
+    let ca u32 = cbreg.retire<Adder>(move(ra), 6193408u64, 6193472u64, 1000u32)
+    print(777u32)
+  }
+  if variant() == 4u32 {
+    let ra = cbreg.register<Adder>(6193152u64, Adder { base: 100u32, closed: 6193536u64 })
+    let ta u64 = cbreg.handle(borrow(ra))
+    let spent u32 = atomic.store32(6193408u64, 4294967295u32, 4u32)
+    print(code(cbreg.fire<Adder>(6193152u64, ta, 1u32)))
+    let ca u32 = cbreg.retire_all<Adder>(move(ra), 6193408u64, 6193472u64, 1u32, 64u64, 1000u32)
+    print(777u32)
+  }
+  if variant() == 3u32 {
+    let ra = cbreg.register<Adder>(6193152u64, Adder { base: 100u32, closed: 6193536u64 })
+    let ta u64 = cbreg.handle(borrow(ra))
+    print(u32(bit.shr(ta, 40u32)))
+    let ca u32 = cbreg.retire<Adder>(move(ra), 6193408u64, 6193472u64, 1000u32)
+    print(code(cbreg.fire<Adder>(6193152u64, ta, 1u32)))
+  }
+  return rt.finish(0u32)
+}

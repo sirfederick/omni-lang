@@ -1,0 +1,130 @@
+module t
+import rt "rt.omni"
+import epoch "epoch.omni"
+
+// CP-14 row 14.6, global quiescence on THREE vCPUs (spec/QUIESCENCE_CANDIDATE.md): CPU 0 is the writer, CPUs 1 and 2 are two readers that dwell inside their read sections holding the current
+// buffer. The writer publishes a buffer, advances the epoch, waits for the readers, and only then poisons the old buffer. MODE (replaced by the test):
+//   0  the wait covers every reader slot (epoch.wait_all over the three per-CPU slots)
+//   1  the wait covers only CPU 1's slot (a partial list): CPU 2 is never waited for
+// With 0 no reader sees poison. With 1 CPU 2 does, and CPU 1 still does not: a grace period proves exactly what it scanned.
+// Cells: epoch 0x5E1000 (6164480), slots 0x5E1040 + 64 * cpu (6164544..), pointer 0x5E1200 (6164992), stop 0x5E1240 (6165056), bad per reader 0x5E1400 + 64 * cpu (6165504..), reads per reader
+// 0x5E1600 + 64 * cpu (6166016..), AP count 0x5E1800 (6166528); buffers A 0x5E2000 (6168576) and B 0x5E3000 (6172672). Live value 777, poison 3735928559.
+
+func mode() u32 { return 0u32 }
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func wait_count(a u64, n u32) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) >= n { return 1u32 }
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func dwell(n u32) u32 !{memory.raw} {
+  for i in 0u32..n {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func reader(id u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  var bad u32 = 0u32
+  var reads u32 = 0u32
+  let slot u64 = 6164544u64 + u64(id) * 64u64
+  for i in 0u32..4000000000u32 {
+    if atomic.load32(6165056u64, 1u32) != 0u32 {
+      let b u32 = raw.store32(6165504u64 + u64(id) * 64u64, bad)
+      return raw.store32(6166016u64 + u64(id) * 64u64, reads)
+    }
+    let g = epoch.enter(6164480u64, slot)
+    let p u64 = atomic.load64(6164992u64, 4u32)
+    let w u32 = dwell(60u32)
+    if raw.load32(p) != 777u32 { bad = bad + 1u32 }
+    reads = reads + 1u32
+    let x u32 = epoch.exit(move(g))
+  }
+  return 0u32
+}
+
+func ap_main() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  let who u32 = raw.store32(5308800u64, id + 100u32)
+  let up u32 = atomic.fetch_add32(6166528u64, 1u32, 4u32)
+  let go u32 = wait_flag(5308928u64)
+  let r u32 = reader(id)
+  let done u32 = atomic.fetch_add32(5308992u64, 1u32, 4u32)
+  return 0u32
+}
+
+func writer(rounds u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  for k in 0u32..rounds {
+    var fresh u64 = 6168576u64
+    var old u64 = 6172672u64
+    if k % 2u32 == 0u32 {
+      fresh = 6172672u64
+      old = 6168576u64
+    }
+    let f u32 = raw.store32(fresh, 777u32)
+    let published u32 = atomic.store64(6164992u64, fresh, 4u32)
+    let e u32 = epoch.advance(6164480u64)
+    if mode() == 0u32 {
+      let w u32 = epoch.wait_all(6164544u64, 3u32, 64u64, e, 100000000u32)
+    }
+    if mode() == 1u32 {
+      let w u32 = epoch.wait(6164608u64, e, 100000000u32)
+    }
+    let poison u32 = raw.store32(old, 3735928559u32)
+    let d u32 = dwell(300u32)
+  }
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let g0 u32 = atomic.store32(6164480u64, 1u32, 4u32)
+  let a0 u32 = raw.store32(6168576u64, 777u32)
+  let p0 u32 = atomic.store64(6164992u64, 6168576u64, 4u32)
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+  let init u32 = raw.store32(4276093696u64, 17664u32)
+  let w1 u32 = delay()
+  let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+  let w2 u32 = delay()
+  let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+  let e1 u32 = raw.store32(4276093712u64, 33554432u32)
+  let init2 u32 = raw.store32(4276093696u64, 17664u32)
+  let w3 u32 = delay()
+  let e2 u32 = raw.store32(4276093712u64, 33554432u32)
+  let sipi3 u32 = raw.store32(4276093696u64, 17928u32)
+  let w4 u32 = delay()
+  let e3 u32 = raw.store32(4276093712u64, 33554432u32)
+  let sipi4 u32 = raw.store32(4276093696u64, 17928u32)
+  let up u32 = wait_count(6166528u64, 2u32)
+  if up == 0u32 {
+    print(999u32)
+    return rt.finish(2u32)
+  }
+  let go u32 = atomic.store32(5308928u64, 1u32, 2u32)
+  let w u32 = writer(3000u32)
+  let stop u32 = atomic.store32(6165056u64, 1u32, 2u32)
+  let done u32 = wait_count(5308992u64, 2u32)
+  print(raw.load32(6165568u64))
+  print(raw.load32(6165632u64))
+  if raw.load32(6166080u64) > 1000u32 { print(1u32) } else { print(0u32) }
+  if raw.load32(6166144u64) > 1000u32 { print(1u32) } else { print(0u32) }
+  return rt.finish(0u32)
+}

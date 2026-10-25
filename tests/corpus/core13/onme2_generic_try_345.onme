@@ -1,0 +1,5 @@
+ONME2
+Rsha256:c7e476b727bf6288f8901bda5e77616cd06ebc3dd723931ccc2fddeeb719863f
+Psha256:c7e476b727bf6288f8901bda5e77616cd06ebc3dd723931ccc2fddeeb719863f
+Csha256:ab8d01c13bc4084263ae99119f4975424a3eace0a5486d630d5c52c3c1214e32
+(!WA2:22(A16:authoring-sourceQ314:"module t\n\nfunc f<T>(v Option<T>) Option<T> !pure {\n    let marker = 1;\n    let x = (v)?;\n    return Some<T>(x);\n}\n\nfunc main() u32 !pure {\n    let o = f<u32>(Some<u32>(42));\n    match o {\n        Some(x) {\n            return x;\n        }\n        None {\n            return 0;\n        }\n    }\n}\n"))

@@ -1,0 +1,109 @@
+module t
+import rt "rt.omni"
+import pin "pin.omni"
+
+// No-migration (CP-14, spec/NO_MIGRATION_CANDIDATE.md). Thread T enters a pin section on CPU 0 and yields in the middle of it. In migrating mode
+// the OTHER CPU resumes T from the context CPU 0 saved (real cross-CPU migration with cpu.switch_context); T then ends the section on CPU 1 and the
+// guard reports the violation. In staying mode CPU 0 resumes T and the section ends cleanly. The mode is the literal in `main` (the test flips it).
+//
+// Contexts: main 0x540000 (5505024), T 0x540040 (5505088), CPU 1's own context 0x540080 (5505152); T's stack top 0x3C0000 (3932160).
+// Cells: return area 0x5B0000 (5963776), CPU 1 resumes T 0x5B0040 (5963840), CPU 1 done 0x5B0080 (5963904), end-of-section status 0x5B00C0 (5963968),
+// CPU at entry 0x5B0100 (5964032), CPU at exit 0x5B0140 (5964096), T finished 0x5B0180 (5964160), T entered on CPU 1 0x5B01C0 (5964224). AP flags as in lock_smp.omni.
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func wait_value(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    let v u32 = atomic.load32(a, 1u32)
+    if v != 0u32 { return v }
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func worker() u32 !{memory.raw,memory.atomic,cpu.control,port.io} {
+  let g = pin.enter()
+  let at u32 = raw.store32(5964032u64, pin.cpu_id())
+  let y u64 = cpu.switch_context(5505088u64, raw.load64(5963776u64))
+  let on u32 = raw.store32(5964096u64, pin.cpu_id())
+  let status u32 = pin.exit(move(g))
+  let s u32 = atomic.store32(5963968u64, status + 10u32, 2u32)
+  let fin u32 = atomic.store32(5964160u64, 1u32, 2u32)
+  let last u64 = cpu.switch_context(5505088u64, raw.load64(5963776u64))
+  return rt.finish(77u32)
+}
+
+func ap_main() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+  let go u32 = wait_flag(5308928u64)
+  let r u32 = wait_value(5963840u64)
+  if r == 1u32 {
+    let ret u32 = raw.store64(5963776u64, 5505152u64)
+    let resumed u64 = cpu.switch_context(5505152u64, 5505088u64)
+  }
+  if r == 3u32 {
+    let ret u32 = raw.store64(5963776u64, 5505152u64)
+    let started u64 = cpu.switch_context(5505152u64, 5505088u64)
+    let entered u32 = atomic.store32(5964224u64, 1u32, 2u32)
+    return 0u32
+  }
+  let done u32 = atomic.store32(5963904u64, 1u32, 2u32)
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let mode u32 = 0u32
+  let tr u64 = cpu.thread_trampoline()
+  let a1 u32 = raw.store64(3932144u64, tr)
+  let a2 u32 = raw.store64(5505088u64 + 48u64, 3932144u64)
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+  let init u32 = raw.store32(4276093696u64, 17664u32)
+  let w1 u32 = delay()
+  let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+  let w2 u32 = delay()
+  let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+  let up u32 = wait_flag(5308864u64)
+  if up == 0u32 {
+    print(999u32)
+    return rt.finish(2u32)
+  }
+  let go u32 = atomic.store32(5308928u64, 1u32, 2u32)
+  if mode == 2u32 {
+    // the section starts on CPU 1 and ends on CPU 0
+    let start u32 = atomic.store32(5963840u64, 3u32, 2u32)
+    let began u32 = wait_flag(5964224u64)
+    let ret2 u32 = raw.store64(5963776u64, 5505024u64)
+    let resume u64 = cpu.switch_context(5505024u64, 5505088u64)
+  } else {
+    let ret0 u32 = raw.store64(5963776u64, 5505024u64)
+    let first u64 = cpu.switch_context(5505024u64, 5505088u64)
+    if mode == 0u32 {
+      let handoff u32 = atomic.store32(5963840u64, 1u32, 2u32)
+      let finished u32 = wait_flag(5963904u64)
+    } else {
+      let skip u32 = atomic.store32(5963840u64, 2u32, 2u32)
+      let ret1 u32 = raw.store64(5963776u64, 5505024u64)
+      let again u64 = cpu.switch_context(5505024u64, 5505088u64)
+    }
+  }
+  print(atomic.load32(5963968u64, 4u32))
+  print(raw.load32(5964032u64))
+  print(raw.load32(5964096u64))
+  print(atomic.load32(5964160u64, 4u32))
+  print(pin.cpu_id())                  // the report is printed by CPU 0: every context returned to the one that was meant to resume it
+  return rt.finish(0u32)
+}

@@ -1,0 +1,16 @@
+(omni-wave 8
+  (entry demo)
+  (module demo
+    (imports)
+    (func factorial (visibility private)
+      (params (n u32)) (result u32) (effects pure)
+      (block
+        (if (binary "<=" (ref n) (u32 1)) (block
+          (return (u32 1))) (block
+          (return (binary "*" (ref n) (call factorial (binary "-" (ref n) (u32 1)))))))))
+    (func main (visibility private)
+      (params) (result u32) (effects fs.read fs.write io.print)
+      (block
+        (text "Hola, Omni")
+        (print (call factorial (u32 6)))
+        (return (u32 0))))))

@@ -1,0 +1,161 @@
+module t
+import rt "rt.omni"
+import mailbox "mailbox.omni"
+
+// CP-13 row 13.5, one CPU: the behaviour of the mailbox that does not need a second CPU (geometry, ends, order, full, empty, wrap, damage), one scenario per line of output. The same program runs in
+// the evaluator and as a freestanding x86-64 image under QEMU; the two transcripts must be identical. The queue lives at 0x5C0000 (6029312): 4 slots of 24 bytes.
+struct Msg { seq u64, a u64, b u32, c u32 }
+struct Big { a u64, b u64, c u64, d u64 }
+
+func mk(s u64) Msg { return Msg { seq: s, a: s * 7u64, b: u32(s % 1000u64), c: 1u32 } }
+
+func code(r Result<u32,u32>) u32 {
+  match r {
+    Ok(n) { return 1000u32 + n }
+    Err(e) { return e }
+  }
+}
+
+func made(r Result<u32,u32>) u32 {
+  match r {
+    Ok(n) { return 1u32 }
+    Err(e) { return e }
+  }
+}
+
+func pushed(p BorrowMut<mailbox.Producer>, s u64) u32 !{memory.raw,memory.atomic} {
+  return code(mailbox.push<Msg>(p, mk(s)))
+}
+
+func popped(c BorrowMut<mailbox.Consumer>) u64 !{memory.raw,memory.atomic} {
+  let r = mailbox.pop<Msg>(c)
+  match r {
+    Ok(m) { return m.seq }
+    Err(e) { return 1000000u64 + u64(e) }
+  }
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let mb u64 = 6029312u64
+  // A: geometry
+  print(made(mailbox.create(0u64, 4u64, 24u64)))
+  print(made(mailbox.create(mb + 8u64, 4u64, 24u64)))
+  print(made(mailbox.create(mb, 0u64, 24u64)))
+  print(made(mailbox.create(mb, 3u64, 24u64)))
+  print(made(mailbox.create(mb, 2097152u64, 24u64)))
+  print(made(mailbox.create(mb, 4u64, 0u64)))
+  print(made(mailbox.create(mb, 4u64, 4u64)))
+  print(made(mailbox.create(mb, 4u64, 12u64)))
+  print(made(mailbox.create(mb, 4u64, 8192u64)))
+  print(made(mailbox.create(mb, 1048576u64, 4096u64)))
+  print(made(mailbox.create(mb, 1048576u64, 8u64)))
+  print(made(mailbox.create(mb, 1u64, 8u64)))
+  // B: ends of a mailbox that was never formatted, then of the one that is
+  let none = mailbox.open_producer(mb + 4096u64)
+  match none { Ok(p) { print(0u32)
+                       let z u32 = mailbox.close_producer(move(p)) }
+               Err(e) { print(e) } }
+  print(made(mailbox.create(mb, 4u64, 24u64)))
+  let po = mailbox.open_producer(mb)
+  match po { Ok(p) {
+  let co = mailbox.open_consumer(mb)
+  match co { Ok(c) {
+    let again = mailbox.open_producer(mb)
+    match again { Ok(q) { print(0u32)
+                          let z u32 = mailbox.close_producer(move(q)) }
+                  Err(e) { print(e) } }
+    let again2 = mailbox.open_consumer(mb)
+    match again2 { Ok(q) { print(0u32)
+                           let z u32 = mailbox.close_consumer(move(q)) }
+                   Err(e) { print(e) } }
+    // C: a message larger than a slot, an empty queue
+    let big = mailbox.push<Big>(borrow_mut(p), Big { a: 1u64, b: 2u64, c: 3u64, d: 4u64 })
+    match big { Ok(n) { print(0u32) } Err(e) { print(e) } }
+    let bigp = mailbox.pop<Big>(borrow_mut(c))
+    match bigp { Ok(n) { print(0u32) } Err(e) { print(e) } }
+    print(popped(borrow_mut(c)))
+    print(mailbox.pending_p(borrow(p)))
+    print(mailbox.pending_c(borrow(c)))
+    // D: fill, full, drain in order, empty again
+    var fitted u32 = 0u32
+    for s in 0u32..4u32 {
+      if pushed(borrow_mut(p), u64(s)) == 1001u32 { fitted = fitted + 1u32 }
+    }
+    print(fitted)
+    print(pushed(borrow_mut(p), 4u64))
+    print(mailbox.pending_p(borrow(p)))
+    print(mailbox.pending_c(borrow(c)))
+    for s in 0u32..4u32 { print(popped(borrow_mut(c))) }
+    print(popped(borrow_mut(c)))
+    // E: the ring wraps: 10 rounds of two messages through four slots keep their order
+    var wrong u32 = 0u32
+    for k in 0u32..10u32 {
+      let a u32 = pushed(borrow_mut(p), 1000u64 + u64(k))
+      let b u32 = pushed(borrow_mut(p), 2000u64 + u64(k))
+      if popped(borrow_mut(c)) != 1000u64 + u64(k) { wrong = wrong + 1u32 }
+      if popped(borrow_mut(c)) != 2000u64 + u64(k) { wrong = wrong + 1u32 }
+    }
+    print(wrong)
+    print(raw.load64(mb + 192u64))
+    print(raw.load64(mb + 256u64))
+    // F: damaged cells are reported and never followed; repaired cells work again
+    let h u32 = raw.store64(mb + 256u64, 99u64)
+    print(mailbox.pending_p(borrow(p)))
+    print(mailbox.pending_c(borrow(c)))
+    print(pushed(borrow_mut(p), 5u64))
+    print(popped(borrow_mut(c)))
+    let h2 u32 = raw.store64(mb + 256u64, 24u64)
+    let t u32 = raw.store64(mb + 192u64, 29u64)
+    print(mailbox.pending_p(borrow(p)))
+    print(mailbox.pending_c(borrow(c)))
+    print(pushed(borrow_mut(p), 5u64))
+    print(popped(borrow_mut(c)))
+    let t2 u32 = raw.store64(mb + 192u64, 24u64)
+    print(pushed(borrow_mut(p), 77u64))
+    print(popped(borrow_mut(c)))
+    // G: the ends are given back, reopened, and a damaged magic is refused
+    print(mailbox.close_consumer(move(c)))
+    let reopened = mailbox.open_consumer(mb)
+    match reopened { Ok(c2) { print(1u32)
+                              let z u32 = mailbox.close_consumer(move(c2)) }
+                     Err(e) { print(e) } }
+    print(mailbox.close_producer(move(p)))
+    // H: formatting again over a mailbox that has an end open is refused and changes nothing (14); once the end is given back it starts from nothing
+    let held = mailbox.open_consumer(mb)
+    match held { Ok(c3) {
+      print(made(mailbox.create(mb, 4u64, 24u64)))
+      print(raw.load64(mb + 192u64))
+      print(raw.load64(mb + 256u64))
+      print(raw.load32(mb + 384u64))
+      let z u32 = mailbox.close_consumer(move(c3))
+    } Err(e) { print(e) } }
+    // H2: the same refusal when it is the PRODUCER end that is open (each end has its own claim cell)
+    let heldp = mailbox.open_producer(mb)
+    match heldp { Ok(p3) {
+      print(made(mailbox.create(mb, 4u64, 24u64)))
+      print(raw.load64(mb + 192u64))
+      print(raw.load64(mb + 256u64))
+      print(raw.load32(mb + 320u64))
+      let z2 u32 = mailbox.close_producer(move(p3))
+    } Err(e) { print(e) } }
+    print(made(mailbox.create(mb, 4u64, 24u64)))
+    print(raw.load64(mb + 192u64))
+    print(raw.load64(mb + 256u64))
+    print(raw.load32(mb + 384u64))
+    // I: the magic constant found at an address that is not 64-aligned (a payload can hold any value) does not make a mailbox, and nothing is claimed there
+    let w u32 = raw.store64(mb + 8u64, 5714309578938797912u64)
+    let alien = mailbox.open_producer(mb + 8u64)
+    match alien { Ok(q2) { print(0u32)
+                           let z3 u32 = mailbox.close_producer(move(q2)) }
+                  Err(e) { print(e) } }
+    let w2 u32 = raw.store64(mb + 8u64, 0u64)
+    let m0 u32 = raw.store64(mb, 0u64)
+    let bad = mailbox.open_producer(mb)
+    match bad { Ok(q) { print(0u32)
+                        let z u32 = mailbox.close_producer(move(q)) }
+                Err(e) { print(e) } }
+  } Err(e) { print(e)
+             let z u32 = mailbox.close_producer(move(p)) } }
+  } Err(e) { print(e) } }
+  return rt.finish(0u32)
+}

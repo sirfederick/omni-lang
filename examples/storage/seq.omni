@@ -1,0 +1,150 @@
+module seq
+
+// CP-01 / CP-04 / CP-05: a growable sequence whose elements are RESOURCES, built on the owned slots of spec/OWNED_SLOTS_CANDIDATE.md.
+// `Seq<T>` is a nominal resource that wraps a slot-bearing Resource<Buffer>: only this module can look inside it, a Resource<Seq<T>> is consumed by `destroy`
+// exactly once or the program does not compile, and the sequence is handed around with ordinary Borrow / BorrowMut like vec.omni's Vec<T>.
+// An element is MOVED in by `push` and MOVED out by `pop`; it is lent by `get` / `get_mut`. No handle is ever turned into an integer: the runtime moves the
+// typed value between the caller and a cell, one owner at a time.
+//   invariant: the occupied cells are exactly 0 .. len-1 (the length is slots.count, there is no separate counter to disagree with it)
+// Outcome codes: 1 capacity (the buffer limit), 2 budget, 3 host out of memory (reserve), 11 empty (pop). A refused push hands the element back.
+pub trait Dispose {
+  // Consumes one element at the end of its life. This close is INFALLIBLE by contract: the u32 is a report (the number of elements released, normally 1)
+  // that `destroy` adds up, not an error channel. A close that can fail is `Close` below; the one internal failure `destroy` can meet (a take that cannot
+  // happen) is counted as 1000, never hidden.
+  func dispose(x Resource<Self>) u32 !{memory.write}
+}
+
+// CP-03 (spec/CLEANUP_FAILURE_CANDIDATE.md): the fallible close. `finish` ALWAYS consumes the element: on Err(code) the element is gone and the code is the
+// caller's to handle (it is a value in the Result, so it cannot be dropped silently). Which trait ends a sequence is chosen by the function that ends it
+// (`destroy` for Dispose, `close_all` for Close); the sequence takes no position, so a type implementing neither can never be dropped (it must be consumed).
+pub trait Close {
+  func finish(x Resource<Self>) Result<u32,u32> !{memory.read,memory.write}
+}
+
+// closed: the results of the closes that returned Ok, added up; failed: how many returned Err; first: the code of the first failure (valid only when
+// failed > 0); trace: an order-sensitive digest of what every close returned, so the closing order is observable. failed == 0 is success.
+pub struct CloseReport { closed u32, failed u32, first u32, trace u32 }
+
+pub struct Seq<T> { buf Resource<Buffer> }
+
+pub func new<T>(capacity u32) Result<Resource<Seq<T>>,u32> !{memory.read,memory.write} {
+  let a = slots.alloc<T>(capacity)
+  match a {
+    Ok(b) {
+      let inner Seq<T> = Seq<T> { buf: move(b) }
+      return Ok<Resource<Seq<T>>,u32>(resource.seal(move(inner)))
+    }
+    Err(code) { return Err<Resource<Seq<T>>,u32>(code) }
+  }
+}
+
+pub func len<T>(v Borrow<Seq<T>>) u32 !{memory.read} { return slots.count(resource.inner(v)) }
+
+pub func capacity<T>(v Borrow<Seq<T>>) u32 !{memory.read} { return slots.len(resource.inner(v)) }
+
+// Makes room for one more element: geometric growth (at least 4 cells), clamped by the buffer limit. A failure changes nothing and keeps every element.
+// Growth needs BorrowMut of the sequence, so it can never happen while an element is lent.
+pub func reserve<T>(v BorrowMut<Seq<T>>) Result<u32,u32> !{memory.read,memory.write} {
+  let n u32 = len<T>(borrow(v))
+  let cap u32 = capacity<T>(borrow(v))
+  if n < cap { return Ok<u32,u32>(cap) }
+  var want u32 = cap * 2u32
+  if want < 4u32 { want = 4u32 }
+  return slots.grow(resource.inner_mut(v), want)
+}
+
+// Moves x to the end and returns its index. When the sequence is full the push is refused and x comes back as the error (call `reserve` first).
+pub func push<T>(v BorrowMut<Seq<T>>, x Resource<T>) Result<u32,Resource<T>> !{memory.read,memory.write} {
+  let n u32 = len<T>(borrow(v))
+  return slots.put<T>(resource.inner_mut(v), n, move(x))
+}
+
+// Moves the last element out to the caller. The caller now owns it and must consume it.
+pub func pop<T>(v BorrowMut<Seq<T>>) Result<Resource<T>,u32> !{memory.read,memory.write} {
+  let n u32 = len<T>(borrow(v))
+  if n == 0u32 { return Err<Resource<T>,u32>(11u32) }
+  return slots.take<T>(resource.inner_mut(v), n - 1u32)
+}
+
+// Lends element `index` for as long as the borrow of the sequence lives. index < len is a precondition (the caller checks it, as for any index).
+pub func get<T>(v Borrow<Seq<T>>, index u32) Borrow<T> !{memory.read} { return slots.borrow<T>(resource.inner(v), index) }
+
+pub func get_mut<T>(v BorrowMut<Seq<T>>, index u32) BorrowMut<T> !{memory.read} { return slots.borrow_mut<T>(resource.inner_mut(v), index) }
+
+// Consumes the sequence: every element still in it is moved out and disposed, last to first, then the buffer is released. Returns the sum of the dispose results.
+pub func destroy<T: Dispose>(v Resource<Seq<T>>) u32 !{memory.read,memory.write} {
+  let inner Seq<T> = resource.unseal(move(v))
+  var total u32 = 0u32
+  for slots.count(borrow(inner.buf)) > 0u32 {
+    let last u32 = slots.count(borrow(inner.buf)) - 1u32
+    let t = slots.take<T>(borrow_mut(inner.buf), last)
+    match t {
+      Ok(x) { total = total + Dispose.dispose<T>(move(x)) }
+      Err(code) {
+        total = total + 1000u32
+        break
+      }
+    }
+  }
+  let r = slots.release(move(inner.buf))
+  match r {
+    Ok(z) { return total }
+    Err(b) { return total + 1000u32 }
+  }
+}
+
+// CP-03: the fallible end of a sequence. EVERY element is closed, last to first, even after a failure (a failed close never leaves owners behind), then the buffer
+// is released. The first error is kept and every failure is counted; none is hidden. A caller that wants to stop at the first failure composes `pop` and
+// `Close.finish` itself.
+pub func close_all<T: Close>(v Resource<Seq<T>>) CloseReport !{memory.read,memory.write} {
+  let inner Seq<T> = resource.unseal(move(v))
+  var closed u32 = 0u32
+  var failed u32 = 0u32
+  var first u32 = 0u32
+  var trace u32 = 0u32
+  for slots.count(borrow(inner.buf)) > 0u32 {
+    let last u32 = slots.count(borrow(inner.buf)) - 1u32
+    let t = slots.take<T>(borrow_mut(inner.buf), last)
+    match t {
+      Ok(x) {
+        let c = Close.finish<T>(move(x))
+        match c {
+          Ok(n) {
+            closed = closed + n
+            trace = (trace * 7u32 + (n % 65521u32)) % 65521u32
+          }
+          Err(code) {
+            if failed == 0u32 { first = code }
+            failed = failed + 1u32
+            trace = (trace * 7u32 + (code % 65521u32) + 1u32) % 65521u32
+          }
+        }
+      }
+      Err(code) {
+        failed = failed + 1u32
+        if first == 0u32 { first = 1000u32 }
+        break
+      }
+    }
+  }
+  let r = slots.release(move(inner.buf))
+  match r {
+    Ok(z) { return CloseReport { closed: closed, failed: failed, first: first, trace: trace } }
+    Err(b) { return CloseReport { closed: closed, failed: failed + 1u32, first: first, trace: trace } }
+  }
+}
+
+// CP-05 (spec/COLLECTIONS_PROTOCOLS_CANDIDATE.md): the iterator of a collection of RESOURCES. A cursor is plain data (a position) and proves nothing by itself; `more`
+// checks it against the sequence on every step. `at` LENDS the element for as long as the borrow of the sequence lives, so the iteration never moves, copies or
+// releases an element (the elements are consumed by `destroy` / `close_all`, not by walking them), and a push, pop or growth of the sequence while an element is
+// lent is `E_BORROW_CONFLICT`. If the sequence shrank under a cursor, `more` is false: it never reaches a cell that is not there.
+pub struct Cursor { index u32 }
+
+pub func cursor() Cursor { return Cursor { index: 0u32 } }
+
+pub func more<T>(v Borrow<Seq<T>>, c Cursor) bool !{memory.read} { return c.index < len<T>(v) }
+
+// c must satisfy `more` (the precondition of `get`).
+pub func at<T>(v Borrow<Seq<T>>, c Cursor) Borrow<T> !{memory.read} { return slots.borrow<T>(resource.inner(v), c.index) }
+
+pub func advance(c Cursor) Cursor { return Cursor { index: c.index + 1u32 } }

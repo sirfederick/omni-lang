@@ -1,0 +1,128 @@
+[
+  {
+    "name": "C3-01 context facts differ from checked profile",
+    "file": "compiler/src/main.cpp",
+    "old": "return facts;",
+    "new": "facts.pointerWidth=1; return facts;",
+    "tests": [
+      "tests/cp17_semantic_exports.py",
+      "SemanticExports"
+    ]
+  },
+  {
+    "name": "C3-02 normative contract hashes are ignored",
+    "file": "compiler/src/packages.cpp",
+    "old": "if(hashes&&hashes->at(name)!=sha256(contents))",
+    "new": "if(false&&hashes&&hashes->at(name)!=sha256(contents))",
+    "tests": [
+      "tests/cp17_semantic_exports.py",
+      "SemanticExports"
+    ]
+  },
+  {
+    "name": "C3-03 unindexed normative contracts lose the stable refusal",
+    "file": "compiler/src/packages.cpp",
+    "old": "if(hashes&&!hashes->count(name))",
+    "new": "if(false&&hashes&&!hashes->count(name))",
+    "tests": [
+      "tests/cp17_semantic_exports.py",
+      "SemanticExports"
+    ]
+  },
+  {
+    "name": "C3-04 normative contracts may follow symlinks",
+    "file": "compiler/src/packages.cpp",
+    "old": "const auto path=root/relative;noSymlink(path);",
+    "new": "const auto path=root/relative;",
+    "tests": [
+      "tests/cp17_semantic_exports.py",
+      "SemanticExports"
+    ]
+  },
+  {
+    "name": "C3-05 context metadata falsely claims an authority grant",
+    "file": "compiler/src/buildmeta.cpp",
+    "old": "\\\"grants_authority\\\":false,\\\"granted_capabilities\\\":[],\\\"capability_registry\\\":",
+    "new": "\\\"grants_authority\\\":true,\\\"granted_capabilities\\\":[],\\\"capability_registry\\\":",
+    "tests": [
+      "tests/cp17_semantic_exports.py",
+      "SemanticExports"
+    ]
+  },
+  {
+    "name": "C3-06 declared effects are mislabeled as required",
+    "file": "compiler/src/buildmeta.cpp",
+    "old": "sdkStrings(out,function.requiredCapabilities);",
+    "new": "sdkStrings(out,function.capabilities);",
+    "tests": [
+      "tests/cp17_semantic_exports.py",
+      "SemanticExports"
+    ]
+  },
+  {
+    "name": "C3-07 C ABI identity omits its exported symbol",
+    "file": "compiler/src/buildmeta.cpp",
+    "old": "+function.exportName+\"\\n\"+function.externName+\"\\n\"",
+    "new": "+std::string()+\"\\n\"+function.externName+\"\\n\"",
+    "tests": [
+      "tests/cp17_semantic_exports.py",
+      "SemanticExports"
+    ]
+  },
+  {
+    "name": "C3-08 template descriptors reference the wrong OSNMF identity domain",
+    "file": "compiler/src/buildmeta.cpp",
+    "old": "semanticFunctionId(function,true)",
+    "new": "semanticFunctionId(function,false)",
+    "tests": [
+      "tests/cp17_semantic_exports.py",
+      "SemanticExports"
+    ]
+  },
+  {
+    "name": "C3-09 loader identity ignores shared header changes",
+    "file": "tools/build_invocation_loader.py",
+    "old": "[*native, *runtime, *headers,",
+    "new": "[*native, *runtime,",
+    "tests": [
+      "tests/cp17_distribution.py"
+    ]
+  },
+  {
+    "name": "C3-10 VERSION is omitted from the consumer package",
+    "file": "tools/omni_sdk_package.py",
+    "old": "(ROOT/'VERSION','VERSION'),",
+    "new": "",
+    "tests": [
+      "tests/cp17_distribution.py"
+    ]
+  },
+  {
+    "name": "C3-11 LSP is omitted from the consumer package",
+    "file": "tools/omni_sdk_package.py",
+    "old": "(ROOT/'tools/omni_lsp.py','tools/omni_lsp.py'),",
+    "new": "",
+    "tests": [
+      "tests/cp17_distribution.py"
+    ]
+  },
+  {
+    "name": "C3-12 doctor trusts existence instead of inventoried bytes",
+    "file": "tools/omni_sdk_doctor.py",
+    "old": "verified.get(relative,False)",
+    "new": "(root/relative).is_file()",
+    "tests": [
+      "tests/cp17_distribution.py"
+    ]
+  },
+  {
+    "name": "C3-13 component metadata cannot bypass the ordinary checker",
+    "file": "compiler/src/main.cpp",
+    "old": "auto p=load(input,bundledStandardLibrary(root(argv[0])));",
+    "new": "auto p=parseParticle(readUtf8Text(input));",
+    "tests": [
+      "tests/cp17_semantic_exports.py",
+      "SemanticExports"
+    ]
+  }
+]

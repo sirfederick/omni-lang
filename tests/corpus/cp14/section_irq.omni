@@ -1,0 +1,56 @@
+module t
+import rt "rt.omni"
+import idt "idt.omni"
+import critical "critical.omni"
+
+// CP-14 row 14.4 (spec/GUARDS_AND_LOCKS_CANDIDATE.md section 4): inside a section the CPU is not preempted. A periodic local-APIC timer (vector 32) interrupts the main thread; the handler counts.
+// The body of the section does a fixed amount of work and returns how many interrupts the handler served while it ran. Through critical.irq_off and critical.locked that number is 0;
+// the same body run bare (the control, same program) is interrupted. The count outside is the proof that the timer really fires during a loop of this length.
+// Cells: interrupt count 0x5E6000 (6184960), lock 0x5E6040 (6185024). Local APIC (0xFEE00000): SVR 4276093168, EOI 4276093104, LVT timer 4276093728, initial count 4276093824, divide 4276093952.
+struct Spin { n u32 }
+
+func body(arg u64) u32 !{memory.raw,memory.atomic} {
+  let c0 u32 = atomic.load32(arg, 4u32)
+  var acc u64 = 0u64
+  for i in 0u32..3000000u32 {
+    acc = acc + u64(i)
+  }
+  let c1 u32 = atomic.load32(arg, 4u32)
+  return c1 - c0
+}
+
+impl critical.Section for Spin {
+  func run(arg u64) u32 !{memory.raw,memory.atomic} { return body(arg) }
+}
+
+func on_exception(frame u64) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  if raw.load64(frame) == 32u64 {
+    let n u32 = atomic.fetch_add32(6184960u64, 1u32, 4u32)
+    return raw.store32(4276093104u64, 0u32)
+  }
+  return rt.finish(100u32 + u32(raw.load64(frame)))
+}
+
+func flag(b bool) u32 {
+  if b { return 1u32 }
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let installed u32 = idt.install_count(33u32)
+  let pic1 u32 = port.out8(33u32, 255u32)
+  let pic2 u32 = port.out8(161u32, 255u32)
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let div u32 = raw.store32(4276093952u64, 11u32)
+  let lvt u32 = raw.store32(4276093728u64, 131104u32)
+  let init u32 = raw.store32(4276093824u64, 100000u32)
+  let on u32 = cpu.sti()
+  print(flag(body(6184960u64) > 0u32))
+  print(critical.irq_off<Spin>(6184960u64))
+  let r = critical.locked<Spin>(6185024u64, 6184960u64, 1000u32)
+  match r { Ok(v) { print(v) } Err(e) { print(1000u32 + e) } }
+  print(flag(body(6184960u64) > 0u32))
+  let off u32 = cpu.cli()
+  let mask u32 = raw.store32(4276093728u64, 65568u32)
+  return rt.finish(0u32)
+}

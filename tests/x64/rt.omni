@@ -1,0 +1,167 @@
+module rt
+
+// Omni Core conformance service provider for --target-profile baremetal-x86_64 (OMNI-CORE-PRO-FOUNDATION-001, CP-09/CP-13).
+// Owned by Core; it is NOT a kernel runtime and is not copied from any consumer. It provides exactly what the conformance
+// programs execute, and it states, per required signature, whether the service is IMPLEMENTED or UNSUPPORTED.
+//
+// Environment contract (provided by the test boot adapter, not by Omni): identity-mapped RAM, COM1 at port 0x3F8 (1016),
+// QEMU isa-debug-exit at port 0xF4 (244). Provider accounting state is per CPU, in raw memory (see cpu_slot below).
+// Exit status protocol: the guest writes V to 0xF4 and QEMU exits with status (V << 1) | 1.
+//   finish(c)            -> V = c            (c = 0 means success, status 1)
+//   trap(code)           -> V = 64 + code    (compiler fault classes: 1 bounds, 2 overflow, 3 div0, 4 cast range, 9 internal, 11 atomic)
+//   fuel exhausted       -> V = 90           depth exceeded -> V = 91     UNSUPPORTED service reached -> V = 126
+
+func halt_with(v u32) u32 !{port.io,cpu.control} {
+  let w = port.out32(244u32, v)
+  return cpu.halt()
+}
+
+func putc(c u32) u32 !{port.io} {
+  return port.out8(1016u32, c)
+}
+
+// ---- IMPLEMENTED: start, accounting, fault reporting, output --------------------------------------------------------
+
+// Accounting state is PER CPU (SMP-safe by construction, no shared writes): slot = 0x00500000 + apic_id * 256, with
+//   +0 u64 fuel remaining   +8 u32 call depth   +12 u32 initialized flag (zero memory means "not yet initialized": the slot is
+// set up lazily by the first accounting call on that CPU, so an application processor needs no explicit provider start).
+func cpu_slot() u64 !{cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  return 5242880u64 + u64(id) * 256u64
+}
+
+func ensure(s u64) u32 !{memory.raw} {
+  if raw.load32(s + 12u64) == 0u32 {
+    let a = raw.store64(s, 4000000000u64)
+    let b = raw.store32(s + 8u64, 0u32)
+    let c = raw.store32(s + 12u64, 1u32)
+  }
+  return 0u32
+}
+
+pub func begin() u32 !{memory.raw,port.io,cpu.control} {
+  let a = port.out8(1017u32, 0u32)
+  let b = port.out8(1019u32, 3u32)
+  return ensure(cpu_slot())
+}
+
+pub func tick() u32 !{memory.raw,port.io,cpu.control} {
+  let slot u64 = cpu_slot()
+  let e = ensure(slot)
+  let f = raw.load64(slot)
+  if f == 0u64 { return halt_with(90u32) }
+  let s = raw.store64(slot, f - 1u64)
+  return 0u32
+}
+
+pub func enter() u32 !{memory.raw,port.io,cpu.control} {
+  let slot u64 = cpu_slot()
+  let e = ensure(slot)
+  let n = raw.load32(slot + 8u64)
+  if n >= 4096u32 { return halt_with(91u32) }
+  let s = raw.store32(slot + 8u64, n + 1u32)
+  return 0u32
+}
+
+pub func leave() u32 !{memory.raw,port.io,cpu.control} {
+  let slot u64 = cpu_slot()
+  let e = ensure(slot)
+  let n = raw.load32(slot + 8u64)
+  if n == 0u32 { return halt_with(9u32) }
+  let s = raw.store32(slot + 8u64, n - 1u32)
+  return 0u32
+}
+
+pub func print_u32(v u32) u32 !{port.io} {
+  var started u32 = 0u32
+  var d u32 = 1000000000u32
+  var rest u32 = v
+  for i in 0u32..10u32 {
+    let digit u32 = rest / d
+    rest = rest - digit * d
+    if digit != 0u32 { started = 1u32 }
+    if started == 1u32 { let w1 = putc(48u32 + digit) }
+    d = d / 10u32
+  }
+  if started == 0u32 { let w2 = putc(48u32) }
+  return putc(10u32)
+}
+
+pub func print_u64(v u64) u32 !{port.io} {
+  var started u32 = 0u32
+  var d u64 = 10000000000000000000u64
+  var rest u64 = v
+  for i in 0u32..20u32 {
+    let digit u64 = rest / d
+    rest = rest - digit * d
+    if digit != 0u64 { started = 1u32 }
+    if started == 1u32 { let w1 = putc(48u32 + u32(digit)) }
+    d = d / 10u64
+  }
+  if started == 0u32 { let w2 = putc(48u32) }
+  return putc(10u32)
+}
+
+pub func trap(code u32) u32 !{port.io,cpu.control} {
+  let a = putc(84u32)
+  let b = putc(82u32)
+  let c = putc(65u32)
+  let e = putc(80u32)
+  let f = putc(32u32)
+  let g = print_u32(code)
+  return halt_with(64u32 + code)
+}
+
+pub func finish(code u32) u32 !{port.io,cpu.control} {
+  return halt_with(code)
+}
+
+// ---- user-mode conformance code (CPL3) ---------------------------------------------------------------------------------------
+// Not a provider service. It lives in the service module on purpose: code of the service module has no accounting hook, and the
+// hooks (tick/enter/leave) read and write supervisor-only memory, which ring-3 code must not be able to touch. The mode cell is in a
+// user-accessible page; the ring3 conformance program started this function through the thread trampoline (--thread-entry rt.user_main).
+//   mode 1: ask the ring0 service (DPL3 gate, vector 48) to add 40 + 2, then ask it to end the user session with that value
+//   mode 2: read a supervisor-only page          -> #PF with the user bit set
+//   mode 3: execute a privileged instruction     -> #GP
+pub func user_main() u32 !{cpu.syscall,cpu.control,memory.raw} {
+  let mode u32 = raw.load32(3997696u64)
+  if mode == 1u32 {
+    let r u64 = cpu.trap3(48u32, 1u64, 40u64, 2u64)
+    let x u64 = cpu.trap3(48u32, 2u64, r, 0u64)
+  }
+  if mode == 2u32 {
+    let v u32 = raw.load32(5242880u64)
+  }
+  if mode == 3u32 {
+    let c u32 = cpu.cli()
+  }
+  return 0u32
+}
+
+// ---- UNSUPPORTED by this provider: the signatures exist because the profile contract requires them -------------------
+// Reaching any of them ends the guest with exit value 126 and a distinct serial marker; none counts as an implementation.
+// The conformance suite proves, from the linked ELF, that the atomic programs do not reference them.
+
+func unsupported() u32 !{port.io,cpu.control} {
+  let a = putc(85u32)
+  let b = putc(78u32)
+  let c = putc(83u32)
+  let d = putc(10u32)
+  return halt_with(126u32)
+}
+
+pub func buf_alloc(n u32) u32 !{port.io,cpu.control} { return unsupported() }
+pub func buf_len(h u64) u32 !{port.io,cpu.control} { return unsupported() }
+pub func buf_release(h u64) u32 !{port.io,cpu.control} { return unsupported() }
+pub func buf_read8(h u64, i u32) u32 !{port.io,cpu.control} { return unsupported() }
+pub func buf_read32(h u64, i u32) u32 !{port.io,cpu.control} { return unsupported() }
+pub func buf_read64(h u64, i u32) u32 !{port.io,cpu.control} { return unsupported() }
+pub func buf_write8(h u64, i u32, v u32) u32 !{port.io,cpu.control} { return unsupported() }
+pub func buf_write32(h u64, i u32, v u32) u32 !{port.io,cpu.control} { return unsupported() }
+pub func buf_write64(h u64, i u32, v u64) u32 !{port.io,cpu.control} { return unsupported() }
+pub func out32() u32 { return 0u32 }
+pub func out64() u64 { return 0u64 }
+pub func cast_int(bits u64, sg u32, sw u32, dg u32, dw u32) u64 !{port.io,cpu.control} {
+  let r = unsupported()
+  return 0u64
+}

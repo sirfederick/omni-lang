@@ -1,0 +1,17 @@
+{
+  "schema": "omni.semantic-conformance-vectors/1",
+  "contract": "spec/SEMANTIC_CONFORMANCE_0_9_2.md",
+  "cases": [
+    {"id":"missing-final","operation":"read","path":"missing_final","policy":true,"expected":3},
+    {"id":"missing-intermediate","operation":"read","path":"missing_intermediate","policy":true,"expected":3},
+    {"id":"missing-without-grant","operation":"read","path":"missing_final","policy":false,"expected":1},
+    {"id":"outside-root","operation":"read","path":"outside","policy":true,"expected":1},
+    {"id":"parent-traversal","operation":"read","path":"traversal","policy":true,"expected":1},
+    {"id":"symlink-parent-escape","operation":"read","path":"symlink_escape","policy":true,"expected":1},
+    {"id":"existing-contained-read","operation":"read","path":"existing","policy":true,"expected":6},
+    {"id":"zero-read-limit","operation":"read-zero","path":"missing_final","policy":true,"expected":2},
+    {"id":"oversized-read-limit","operation":"read-over","path":"missing_final","policy":true,"expected":5},
+    {"id":"legacy-missing-final","operation":"legacy-read","path":"legacy_missing","policy":true,"expected":3},
+    {"id":"write-missing-parent","operation":"write","path":"write_missing_parent","policy":true,"expected":3}
+  ]
+}

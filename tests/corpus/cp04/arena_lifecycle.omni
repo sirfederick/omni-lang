@@ -1,0 +1,100 @@
+module arena_lifecycle
+import arena "arena.omni"
+
+// Growth keeps every earlier block valid and intact; typed accessors reject stale blocks, misaligned elements and out-of-block indices;
+// reset reclaims the whole region (old blocks stale, memory zeroed); a failing allocation in the middle of a construction leaves the earlier
+// blocks and the allocator state exactly as they were; the leak oracle repeats the whole arena life 1200 times (above the 1024-slot table).
+func code(r Result<u32,u32>) u32 { match r { Ok(n) { return n } Err(e) { return 1000u32 + e } } }
+func code64(r Result<u64,u32>) u32 { match r { Ok(n) { return 1u32 } Err(e) { return 1000u32 + e } } }
+
+func life() u32 !{memory.read,memory.write} {
+  let a = buffer.alloc(0u32)
+  match a { Ok(b) {
+    var s arena.State = arena.new_state()
+    // block A: 16 bytes, 8-aligned, written before the backing grows
+    var blk_a arena.Block = arena.Block { off: 0u32, size: 0u32, epoch: 0u32 }
+    let ga = arena.alloc(borrow_mut(b), s, 16u32, 8u32)
+    match ga { Ok(g) { s = g.state; blk_a = g.block } Err(e) { let rel = buffer.release(move(b)); return 1u32 } }
+    if code(arena.write_u64(borrow_mut(b), s, blk_a, 0u32, 1234605616436508552u64)) != 1u32 { let rel = buffer.release(move(b)); return 2u32 }
+    if code(arena.write_u32(borrow_mut(b), s, blk_a, 3u32, 77u32)) != 1u32 { let rel = buffer.release(move(b)); return 3u32 }
+    var i u32 = 0u32
+    for i < 200u32 {
+      let g = arena.alloc(borrow_mut(b), s, 64u32, 8u32)
+      match g { Ok(x) { s = x.state } Err(e) { let rel = buffer.release(move(b)); return 4u32 } }
+      i = i + 1u32
+    }
+    if buffer.len(borrow(b)) < 12800u32 { let rel = buffer.release(move(b)); return 5u32 }
+    if code(arena.read_u32(borrow(b), s, blk_a, 3u32)) != 77u32 { let rel = buffer.release(move(b)); return 6u32 }
+    if code64(arena.read_u64(borrow(b), s, blk_a, 0u32)) != 1u32 { let rel = buffer.release(move(b)); return 7u32 }
+    // typed access
+    if code(arena.read_u32(borrow(b), s, blk_a, 4u32)) != 1007u32 { let rel = buffer.release(move(b)); return 8u32 }
+    if code64(arena.read_u64(borrow(b), s, blk_a, 2u32)) != 1007u32 { let rel = buffer.release(move(b)); return 9u32 }
+    var odd arena.Block = arena.Block { off: 0u32, size: 0u32, epoch: 0u32 }
+    let g1 = arena.alloc(borrow_mut(b), s, 1u32, 1u32)
+    match g1 { Ok(g) { s = g.state } Err(e) { let rel = buffer.release(move(b)); return 10u32 } }
+    let g2 = arena.alloc(borrow_mut(b), s, 8u32, 1u32)
+    match g2 { Ok(g) { s = g.state; odd = g.block } Err(e) { let rel = buffer.release(move(b)); return 11u32 } }
+    if code(arena.read_u32(borrow(b), s, odd, 0u32)) != 1008u32 { let rel = buffer.release(move(b)); return 12u32 }
+    if code64(arena.read_u64(borrow(b), s, odd, 0u32)) != 1008u32 { let rel = buffer.release(move(b)); return 13u32 }
+    // partial construction: the third request cannot fit; the first two stay valid and the state is unchanged
+    let top_before u32 = arena.used(s)
+    var first arena.Block = arena.Block { off: 0u32, size: 0u32, epoch: 0u32 }
+    var second arena.Block = arena.Block { off: 0u32, size: 0u32, epoch: 0u32 }
+    let p1 = arena.alloc(borrow_mut(b), s, 8u32, 4u32)
+    match p1 { Ok(g) { s = g.state; first = g.block } Err(e) { let rel = buffer.release(move(b)); return 14u32 } }
+    let p2 = arena.alloc(borrow_mut(b), s, 8u32, 4u32)
+    match p2 { Ok(g) { s = g.state; second = g.block } Err(e) { let rel = buffer.release(move(b)); return 15u32 } }
+    let top_mid u32 = arena.used(s)
+    let p3 = arena.alloc(borrow_mut(b), s, 2000000u32, 4u32)
+    match p3 { Ok(g) { let rel = buffer.release(move(b)); return 16u32 } Err(e) { if e != 1u32 { let rel = buffer.release(move(b)); return 17u32 } } }
+    if arena.used(s) != top_mid { let rel = buffer.release(move(b)); return 18u32 }
+    // 3 bytes of padding to reach the 4-aligned start, then 8 + 8
+    if top_mid != top_before + 19u32 { let rel = buffer.release(move(b)); return 19u32 }
+    if code(arena.write_u32(borrow_mut(b), s, second, 1u32, 5u32)) != 1u32 { let rel = buffer.release(move(b)); return 20u32 }
+    // reclamation: everything handed out is stale and zeroed, and the next epoch starts clean
+    let old_epoch u32 = s.epoch
+    let rs = arena.reset(borrow_mut(b), s)
+    match rs { Ok(ns) { s = ns } Err(e) { let rel = buffer.release(move(b)); return 21u32 } }
+    if s.epoch != old_epoch + 1u32 { let rel = buffer.release(move(b)); return 22u32 }
+    if code(arena.read_u32(borrow(b), s, second, 1u32)) != 1004u32 { let rel = buffer.release(move(b)); return 23u32 }
+    if code(arena.write_u32(borrow_mut(b), s, first, 0u32, 1u32)) != 1004u32 { let rel = buffer.release(move(b)); return 24u32 }
+    var fresh arena.Block = arena.Block { off: 0u32, size: 0u32, epoch: 0u32 }
+    let gf = arena.alloc(borrow_mut(b), s, 16u32, 8u32)
+    match gf { Ok(g) { s = g.state; fresh = g.block } Err(e) { let rel = buffer.release(move(b)); return 25u32 } }
+    if code(arena.read_u32(borrow(b), s, fresh, 3u32)) != 0u32 { let rel = buffer.release(move(b)); return 26u32 }
+    if code64(arena.read_u64(borrow(b), s, fresh, 0u32)) != 1u32 { let rel = buffer.release(move(b)); return 27u32 }
+    // a block from the old epoch that lies inside the new top is still stale: the epoch, not the range, decides
+    if code(arena.read_u32(borrow(b), s, blk_a, 3u32)) != 1004u32 { let rel = buffer.release(move(b)); return 30u32 }
+    let last = arena.State { top: 0u32, epoch: 4294967295u32 }
+    let exhausted = arena.reset(borrow_mut(b), last)
+    match exhausted { Ok(ns) { let rel = buffer.release(move(b)); return 28u32 } Err(e) { if e != 9u32 { let rel = buffer.release(move(b)); return 29u32 } } }
+    let rel = buffer.release(move(b))
+    return 0u32
+  } Err(e) { return 90u32 + e } }
+}
+
+func cheap() u32 !{memory.read,memory.write} {
+  let a = buffer.alloc(0u32)
+  match a { Ok(b) {
+    var s arena.State = arena.new_state()
+    var i u32 = 0u32
+    for i < 3u32 {
+      let g = arena.alloc(borrow_mut(b), s, 24u32, 8u32)
+      match g { Ok(x) { s = x.state } Err(e) { let rel = buffer.release(move(b)); return 1u32 } }
+      i = i + 1u32
+    }
+    let rel = buffer.release(move(b))
+    return 0u32
+  } Err(e) { return 90u32 + e } }
+}
+
+func main() u32 !{memory.read,memory.write} {
+  let x u32 = life()
+  if x != 0u32 { return x }
+  var i u32 = 0u32
+  for i < 1200u32 {
+    if cheap() != 0u32 { return 100u32 }
+    i = i + 1u32
+  }
+  return 42u32
+}

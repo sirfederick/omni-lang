@@ -1,0 +1,55 @@
+module spin
+import rt "rt.omni"
+
+// CP-14 (candidate library). A spinlock whose guard is a nominal affine resource: the lock word is released exactly once or the program does
+// not compile. The handle packs two values WITHOUT losing either, for every 64-bit address (including the x86-64 higher half, whose bit 63 is
+// set): the lock word is a naturally aligned 32-bit cell, so address bits 0..1 are zero (a misaligned cell traps with code 11 in the first
+// compare-and-swap, before the lock can be taken), and the interrupt state found at acquisition travels in bit 0.
+//   acquire        : disables interrupts, then spins with an acq_rel compare-and-swap; the previous interrupt state travels in the guard
+//   acquire_noirq  : same without touching interrupts (for contexts that already run with them off, and as the control that shows why
+//                    acquire disables them)
+// A lock that cannot be taken within `attempts` tries is reported as a deadlock (exit value 95), never as an endless spin.
+pub struct Lock { h u64 }
+
+pub func pack(addr u64, flags u64) u64 {
+  return bit.or(addr, bit.shr(bit.and(flags, 512u64), 9u32))
+}
+
+pub func handle_addr(h u64) u64 {
+  return bit.and(h, 18446744073709551612u64)
+}
+
+pub func handle_irq(h u64) u64 {
+  return bit.and(h, 1u64)
+}
+
+pub func acquire(addr u64, attempts u32) Resource<Lock> !{memory.atomic,port.io,cpu.control} {
+  let flags u64 = cpu.read_flags()
+  let off u32 = cpu.cli()
+  for i in 0u32..attempts {
+    if atomic.cas32(addr, 0u32, 1u32, 3u32, 1u32) == 0u32 {
+      return resource.seal(Lock { h: pack(addr, flags) })
+    }
+  }
+  let dead u32 = rt.finish(95u32)
+  return resource.seal(Lock { h: 0u64 })
+}
+
+pub func acquire_noirq(addr u64, attempts u32) Resource<Lock> !{memory.atomic,port.io,cpu.control} {
+  for i in 0u32..attempts {
+    if atomic.cas32(addr, 0u32, 1u32, 3u32, 1u32) == 0u32 {
+      return resource.seal(Lock { h: pack(addr, 0u64) })
+    }
+  }
+  let dead u32 = rt.finish(95u32)
+  return resource.seal(Lock { h: 0u64 })
+}
+
+pub func release(g Resource<Lock>) u32 !{memory.atomic,cpu.control} {
+  let s Lock = resource.unseal(move(g))
+  let r u32 = atomic.store32(handle_addr(s.h), 0u32, 2u32)
+  if handle_irq(s.h) != 0u64 {
+    return cpu.sti()
+  }
+  return 0u32
+}

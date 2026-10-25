@@ -1,0 +1,243 @@
+[
+ {
+  "name": "H1 an uninitialized epoch can advance",
+  "file": "tests/x64/epoch.omni",
+  "old": "let e u32 = atomic.load32(gen, 4u32)\n  if e == 0u32 { return 0u32 }\n  if e == 4294967295u32 { return 0u32 }\n  return 1u32",
+  "new": "let e u32 = atomic.load32(gen, 4u32)\n  if e == 4294967295u32 { return 0u32 }\n  return 1u32",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "H2 an exhausted epoch can advance",
+  "file": "tests/x64/epoch.omni",
+  "old": "let e u32 = atomic.load32(gen, 4u32)\n  if e == 0u32 { return 0u32 }\n  if e == 4294967295u32 { return 0u32 }\n  return 1u32",
+  "new": "let e u32 = atomic.load32(gen, 4u32)\n  if e == 0u32 { return 0u32 }\n  if e > 4294967295u32 { return 0u32 }\n  return 1u32",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "H3 can_advance refuses the epoch before the last",
+  "file": "tests/x64/epoch.omni",
+  "old": "let e u32 = atomic.load32(gen, 4u32)\n  if e == 0u32 { return 0u32 }\n  if e == 4294967295u32 { return 0u32 }\n  return 1u32",
+  "new": "let e u32 = atomic.load32(gen, 4u32)\n  if e == 0u32 { return 0u32 }\n  if e >= 4294967294u32 { return 0u32 }\n  return 1u32",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "H4 advance moves an uninitialized epoch",
+  "file": "tests/x64/epoch.omni",
+  "old": "for i in 0u32..4294967295u32 {\n    let e u32 = atomic.load32(gen, 4u32)\n    if e == 0u32 { return 0u32 }\n    if e == 4294967295u32 { return 0u32 }\n    if atomic.cas32(gen, e, e + 1u32, 4u32, 4u32) == e { return e + 1u32 }",
+  "new": "for i in 0u32..4294967295u32 {\n    let e u32 = atomic.load32(gen, 4u32)\n    if e == 4294967295u32 { return 0u32 }\n    if atomic.cas32(gen, e, e + 1u32, 4u32, 4u32) == e { return e + 1u32 }",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "H5 advance moves an exhausted epoch",
+  "file": "tests/x64/epoch.omni",
+  "old": "for i in 0u32..4294967295u32 {\n    let e u32 = atomic.load32(gen, 4u32)\n    if e == 0u32 { return 0u32 }\n    if e == 4294967295u32 { return 0u32 }\n    if atomic.cas32(gen, e, e + 1u32, 4u32, 4u32) == e { return e + 1u32 }",
+  "new": "for i in 0u32..4294967295u32 {\n    let e u32 = atomic.load32(gen, 4u32)\n    if e == 0u32 { return 0u32 }\n    if e > 4294967295u32 { return 0u32 }\n    if atomic.cas32(gen, e, e + 1u32, 4u32, 4u32) == e { return e + 1u32 }",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "H6 advance answers the old epoch",
+  "file": "tests/x64/epoch.omni",
+  "old": "for i in 0u32..4294967295u32 {\n    let e u32 = atomic.load32(gen, 4u32)\n    if e == 0u32 { return 0u32 }\n    if e == 4294967295u32 { return 0u32 }\n    if atomic.cas32(gen, e, e + 1u32, 4u32, 4u32) == e { return e + 1u32 }",
+  "new": "for i in 0u32..4294967295u32 {\n    let e u32 = atomic.load32(gen, 4u32)\n    if e == 0u32 { return 0u32 }\n    if e == 4294967295u32 { return 0u32 }\n    if atomic.cas32(gen, e, e + 1u32, 4u32, 4u32) == e { return e }",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "H7 advance does not change the epoch",
+  "file": "tests/x64/epoch.omni",
+  "old": "for i in 0u32..4294967295u32 {\n    let e u32 = atomic.load32(gen, 4u32)\n    if e == 0u32 { return 0u32 }\n    if e == 4294967295u32 { return 0u32 }\n    if atomic.cas32(gen, e, e + 1u32, 4u32, 4u32) == e { return e + 1u32 }",
+  "new": "for i in 0u32..4294967295u32 {\n    let e u32 = atomic.load32(gen, 4u32)\n    if e == 0u32 { return 0u32 }\n    if e == 4294967295u32 { return 0u32 }\n    if atomic.cas32(gen, e, e, 4u32, 4u32) == e { return e + 1u32 }",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "H8 advance answers 0 when it did move the epoch",
+  "file": "tests/x64/epoch.omni",
+  "old": "for i in 0u32..4294967295u32 {\n    let e u32 = atomic.load32(gen, 4u32)\n    if e == 0u32 { return 0u32 }\n    if e == 4294967295u32 { return 0u32 }\n    if atomic.cas32(gen, e, e + 1u32, 4u32, 4u32) == e { return e + 1u32 }",
+  "new": "for i in 0u32..4294967295u32 {\n    let e u32 = atomic.load32(gen, 4u32)\n    if e == 0u32 { return 0u32 }\n    if e == 4294967295u32 { return 0u32 }\n    if atomic.cas32(gen, e, e + 1u32, 4u32, 4u32) == e { return 0u32 }",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "H9 advance is a compare-and-swap with relaxed orders",
+  "file": "tests/x64/epoch.omni",
+  "old": "for i in 0u32..4294967295u32 {\n    let e u32 = atomic.load32(gen, 4u32)\n    if e == 0u32 { return 0u32 }\n    if e == 4294967295u32 { return 0u32 }\n    if atomic.cas32(gen, e, e + 1u32, 4u32, 4u32) == e { return e + 1u32 }",
+  "new": "for i in 0u32..4294967295u32 {\n    let e u32 = atomic.load32(gen, 4u32)\n    if e == 0u32 { return 0u32 }\n    if e == 4294967295u32 { return 0u32 }\n    if atomic.cas32(gen, e, e + 1u32, 0u32, 0u32) == e { return e + 1u32 }",
+  "tests": [
+   "tests/language_0_8_3_alpha8.py",
+   "A83X64QuiescenceTests"
+  ]
+ },
+ {
+  "name": "H10 wait accepts the target of a refused advance",
+  "file": "tests/x64/epoch.omni",
+  "old": "if target == 0u32 {\n    let spent u32 = rt.finish(96u32)\n  }\n",
+  "new": "",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "H11 wait ends the guest with the deadlock value for a refused advance",
+  "file": "tests/x64/epoch.omni",
+  "old": "let spent u32 = rt.finish(96u32)",
+  "new": "let spent u32 = rt.finish(95u32)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "H12 wait refuses every target",
+  "file": "tests/x64/epoch.omni",
+  "old": "if target == 0u32 {",
+  "new": "if target >= 0u32 {",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "Y1 a spent slot is given one more generation",
+  "file": "tests/x64/cbreg.omni",
+  "old": "let cur u32 = atomic.load32(slot + 4u64, 4u32)\n  if cur >= 16777215u32 { return 0u32 }\n  return cur + 1u32",
+  "new": "let cur u32 = atomic.load32(slot + 4u64, 4u32)\n  if cur > 16777215u32 { return 0u32 }\n  return cur + 1u32",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "Y2 the generation after the last allowed is refused one early",
+  "file": "tests/x64/cbreg.omni",
+  "old": "let cur u32 = atomic.load32(slot + 4u64, 4u32)\n  if cur >= 16777215u32 { return 0u32 }\n  return cur + 1u32",
+  "new": "let cur u32 = atomic.load32(slot + 4u64, 4u32)\n  if cur >= 16777214u32 { return 0u32 }\n  return cur + 1u32",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "Y3 the next generation skips one",
+  "file": "tests/x64/cbreg.omni",
+  "old": "let cur u32 = atomic.load32(slot + 4u64, 4u32)\n  if cur >= 16777215u32 { return 0u32 }\n  return cur + 1u32",
+  "new": "let cur u32 = atomic.load32(slot + 4u64, 4u32)\n  if cur >= 16777215u32 { return 0u32 }\n  return cur + 2u32",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "Y4 a spent slot restarts at 1",
+  "file": "tests/x64/cbreg.omni",
+  "old": "let cur u32 = atomic.load32(slot + 4u64, 4u32)\n  if cur >= 16777215u32 { return 0u32 }\n  return cur + 1u32",
+  "new": "let cur u32 = atomic.load32(slot + 4u64, 4u32)\n  if cur >= 16777215u32 { return 1u32 }\n  return cur + 1u32",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "Y5 register does not refuse a spent slot",
+  "file": "tests/x64/cbreg.omni",
+  "old": "if g == 0u32 {\n    let spent u32 = rt.finish(93u32)\n  }\n",
+  "new": "",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "Y6 register refuses a spent slot with another value",
+  "file": "tests/x64/cbreg.omni",
+  "old": "if g == 0u32 {\n    let spent u32 = rt.finish(93u32)",
+  "new": "if g == 0u32 {\n    let spent u32 = rt.finish(92u32)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "Y7 retire does not check the epoch",
+  "file": "tests/x64/cbreg.omni",
+  "old": "pub func retire<H: Handler>(r Resource<Reg>, gen u64, reader_slot u64, attempts u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {\n  let s Reg = resource.unseal(move(r))\n  if epoch.can_advance(gen) == 0u32 {\n    let spent u32 = rt.finish(96u32)\n  }\n",
+  "new": "pub func retire<H: Handler>(r Resource<Reg>, gen u64, reader_slot u64, attempts u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {\n  let s Reg = resource.unseal(move(r))\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "Y8 retire refuses an exhausted epoch with another value",
+  "file": "tests/x64/cbreg.omni",
+  "old": "pub func retire<H: Handler>(r Resource<Reg>, gen u64, reader_slot u64, attempts u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {\n  let s Reg = resource.unseal(move(r))\n  if epoch.can_advance(gen) == 0u32 {\n    let spent u32 = rt.finish(96u32)\n  }\n",
+  "new": "pub func retire<H: Handler>(r Resource<Reg>, gen u64, reader_slot u64, attempts u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {\n  let s Reg = resource.unseal(move(r))\n  if epoch.can_advance(gen) == 0u32 {\n    let spent u32 = rt.finish(95u32)\n  }\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "Y9 retire_all does not check the epoch",
+  "file": "tests/x64/cbreg.omni",
+  "old": "pub func retire_all<H: Handler>(r Resource<Reg>, gen u64, first u64, count u32, stride u64, attempts u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {\n  let s Reg = resource.unseal(move(r))\n  if epoch.can_advance(gen) == 0u32 {\n    let spent u32 = rt.finish(96u32)\n  }\n",
+  "new": "pub func retire_all<H: Handler>(r Resource<Reg>, gen u64, first u64, count u32, stride u64, attempts u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {\n  let s Reg = resource.unseal(move(r))\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ },
+ {
+  "name": "Y10 retire_all checks the epoch only when it is exhausted by one",
+  "file": "tests/x64/cbreg.omni",
+  "old": "pub func retire_all<H: Handler>(r Resource<Reg>, gen u64, first u64, count u32, stride u64, attempts u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {\n  let s Reg = resource.unseal(move(r))\n  if epoch.can_advance(gen) == 0u32 {\n    let spent u32 = rt.finish(96u32)\n  }\n",
+  "new": "pub func retire_all<H: Handler>(r Resource<Reg>, gen u64, first u64, count u32, stride u64, attempts u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {\n  let s Reg = resource.unseal(move(r))\n  if epoch.can_advance(gen) == 99u32 {\n    let spent u32 = rt.finish(96u32)\n  }\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "EpochHorizonTests",
+   "CallbackGenerationTests"
+  ]
+ }
+]

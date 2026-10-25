@@ -1,0 +1,108 @@
+module t
+import rt "rt.omni"
+import epoch "epoch.omni"
+
+// Quiescence on two vCPUs (CP-14, spec/QUIESCENCE_CANDIDATE.md). CPU 1 is a reader: inside a read section it loads the current buffer pointer,
+// dwells, and reads the buffer; the buffer must still hold the live value. CPU 0 is the writer: it fills the other buffer, publishes it,
+// then retires the old one by POISONING it after the grace period. With `epoch.advance` + `epoch.wait` between publish and poison the reader
+// never sees poison; without them (the control, made by text substitution in the test) it does.
+//
+// Cells: epoch 0x5A0000 (5898240, starts 1), reader slot 0x5A0040 (5898304), current pointer 0x5A0080 (5898368, 64-bit), reader bad count
+// 0x5A00C0 (5898432), reader reads 0x5A0100 (5898496), stop flag 0x5A0140 (5898560), writer rounds 0x5A0180 (5898624);
+// buffers A 0x5A1000 (5902336) and B 0x5A2000 (5906432). Live value 777, poison 3735928559. AP flags as in lock_smp.omni.
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func dwell(n u32) u32 !{memory.raw} {
+  for i in 0u32..n {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func reader() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  var bad u32 = 0u32
+  var reads u32 = 0u32
+  for i in 0u32..4000000000u32 {
+    if atomic.load32(5898560u64, 1u32) != 0u32 {
+      let b u32 = raw.store32(5898432u64, bad)
+      return raw.store32(5898496u64, reads)
+    }
+    let g = epoch.enter(5898240u64, 5898304u64)
+    let p u64 = atomic.load64(5898368u64, 4u32)
+    let w u32 = dwell(40u32)
+    if raw.load32(p) != 777u32 { bad = bad + 1u32 }
+    reads = reads + 1u32
+    let x u32 = epoch.exit(move(g))
+  }
+  return 0u32
+}
+
+func ap_main() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  let who u32 = raw.store32(5308800u64, id + 100u32)
+  let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+  let go u32 = wait_flag(5308928u64)
+  let r u32 = reader()
+  let done u32 = atomic.store32(5308992u64, 1u32, 2u32)
+  return 0u32
+}
+
+func writer(rounds u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  for k in 0u32..rounds {
+    var fresh u64 = 5902336u64
+    var old u64 = 5906432u64
+    if k % 2u32 == 0u32 {
+      fresh = 5906432u64
+      old = 5902336u64
+    }
+    let f u32 = raw.store32(fresh, 777u32)
+    let published u32 = atomic.store64(5898368u64, fresh, 4u32)
+    let e u32 = epoch.advance(5898240u64)
+    let w u32 = epoch.wait(5898304u64, e, 100000000u32)
+    let poison u32 = raw.store32(old, 3735928559u32)
+    let d u32 = dwell(300u32)
+  }
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let g0 u32 = atomic.store32(5898240u64, 1u32, 4u32)
+  let a0 u32 = raw.store32(5902336u64, 777u32)
+  let p0 u32 = atomic.store64(5898368u64, 5902336u64, 4u32)
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+  let init u32 = raw.store32(4276093696u64, 17664u32)
+  let w1 u32 = delay()
+  let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+  let w2 u32 = delay()
+  let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+  let up u32 = wait_flag(5308864u64)
+  if up == 0u32 {
+    print(999u32)
+    return rt.finish(2u32)
+  }
+  let go u32 = atomic.store32(5308928u64, 1u32, 2u32)
+  let w u32 = writer(3000u32)
+  let stop u32 = atomic.store32(5898560u64, 1u32, 2u32)
+  let done u32 = wait_flag(5308992u64)
+  print(raw.load32(5898432u64))
+  if raw.load32(5898496u64) > 1000u32 { print(1u32) } else { print(0u32) }
+  print(atomic.load32(5898240u64, 4u32))
+  print(atomic.load32(5898304u64, 4u32))
+  return rt.finish(0u32)
+}

@@ -1,0 +1,33 @@
+module app
+import medir "mediciones.omni"
+import datos "resumen.omni"
+
+func main() u32 !io {
+    let muestra = medir.Observacion {
+        miligrados_c: 31400,
+        observado_ms: 1000,
+        sensor: 17
+    }
+    let conversion = medir.convertir(muestra)
+    match conversion {
+        Ok(valor) {
+            print("Conversion correcta: milikelvin / instante original / sensor")
+            print(valor.milikelvin)
+            print(valor.observado_ms)
+            print(valor.sensor)
+        }
+        Err(codigo) {
+            print("Error de conversion")
+            return codigo
+        }
+    }
+    match datos.promedio(40, 0) {
+        Ok(valor) { print(valor) }
+        Err(codigo) {
+            print("Error recuperable de promedio")
+            print(codigo)
+        }
+    }
+    print("El programa continuo tras tratar el error")
+    return 0
+}

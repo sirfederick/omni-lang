@@ -1,0 +1,155 @@
+module region
+
+// CP-04 (spec/DYNAMIC_STORAGE_CANDIDATE.md §5): a typed bump allocator written in Omni over a RAW MEMORY RANGE, for target profiles and for the
+// evaluator (both implement raw.read / raw.write over plain records). It needs no host buffer and no Core allocator: the platform hands over
+// the range [base, base + size), and the region is a nominal affine resource, so the range is returned (destroyed) exactly once or the program
+// does not compile.
+//   header (32 bytes at base): magic u64, top u64 (next free address), limit u64 (end of the range), epoch u64
+//   data starts at base + 32; a block is an address inside [data start, top)
+// Sizes and alignments come from layout.size<T>() / layout.align<T>(), so the element type decides both; every access re-checks the epoch,
+// the range and the alignment and answers with a typed error instead of reaching memory (raw.read/raw.write would trap on a misaligned record).
+// Outcome codes (a failing call changes neither the header nor memory):
+//   1 the range is exhausted (typed out-of-memory)   4 stale block (reset since it was handed out)   5 bad range handed to create/extend
+//   6 size/address arithmetic would overflow         7 index outside the block                     8 block not aligned for the element type
+//   9 epoch counter exhausted                        10 header corrupt (magic mismatch)
+struct Header { magic u64, top u64, limit u64, epoch u64 }
+
+pub struct Region { h u64 }
+pub struct Slot<T> { addr u64, epoch u64 }
+pub struct Slice<T> { addr u64, count u64, epoch u64 }
+
+func magic() u64 { return 5712927251260564559u64 }
+func max64() u64 { return 18446744073709551615u64 }
+
+func header(base u64) Header !{memory.raw} { return raw.read<Header>(base) }
+
+// Creates a region over [base, base + size). base must be a non-zero multiple of 16 and size at least 64; the range must not wrap.
+pub func create(base u64, size u64) Result<Resource<Region>,u32> !{memory.raw} {
+  if base == 0u64 { return Err<Resource<Region>,u32>(5u32) }
+  if bit.and(base, 15u64) != 0u64 { return Err<Resource<Region>,u32>(5u32) }
+  if size < 64u64 { return Err<Resource<Region>,u32>(5u32) }
+  if size > max64() - base { return Err<Resource<Region>,u32>(6u32) }
+  let w u32 = raw.write<Header>(base, Header { magic: magic(), top: base + 32u64, limit: base + size, epoch: 1u64 })
+  return Ok<Resource<Region>,u32>(resource.seal(Region { h: base }))
+}
+
+pub func epoch(r Borrow<Region>) u64 !{memory.raw} {
+  let v Region = resource.peek(r)
+  let h Header = header(v.h)
+  return h.epoch
+}
+
+pub func used(r Borrow<Region>) u64 !{memory.raw} {
+  let v Region = resource.peek(r)
+  let h Header = header(v.h)
+  return h.top - v.h - 32u64
+}
+
+pub func remaining(r Borrow<Region>) u64 !{memory.raw} {
+  let v Region = resource.peek(r)
+  let h Header = header(v.h)
+  return h.limit - h.top
+}
+
+// Reserves `count` elements of T (count may be 0). Returns the new block.
+pub func alloc_array<T>(r BorrowMut<Region>, count u64) Result<Slice<T>,u32> !{memory.raw} {
+  let v Region = resource.peek(r)
+  let h Header = header(v.h)
+  if h.magic != magic() { return Err<Slice<T>,u32>(10u32) }
+  let size u64 = layout.size<T>()
+  let align u64 = layout.align<T>()
+  let mask u64 = align - 1u64
+  if h.top > max64() - mask { return Err<Slice<T>,u32>(6u32) }
+  let start u64 = bit.and(h.top + mask, bit.not(mask))
+  if count > max64() / size { return Err<Slice<T>,u32>(6u32) }
+  let bytes u64 = count * size
+  if bytes > max64() - start { return Err<Slice<T>,u32>(6u32) }
+  let end u64 = start + bytes
+  if end > h.limit { return Err<Slice<T>,u32>(1u32) }
+  let w u32 = raw.write<Header>(v.h, Header { magic: h.magic, top: end, limit: h.limit, epoch: h.epoch })
+  return Ok<Slice<T>,u32>(Slice<T> { addr: start, count: count, epoch: h.epoch })
+}
+
+pub func alloc<T>(r BorrowMut<Region>) Result<Slot<T>,u32> !{memory.raw} {
+  let block = alloc_array<T>(r, 1u64)
+  match block {
+    Ok(s) { return Ok<Slot<T>,u32>(Slot<T> { addr: s.addr, epoch: s.epoch }) }
+    Err(code) { return Err<Slot<T>,u32>(code) }
+  }
+}
+
+func check(h Header, addr u64, count u64, index u64, size u64, align u64, epoch u64) u32 {
+  if h.magic != magic() { return 10u32 }
+  if epoch != h.epoch { return 4u32 }
+  if index >= count { return 7u32 }
+  if bit.and(addr, align - 1u64) != 0u64 { return 8u32 }
+  if addr > h.top { return 4u32 }
+  if count > (h.top - addr) / size { return 4u32 }
+  return 0u32
+}
+
+pub func store_at<T>(r Borrow<Region>, s Slice<T>, index u64, value T) Result<u32,u32> !{memory.raw} {
+  let v Region = resource.peek(r)
+  let h Header = header(v.h)
+  let size u64 = layout.size<T>()
+  let c u32 = check(h, s.addr, s.count, index, size, layout.align<T>(), s.epoch)
+  if c != 0u32 { return Err<u32,u32>(c) }
+  let w u32 = raw.write<T>(s.addr + index * size, value)
+  return Ok<u32,u32>(1u32)
+}
+
+pub func load_at<T>(r Borrow<Region>, s Slice<T>, index u64) Result<T,u32> !{memory.raw} {
+  let v Region = resource.peek(r)
+  let h Header = header(v.h)
+  let size u64 = layout.size<T>()
+  let c u32 = check(h, s.addr, s.count, index, size, layout.align<T>(), s.epoch)
+  if c != 0u32 { return Err<T,u32>(c) }
+  return Ok<T,u32>(raw.read<T>(s.addr + index * size))
+}
+
+pub func store<T>(r Borrow<Region>, s Slot<T>, value T) Result<u32,u32> !{memory.raw} {
+  return store_at<T>(r, Slice<T> { addr: s.addr, count: 1u64, epoch: s.epoch }, 0u64, value)
+}
+
+pub func load<T>(r Borrow<Region>, s Slot<T>) Result<T,u32> !{memory.raw} {
+  return load_at<T>(r, Slice<T> { addr: s.addr, count: 1u64, epoch: s.epoch }, 0u64)
+}
+
+// Growth of the backing range: the platform made more memory available after `limit`. The limit can only grow and must not wrap.
+pub func extend(r BorrowMut<Region>, new_limit u64) Result<u64,u32> !{memory.raw} {
+  let v Region = resource.peek(r)
+  let h Header = header(v.h)
+  if h.magic != magic() { return Err<u64,u32>(10u32) }
+  if new_limit < h.limit { return Err<u64,u32>(5u32) }
+  let w u32 = raw.write<Header>(v.h, Header { magic: h.magic, top: h.top, limit: new_limit, epoch: h.epoch })
+  return Ok<u64,u32>(new_limit)
+}
+
+func scrub(from u64, to u64) u32 !{memory.raw} {
+  var p u64 = from
+  for p < to {
+    let z u32 = raw.store8(p, 0u32)
+    p = p + 1u64
+  }
+  return 0u32
+}
+
+// Region reclamation: zeroes everything handed out, starts a new epoch (every earlier block is stale) and keeps the range.
+pub func reset(r BorrowMut<Region>) Result<u64,u32> !{memory.raw} {
+  let v Region = resource.peek(r)
+  let h Header = header(v.h)
+  if h.magic != magic() { return Err<u64,u32>(10u32) }
+  if h.epoch == max64() { return Err<u64,u32>(9u32) }
+  let z u32 = scrub(v.h + 32u64, h.top)
+  let w u32 = raw.write<Header>(v.h, Header { magic: h.magic, top: v.h + 32u64, limit: h.limit, epoch: h.epoch + 1u64 })
+  return Ok<u64,u32>(h.epoch + 1u64)
+}
+
+// Teardown: scrubs the used part and the header and consumes the resource. Returns the number of bytes that were in use.
+pub func destroy(r Resource<Region>) u64 !{memory.raw} {
+  let v Region = resource.unseal(move(r))
+  let h Header = header(v.h)
+  let z u32 = scrub(v.h + 32u64, h.top)
+  let w u32 = raw.write<Header>(v.h, Header { magic: 0u64, top: 0u64, limit: 0u64, epoch: 0u64 })
+  return h.top - v.h - 32u64
+}

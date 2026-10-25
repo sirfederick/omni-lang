@@ -1,0 +1,28 @@
+module field
+import mmio "mmio.omni"
+import bitfield "bitfield.omni"
+
+// CP-08 / MN-05 (spec/REGISTER_FIELDS_CANDIDATE.md): typed bit fields of a MAPPED register. The pure half - the field, its mask, get and put, the layout questions for static_assert - is
+// bitfield.omni. The permissions stay with the REGISTER (mmio.Readable, mmio.ReadWrite, mmio.W1C...): a field operation exists only for a register that allows it, so a field of a write-only
+// register cannot be read and a field of a read-clear register cannot be read by accident - it does not compile (E_GENERIC_CONSTRAINT).
+//   read     one field of a register whose read has no side effect
+//   update   change ONE field of a register that can be changed in place: an explicit, non-atomic read-modify-write that keeps every other bit as the device has it (mmio.modify)
+//   clear    clear one field of a write-1-to-clear register with a single store of the field's mask: nothing is read
+// Outcome codes: 1 the value does not fit the field   2 the field itself is not valid (zero width, or beyond 64 bits)   and the codes of mmio for everything about the register itself.
+pub func read<G: mmio.Region, R: mmio.Readable, F: bitfield.Field>(m Borrow<mmio.Mapping<G>>) Result<u64,u32> !{memory.raw} {
+  if !bitfield.fits<F>(64u32) { return Err<u64,u32>(2u32) }
+  let r = mmio.read<G,R>(m)
+  match r { Ok(v) { return Ok<u64,u32>(bitfield.get<F>(v)) } Err(code) { return Err<u64,u32>(code) } }
+}
+
+// Returns the whole register value as it was before.
+pub func update<G: mmio.Region, R: mmio.ReadWrite, F: bitfield.Field>(m BorrowMut<mmio.Mapping<G>>, x u64) Result<u64,u32> !{memory.raw} {
+  if !bitfield.fits<F>(64u32) { return Err<u64,u32>(2u32) }
+  if x > bitfield.limit<F>() { return Err<u64,u32>(1u32) }
+  return mmio.modify<G,R>(m, bitfield.mask<F>(), bit.shl(x, bitfield.Field.shift<F>()))
+}
+
+pub func clear<G: mmio.Region, R: mmio.W1C, F: bitfield.Field>(m BorrowMut<mmio.Mapping<G>>) Result<u32,u32> !{memory.raw} {
+  if !bitfield.fits<F>(64u32) { return Err<u32,u32>(2u32) }
+  return mmio.clear<G,R>(m, bitfield.mask<F>())
+}

@@ -1,0 +1,62 @@
+module t
+import rt "rt.omni"
+import critical "critical.omni"
+
+// CP-14 rows 14.4/14.5, one CPU: the runners of examples/storage/critical.omni (spec/GUARDS_AND_LOCKS_CANDIDATE.md section 4). The interrupt flag is read before and after
+// every run, in both initial states; the lock is observed taken and given back; a lock that cannot be taken answers 17 with the interrupt state restored and the body never run.
+// Cells: lock 0x5E0000 (6160384), counter 0x5E0040 (6160448).
+struct Inc { n u32 }
+
+impl critical.Section for Inc {
+  func run(arg u64) u32 !{memory.raw,memory.atomic} {
+    let v u32 = atomic.load32(arg, 0u32)
+    let s u32 = atomic.store32(arg, v + 1u32, 0u32)
+    return v + 1u32
+  }
+}
+
+func iflag() u32 !{cpu.control} {
+  return u32(bit.and(cpu.read_flags(), 512u64) / 512u64)
+}
+
+func code(r Result<u32,u32>) u32 {
+  match r {
+    Ok(v) { return 1000u32 + v }
+    Err(e) { return e }
+  }
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let lock u64 = 6160384u64
+  let counter u64 = 6160448u64
+  // the image has no interrupt table: every source of the legacy PICs is masked before the first sti, otherwise a timer tick that lands in a window with interrupts enabled ends the guest (triple fault)
+  let pic1 u32 = port.out8(33u32, 255u32)
+  let pic2 u32 = port.out8(161u32, 255u32)
+  // enabled on entry
+  let on u32 = cpu.sti()
+  print(iflag())
+  print(code(critical.locked<Inc>(lock, counter, 100u32)))
+  print(iflag())
+  print(raw.load32(lock))
+  print(raw.load32(counter))
+  // disabled on entry: a runner never enables what it did not disable
+  let off u32 = cpu.cli()
+  print(iflag())
+  print(code(critical.locked<Inc>(lock, counter, 100u32)))
+  print(iflag())
+  // the plain runner, in both states
+  let on2 u32 = cpu.sti()
+  print(critical.irq_off<Inc>(counter))
+  print(iflag())
+  let off2 u32 = cpu.cli()
+  print(critical.irq_off<Inc>(counter))
+  print(iflag())
+  // a lock that is held: bounded, explicit, interrupt state restored, body not run, lock not touched
+  let on3 u32 = cpu.sti()
+  let held u32 = raw.store32(lock, 1u32)
+  print(code(critical.locked<Inc>(lock, counter, 50u32)))
+  print(iflag())
+  print(raw.load32(lock))
+  print(raw.load32(counter))
+  return rt.finish(0u32)
+}

@@ -1,0 +1,1374 @@
+[
+ {
+  "name": "H1 the smallest range is 127 bytes",
+  "file": "examples/storage/heap.omni",
+  "old": "if size < 128u64 {",
+  "new": "if size < 127u64 {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H2 a base that is 8-aligned is accepted",
+  "file": "examples/storage/heap.omni",
+  "old": "if bit.and(base, 15u64) != 0u64 { return Err<Resource<Heap>,u32>(5u32) }",
+  "new": "if bit.and(base, 7u64) != 0u64 { return Err<Resource<Heap>,u32>(5u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H3 a range that ends at the last address is refused",
+  "file": "examples/storage/heap.omni",
+  "old": "if size > max64() - base { return Err<Resource<Heap>,u32>(6u32) }",
+  "new": "if size >= max64() - base { return Err<Resource<Heap>,u32>(6u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H4 base 1 is the null base",
+  "file": "examples/storage/heap.omni",
+  "old": "if base == 0u64 { return Err<Resource<Heap>,u32>(5u32) }",
+  "new": "if base == 1u64 { return Err<Resource<Heap>,u32>(5u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H5 the first block starts at 80",
+  "file": "examples/storage/heap.omni",
+  "old": "brk: base + 64u64, limit: base + size",
+  "new": "brk: base + 80u64, limit: base + size",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H6 the limit is one byte short",
+  "file": "examples/storage/heap.omni",
+  "old": "limit: base + size, serial: first",
+  "new": "limit: base + size - 1u64, serial: first",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H7 live counts one too many",
+  "file": "examples/storage/heap.omni",
+  "old": "  return h.live\n}",
+  "new": "  return h.live + 1u64\n}",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H8 remaining is one short",
+  "file": "examples/storage/heap.omni",
+  "old": "return h.limit - h.brk",
+  "new": "return h.limit - h.brk - 1u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H9 carved starts at 63",
+  "file": "examples/storage/heap.omni",
+  "old": "return h.brk - v.h - 64u64",
+  "new": "return h.brk - v.h - 63u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H10 free_blocks counts two per block",
+  "file": "examples/storage/heap.omni",
+  "old": "n = n + 1u64",
+  "new": "n = n + 2u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H11 free_blocks follows a link that goes backwards",
+  "file": "examples/storage/heap.omni",
+  "old": "if cur < lo || cur >= h.brk || bit.and(cur, 15u64) != 0u64 || cur <= prev { bad = true }\n    if bad == false {\n      n = n + 1u64",
+  "new": "if cur < lo || cur >= h.brk || bit.and(cur, 15u64) != 0u64 { bad = true }\n    if bad == false {\n      n = n + 1u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H12 free_blocks follows a link below the first payload",
+  "file": "examples/storage/heap.omni",
+  "old": "if cur < lo || cur >= h.brk || bit.and(cur, 15u64) != 0u64 || cur <= prev { bad = true }\n    if bad == false {\n      n = n + 1u64",
+  "new": "if cur < 0u64 || cur >= h.brk || bit.and(cur, 15u64) != 0u64 || cur <= prev { bad = true }\n    if bad == false {\n      n = n + 1u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H13 free_blocks follows a link beyond the carved area",
+  "file": "examples/storage/heap.omni",
+  "old": "if cur < lo || cur >= h.brk || bit.and(cur, 15u64) != 0u64 || cur <= prev { bad = true }\n    if bad == false {\n      n = n + 1u64",
+  "new": "if cur < lo || cur > h.limit || bit.and(cur, 15u64) != 0u64 || cur <= prev { bad = true }\n    if bad == false {\n      n = n + 1u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H14 free_blocks follows an unaligned link",
+  "file": "examples/storage/heap.omni",
+  "old": "if cur < lo || cur >= h.brk || bit.and(cur, 15u64) != 0u64 || cur <= prev { bad = true }\n    if bad == false {\n      n = n + 1u64",
+  "new": "if cur < lo || cur >= h.brk || bit.and(cur, 7u64) != 0u64 || cur <= prev { bad = true }\n    if bad == false {\n      n = n + 1u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H15 free_bytes adds the head",
+  "file": "examples/storage/heap.omni",
+  "old": "total = total + hd.size",
+  "new": "total = total + hd.size + 16u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H16 free_bytes trusts a size beyond the carved area",
+  "file": "examples/storage/heap.omni",
+  "old": "if hd.size > h.brk - cur { bad = true }\n      if bad == false {\n        total",
+  "new": "if hd.size > h.limit { bad = true }\n      if bad == false {\n        total",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H17 scrub steps over every other word",
+  "file": "examples/storage/heap.omni",
+  "old": "p = p + 8u64\n  }\n  return 0u32",
+  "new": "p = p + 16u64\n  }\n  return 0u32",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H18 scrub zeroes one word too many",
+  "file": "examples/storage/heap.omni",
+  "old": "for p < to {\n    let z u32 = raw.store64(p, 0u64)",
+  "new": "for p <= to {\n    let z u32 = raw.store64(p, 0u64)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H19 serial 0 is a valid serial",
+  "file": "examples/storage/heap.omni",
+  "old": "if serial == 0u64 { return 4u32 }",
+  "new": "if serial == 99999u64 { return 4u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ],
+  "equivalent": "a live block has tag serial xor K with serial >= 1, so its tag is never K, and a free block has tag 0: the tag comparison alone rejects serial 0 (tag_of(0) = K), so the explicit test is a redundant first line of defence"
+ },
+ {
+  "name": "H20 the alignment test looks at 8 only",
+  "file": "examples/storage/heap.omni",
+  "old": "if bit.and(addr, 15u64) != 0u64 { return 8u32 }\n  if addr < lo { return 4u32 }",
+  "new": "if bit.and(addr, 7u64) != 0u64 { return 8u32 }\n  if addr < lo { return 4u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H21 the first payload is below the first valid address",
+  "file": "examples/storage/heap.omni",
+  "old": "if addr < lo { return 4u32 }\n  if addr >= h.brk { return 4u32 }",
+  "new": "if addr <= lo { return 4u32 }\n  if addr >= h.brk { return 4u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H22 the end of the carved area is a valid address",
+  "file": "examples/storage/heap.omni",
+  "old": "if addr >= h.brk { return 4u32 }\n  let hd Head",
+  "new": "if addr > h.brk { return 4u32 }\n  let hd Head",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H23 the tag is not compared",
+  "file": "examples/storage/heap.omni",
+  "old": "if hd.tag != tag_of(serial) { return 4u32 }",
+  "new": "if hd.tag != tag_of(serial) && false { return 4u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H24 the tag is the serial itself",
+  "file": "examples/storage/heap.omni",
+  "old": "func tag_of(serial u64) u64 { return bit.xor(serial, tag_mask()) }",
+  "new": "func tag_of(serial u64) u64 { return serial }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H25 a head that reaches beyond the carved area is not reported",
+  "file": "examples/storage/heap.omni",
+  "old": "if hd.size > h.brk - addr { return 12u32 }",
+  "new": "if hd.size > h.brk - addr && false { return 12u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H26 a handle may own exactly the bytes of the block plus one",
+  "file": "examples/storage/heap.omni",
+  "old": "if bytes > hd.size { return 11u32 }",
+  "new": "if bytes > hd.size + 1u64 { return 11u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H27 a handle that owns exactly the whole block is refused",
+  "file": "examples/storage/heap.omni",
+  "old": "if bytes > hd.size { return 11u32 }",
+  "new": "if bytes >= hd.size { return 11u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H28 the alignment limit of the element type is checked",
+  "file": "examples/storage/heap.omni",
+  "old": "if layout.align<T>() > 16u64 { return Err<Block<T>,u32>(8u32) }",
+  "new": "if layout.align<T>() >= 16u64 { return Err<Block<T>,u32>(8u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ],
+  "equivalent": "no Omni record has an alignment above 8 (there is no align attribute and the widest field is 64 bits), so layout.align<T>() is 1, 2, 4 or 8 for every T and the comparison with 16 is never true for either operator; it is the guard for a wider alignment that a later layout could add"
+ },
+ {
+  "name": "H29 the byte count may wrap before the rounding",
+  "file": "examples/storage/heap.omni",
+  "old": "if bytes > max64() - 15u64 { return Err<Block<T>,u32>(6u32) }",
+  "new": "if bytes > max64() { return Err<Block<T>,u32>(6u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H30 the byte count is rounded to 8",
+  "file": "examples/storage/heap.omni",
+  "old": "var need u64 = bit.and(bytes + 15u64, bit.not(15u64))",
+  "new": "var need u64 = bit.and(bytes + 7u64, bit.not(7u64))",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H31 an empty block takes 8 bytes",
+  "file": "examples/storage/heap.omni",
+  "old": "if need < 16u64 { need = 16u64 }",
+  "new": "if need < 16u64 { need = 8u64 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H32 the serial counter may reach the mask",
+  "file": "examples/storage/heap.omni",
+  "old": "if h.serial >= serial_max() { return Err<Block<T>,u32>(9u32) }",
+  "new": "if h.serial > serial_max() { return Err<Block<T>,u32>(9u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H33 first fit refuses an exact fit",
+  "file": "examples/storage/heap.omni",
+  "old": "if hd.size >= need { hit = cur }",
+  "new": "if hd.size > need { hit = cur }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H34 a block is split when 16 bytes remain",
+  "file": "examples/storage/heap.omni",
+  "old": "if hd.size - need >= 32u64 {",
+  "new": "if hd.size - need >= 16u64 {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H35 a block is split only when more than 32 bytes remain",
+  "file": "examples/storage/heap.omni",
+  "old": "if hd.size - need >= 32u64 {",
+  "new": "if hd.size - need > 32u64 {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H36 the rest of a split block is 8 bytes bigger",
+  "file": "examples/storage/heap.omni",
+  "old": "Head { size: hd.size - need - 16u64, tag: 0u64 }",
+  "new": "Head { size: hd.size - need - 8u64, tag: 0u64 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H37 the rest of a split block loses its link",
+  "file": "examples/storage/heap.omni",
+  "old": "let b u32 = raw.store64(rest, after)",
+  "new": "let b u32 = raw.store64(rest, 0u64)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H38 the rest of a split block is not linked",
+  "file": "examples/storage/heap.omni",
+  "old": "link = rest\n      used = need",
+  "new": "link = after\n      used = need",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H39 a split block keeps its old size",
+  "file": "examples/storage/heap.omni",
+  "old": "link = rest\n      used = need",
+  "new": "link = rest\n      used = hd.size",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H40 the predecessor of a taken block points to the old successor",
+  "file": "examples/storage/heap.omni",
+  "old": "if prev != 0u64 { let c u32 = raw.store64(prev, link) }",
+  "new": "if prev != 0u64 { let c u32 = raw.store64(prev, after) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H41 the list head ignores the split",
+  "file": "examples/storage/heap.omni",
+  "old": "if prev == 0u64 { head = link }",
+  "new": "if prev == 0u64 { head = after }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H42 a block taken from the list is not zeroed",
+  "file": "examples/storage/heap.omni",
+  "old": "let e u32 = scrub(hit, hit + used)",
+  "new": "let e u32 = scrub(hit, hit)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H43 a taken block is not counted live",
+  "file": "examples/storage/heap.omni",
+  "old": "free_head: head, live: h.live + 1u64",
+  "new": "free_head: head, live: h.live",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H44 a bump block is not counted live",
+  "file": "examples/storage/heap.omni",
+  "old": "free_head: h.free_head, live: h.live + 1u64",
+  "new": "free_head: h.free_head, live: h.live",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H45 the serial of a taken block is not advanced",
+  "file": "examples/storage/heap.omni",
+  "old": "limit: h.limit, serial: serial, free_head: head",
+  "new": "limit: h.limit, serial: h.serial, free_head: head",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H46 a bump block ending past the limit by one is accepted",
+  "file": "examples/storage/heap.omni",
+  "old": "if end > h.limit { return Err<Block<T>,u32>(1u32) }",
+  "new": "if end > h.limit + 1u64 { return Err<Block<T>,u32>(1u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H47 a bump block ending at the limit is refused",
+  "file": "examples/storage/heap.omni",
+  "old": "if end > h.limit { return Err<Block<T>,u32>(1u32) }",
+  "new": "if end >= h.limit { return Err<Block<T>,u32>(1u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H48 the bump request is not checked against the address space",
+  "file": "examples/storage/heap.omni",
+  "old": "if need > max64() - at { return Err<Block<T>,u32>(6u32) }",
+  "new": "if need > max64() - at && false { return Err<Block<T>,u32>(6u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H49 the walk accepts an odd block size",
+  "file": "examples/storage/heap.omni",
+  "old": "if hd.size > h.brk - cur || bit.and(hd.size, 15u64) != 0u64 { bad = true }",
+  "new": "if hd.size > h.brk - cur { bad = true }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H50 the walk accepts a size beyond the carved area",
+  "file": "examples/storage/heap.omni",
+  "old": "if hd.size > h.brk - cur || bit.and(hd.size, 15u64) != 0u64 { bad = true }",
+  "new": "if bit.and(hd.size, 15u64) != 0u64 { bad = true }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H51 the index law admits one past the end",
+  "file": "examples/storage/heap.omni",
+  "old": "if index >= b.count { return 7u32 }",
+  "new": "if index > b.count { return 7u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H52 the size of the claim wraps",
+  "file": "examples/storage/heap.omni",
+  "old": "func index_check<T>(h Header, lo u64, b Block<T>, index u64) u32 !{memory.raw} {\n  let size u64 = layout.size<T>()\n  if b.count > max64() / size { return 6u32 }",
+  "new": "func index_check<T>(h Header, lo u64, b Block<T>, index u64) u32 !{memory.raw} {\n  let size u64 = layout.size<T>()\n  if b.count > max64() / size && false { return 6u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H53 an element is addressed by byte",
+  "file": "examples/storage/heap.omni",
+  "old": "let w u32 = raw.write<T>(b.addr + index * layout.size<T>(), value)",
+  "new": "let w u32 = raw.write<T>(b.addr + index, value)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H54 free of a block with no live blocks is accepted",
+  "file": "examples/storage/heap.omni",
+  "old": "if h.live == 0u64 { return Err<u32,u32>(12u32) }",
+  "new": "if h.live == 99999u64 { return Err<u32,u32>(12u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H55 free stops at the first node that is not below the block",
+  "file": "examples/storage/heap.omni",
+  "old": "if nxt > b.addr { stop = true }",
+  "new": "if nxt >= b.addr { stop = true }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ],
+  "equivalent": "a block that is being released is live, so it is never a node of the free list: nxt == b.addr cannot hold for a list that passed the checks of the same loop, and both operators stop at the first node above it"
+ },
+ {
+  "name": "H56 free does not merge with the successor",
+  "file": "examples/storage/heap.omni",
+  "old": "if nxt != 0u64 && b.addr + hd.size + 16u64 == nxt {",
+  "new": "if nxt != 0u64 && b.addr + hd.size + 17u64 == nxt {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H57 the merged size forgets the absorbed head (successor)",
+  "file": "examples/storage/heap.omni",
+  "old": "ms = ms + 16u64 + nh.size",
+  "new": "ms = ms + nh.size",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H58 the successor link is lost",
+  "file": "examples/storage/heap.omni",
+  "old": "after = raw.load64(nxt)\n  }\n  if prev != 0u64 {",
+  "new": "after = 0u64\n  }\n  if prev != 0u64 {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H59 free does not merge with the predecessor",
+  "file": "examples/storage/heap.omni",
+  "old": "if prev + ph.size + 16u64 == b.addr {",
+  "new": "if prev + ph.size + 17u64 == b.addr {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H60 the merged size forgets the absorbed head (predecessor)",
+  "file": "examples/storage/heap.omni",
+  "old": "ms = ph.size + 16u64 + ms",
+  "new": "ms = ph.size + ms",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H61 the node before a merged block is its predecessor itself",
+  "file": "examples/storage/heap.omni",
+  "old": "m = prev\n      ms = ph.size + 16u64 + ms\n      before = pp",
+  "new": "m = prev\n      ms = ph.size + 16u64 + ms\n      before = prev",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H62 a block that touches the end is not recognised",
+  "file": "examples/storage/heap.omni",
+  "old": "let top bool = m + ms == h.brk",
+  "new": "let top bool = m + ms == h.brk + 1u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H63 a block that touches the end is recognised one block early",
+  "file": "examples/storage/heap.omni",
+  "old": "let top bool = m + ms == h.brk",
+  "new": "let top bool = m + ms + 16u64 >= h.brk",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ],
+  "equivalent": "a live block that follows the freed one has a 16-byte head and a payload of at least 16 bytes, so brk >= m + ms + 32 whenever one exists, and brk == m + ms otherwise: m + ms + 16 >= brk holds exactly when m + ms == brk"
+ },
+ {
+  "name": "H64 a block at the end of the carved area with a successor is accepted",
+  "file": "examples/storage/heap.omni",
+  "old": "if top && after != 0u64 { return Err<u32,u32>(12u32) }",
+  "new": "if top && after != 99999u64 { return Err<u32,u32>(12u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ],
+  "equivalent": "a free node above a block that ends at brk would lie at or beyond brk, which the loop that locates the neighbours rejects for the node itself (nxt >= h.brk is damage); `after` is the link read from a node that has just passed those checks and that ends at brk, so a non-zero value needs a list that was already damaged. The test only turns that damage into a typed error before any write"
+ },
+ {
+  "name": "H65 the payload is not zeroed on release",
+  "file": "examples/storage/heap.omni",
+  "old": "let z0 u32 = scrub(b.addr, b.addr + hd.size)",
+  "new": "let z0 u32 = scrub(b.addr, b.addr)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H66 the absorbed head of the successor stays",
+  "file": "examples/storage/heap.omni",
+  "old": "let z1 u32 = raw.store64(nxt - 16u64, 0u64)",
+  "new": "let z1 u32 = 0u32",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H67 the tag of the absorbed head of the successor stays",
+  "file": "examples/storage/heap.omni",
+  "old": "let z2 u32 = raw.store64(nxt - 8u64, 0u64)",
+  "new": "let z2 u32 = 0u32",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ],
+  "equivalent": "the successor is a node of the free list, and the head of every free block carries tag 0 (free writes it, split writes it, create leaves none): the word is already zero when the store runs"
+ },
+ {
+  "name": "H68 the link of the absorbed successor stays",
+  "file": "examples/storage/heap.omni",
+  "old": "let z3 u32 = raw.store64(nxt, 0u64)",
+  "new": "let z3 u32 = 0u32",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H69 the size of the head of a block merged into its predecessor stays",
+  "file": "examples/storage/heap.omni",
+  "old": "let z4 u32 = raw.store64(b.addr - 16u64, 0u64)",
+  "new": "let z4 u32 = 0u32",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H70 the tag of the head of a block merged into its predecessor stays",
+  "file": "examples/storage/heap.omni",
+  "old": "let z5 u32 = raw.store64(b.addr - 8u64, 0u64)",
+  "new": "let z5 u32 = 0u32",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H71 the carved area retreats to the payload",
+  "file": "examples/storage/heap.omni",
+  "old": "brk = m - 16u64",
+  "new": "brk = m",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H72 the head of a returned block keeps its size",
+  "file": "examples/storage/heap.omni",
+  "old": "let z6 u32 = raw.store64(m - 16u64, 0u64)",
+  "new": "let z6 u32 = 0u32",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H73 the head of a returned block keeps its tag",
+  "file": "examples/storage/heap.omni",
+  "old": "let z7 u32 = raw.store64(m - 8u64, 0u64)",
+  "new": "let z7 u32 = 0u32",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H74 the link of a returned block stays",
+  "file": "examples/storage/heap.omni",
+  "old": "let z8 u32 = raw.store64(m, 0u64)",
+  "new": "let z8 u32 = 0u32",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ],
+  "equivalent": "the first word of m is either the first word of the payload that was just zeroed (m is the released block) or the link of a free predecessor, which points to the next node above it: a block that touches brk has none, so the link is already 0 in every state the library can reach; only a damaged list (which the scan before the writes reports) could hold more"
+ },
+ {
+  "name": "H75 the list empties when the returned block is the first",
+  "file": "examples/storage/heap.omni",
+  "old": "if before == 0u64 { head = 0u64 }",
+  "new": "if before == 0u64 { head = h.free_head }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H76 the predecessor of a returned block keeps its link",
+  "file": "examples/storage/heap.omni",
+  "old": "if before != 0u64 { let z9 u32 = raw.store64(before, 0u64) }",
+  "new": "if before != 0u64 { let z9 u32 = 0u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H77 a free block has the wrong size in its head",
+  "file": "examples/storage/heap.omni",
+  "old": "let y0 u32 = raw.write<Head>(m - 16u64, Head { size: ms, tag: 0u64 })",
+  "new": "let y0 u32 = raw.write<Head>(m - 16u64, Head { size: hd.size, tag: 0u64 })",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H78 a free block keeps its tag",
+  "file": "examples/storage/heap.omni",
+  "old": "let y0 u32 = raw.write<Head>(m - 16u64, Head { size: ms, tag: 0u64 })",
+  "new": "let y0 u32 = raw.write<Head>(m - 16u64, Head { size: ms, tag: tag_of(1u64) })",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H79 a free block does not point to its successor",
+  "file": "examples/storage/heap.omni",
+  "old": "let y1 u32 = raw.store64(m, after)",
+  "new": "let y1 u32 = raw.store64(m, nxt)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H80 the list head is not updated by a free block in front of all",
+  "file": "examples/storage/heap.omni",
+  "old": "if before == 0u64 { head = m }",
+  "new": "if before == 0u64 { head = h.free_head }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H81 the predecessor of a free block does not point to it",
+  "file": "examples/storage/heap.omni",
+  "old": "if before != 0u64 { let y2 u32 = raw.store64(before, m) }",
+  "new": "if before != 0u64 { let y2 u32 = 0u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H82 free does not count the release",
+  "file": "examples/storage/heap.omni",
+  "old": "serial: h.serial, free_head: head, live: h.live - 1u64",
+  "new": "serial: h.serial, free_head: head, live: h.live",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H83 realloc refuses to keep the count",
+  "file": "examples/storage/heap.omni",
+  "old": "if count < b.count { return Err<Block<T>,u32>(7u32) }",
+  "new": "if count <= b.count { return Err<Block<T>,u32>(7u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H84 realloc allows fewer elements",
+  "file": "examples/storage/heap.omni",
+  "old": "if count < b.count { return Err<Block<T>,u32>(7u32) }",
+  "new": "if count < 0u64 { return Err<Block<T>,u32>(7u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H85 realloc in place needs more than the block has",
+  "file": "examples/storage/heap.omni",
+  "old": "if count * size <= hd.size { return Ok<Block<T>,u32>",
+  "new": "if count * size < hd.size { return Ok<Block<T>,u32>",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H86 realloc in place keeps the old count",
+  "file": "examples/storage/heap.omni",
+  "old": "Block<T> { addr: b.addr, count: count, serial: b.serial }",
+  "new": "Block<T> { addr: b.addr, count: b.count, serial: b.serial }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H87 realloc copies one element less",
+  "file": "examples/storage/heap.omni",
+  "old": "for i < b.count {\n        let w u32 = raw.write<T>(nb.addr",
+  "new": "for i + 1u64 < b.count {\n        let w u32 = raw.write<T>(nb.addr",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H88 realloc does not release the old block",
+  "file": "examples/storage/heap.omni",
+  "old": "let released = free<T>(hp, b)\n      match released {\n        Ok(n) { return Ok<Block<T>,u32>(nb) }\n        Err(code) { return Err<Block<T>,u32>(code) }\n      }",
+  "new": "return Ok<Block<T>,u32>(nb)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H89 realloc of a stale handle is accepted",
+  "file": "examples/storage/heap.omni",
+  "old": "let c u32 = check(h, first_payload(v.h), b.addr, b.serial, b.count * size)\n  if c != 0u32 { return Err<Block<T>,u32>(c) }\n  if count < b.count",
+  "new": "if count < b.count",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H90 extend may shrink",
+  "file": "examples/storage/heap.omni",
+  "old": "if new_limit < h.limit { return Err<u64,u32>(5u32) }",
+  "new": "if new_limit < h.brk { return Err<u64,u32>(5u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H91 extend does not keep the free list",
+  "file": "examples/storage/heap.omni",
+  "old": "brk: h.brk, limit: new_limit, serial: h.serial, free_head: h.free_head",
+  "new": "brk: h.brk, limit: new_limit, serial: h.serial, free_head: 0u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H92 extend does not keep the serial",
+  "file": "examples/storage/heap.omni",
+  "old": "brk: h.brk, limit: new_limit, serial: h.serial, free_head",
+  "new": "brk: h.brk, limit: new_limit, serial: 0u64, free_head",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H93 destroy reports no leak",
+  "file": "examples/storage/heap.omni",
+  "old": "left = h.live\n",
+  "new": "left = 0u64\n",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H94 destroy leaves the data",
+  "file": "examples/storage/heap.omni",
+  "old": "let z u32 = scrub(v.h + 64u64, h.brk)",
+  "new": "let z u32 = scrub(v.h + 64u64, v.h + 64u64)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H95 destroy leaves the carved end in the header",
+  "file": "examples/storage/heap.omni",
+  "old": "Header { magic: mark, brk: 0u64, limit: 0u64, serial: last",
+  "new": "Header { magic: mark, brk: h.brk, limit: 0u64, serial: last",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H96 descriptor_at accepts an unaligned address",
+  "file": "examples/storage/heap.omni",
+  "old": "if bit.and(addr, 15u64) != 0u64 { return Err<Block<T>,u32>(8u32) }\n  if addr < lo || addr >= h.brk",
+  "new": "if bit.and(addr, 7u64) != 0u64 { return Err<Block<T>,u32>(8u32) }\n  if addr < lo || addr >= h.brk",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H97 descriptor_at accepts the end of the carved area",
+  "file": "examples/storage/heap.omni",
+  "old": "if addr < lo || addr >= h.brk { return Err<Block<T>,u32>(4u32) }\n  let hd Head = raw.read<Head>(addr - 16u64)\n  let serial u64",
+  "new": "if addr < lo || addr > h.brk { return Err<Block<T>,u32>(4u32) }\n  let hd Head = raw.read<Head>(addr - 16u64)\n  let serial u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ],
+  "equivalent": "check(), called a few lines below with the same address, repeats the test `addr >= h.brk` and answers the same code 4 before any use of the descriptor: the two operators give the same outcome for every address"
+ },
+ {
+  "name": "H98 descriptor_at accepts a serial that was never issued",
+  "file": "examples/storage/heap.omni",
+  "old": "if serial == 0u64 || serial > h.serial { return Err<Block<T>,u32>(4u32) }",
+  "new": "if serial == 0u64 { return Err<Block<T>,u32>(4u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ],
+  "equivalent": "a block head is written only with tag_of of an issued serial, so for a head that adopt reads from a live block serial <= h.serial holds; for a free block the tag is 0 and the serial recovered is K > h.serial, but the same address is then rejected by check() (tag_of(K xor 0) != 0 is not what the head holds): the guard orders the two errors and gives the same code 4 either way"
+ },
+ {
+  "name": "H99 descriptor_at does not check the claimed count",
+  "file": "examples/storage/heap.omni",
+  "old": "let c u32 = check(h, lo, addr, serial, count * size)\n  if c != 0u32 { return Err<Block<T>,u32>(c) }\n  return Ok<Block<T>,u32>(Block<T> { addr: addr",
+  "new": "return Ok<Block<T>,u32>(Block<T> { addr: addr",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "H100 descriptor_at reports the wrong serial",
+  "file": "examples/storage/heap.omni",
+  "old": "return Ok<Block<T>,u32>(Block<T> { addr: addr, count: count, serial: serial })",
+  "new": "return Ok<Block<T>,u32>(Block<T> { addr: addr, count: count, serial: serial + 1u64 })",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R1 the vector grows by three",
+  "file": "examples/storage/rvec.omni",
+  "old": "var want u64 = x.cap * 2u64",
+  "new": "var want u64 = x.cap * 3u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R2 the first growth is to eight",
+  "file": "examples/storage/rvec.omni",
+  "old": "if want < 4u64 { want = 4u64 }",
+  "new": "if want < 4u64 { want = 8u64 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R3 a full vector is detected one element late",
+  "file": "examples/storage/rvec.omni",
+  "old": "if x.len == x.cap {",
+  "new": "if x.len == x.cap + 1u64 {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R4 the doubling is not checked",
+  "file": "examples/storage/rvec.omni",
+  "old": "if x.cap > 9223372036854775807u64 { return Err<u64,u32>(6u32) }",
+  "new": "if x.cap > 9223372036854775807u64 && false { return Err<u64,u32>(6u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ],
+  "equivalent": "doubling can only overflow for a capacity above 2^63 elements, i.e. an element block of more than 2^63 bytes, which no heap can hold (the range is bounded by the address space and heap.alloc_array refuses sizes above max - 15): the guard is unreachable for a vector that the heap created"
+ },
+ {
+  "name": "R5 get admits one past the end",
+  "file": "examples/storage/rvec.omni",
+  "old": "if index >= x.len { return Err<T,u32>(7u32) }",
+  "new": "if index > x.len { return Err<T,u32>(7u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R6 set admits one past the end",
+  "file": "examples/storage/rvec.omni",
+  "old": "if index >= x.len { return Err<u32,u32>(7u32) }",
+  "new": "if index > x.len { return Err<u32,u32>(7u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R7 pop of an empty vector is not checked",
+  "file": "examples/storage/rvec.omni",
+  "old": "if x.len == 0u64 { return Err<T,u32>(13u32) }",
+  "new": "if x.len == 99999u64 { return Err<T,u32>(13u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R8 pop does not shorten the vector",
+  "file": "examples/storage/rvec.omni",
+  "old": "cap: x.cap, len: x.len - 1u64 }",
+  "new": "cap: x.cap, len: x.len }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R9 pop returns the element below the last",
+  "file": "examples/storage/rvec.omni",
+  "old": "heap.load_at<T>(hp, data_of<T>(x), x.len - 1u64)",
+  "new": "heap.load_at<T>(hp, data_of<T>(x), x.len - 2u64)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R10 push reports the old length",
+  "file": "examples/storage/rvec.omni",
+  "old": "Ok(k) { return Ok<u64,u32>(cur.len + 1u64) }",
+  "new": "Ok(k) { return Ok<u64,u32>(cur.len) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R11 push writes one slot too far",
+  "file": "examples/storage/rvec.omni",
+  "old": "heap.store_at<T>(borrow(hp), data_of<T>(cur), cur.len, value)",
+  "new": "heap.store_at<T>(borrow(hp), data_of<T>(cur), cur.len + 1u64, value)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R12 push forgets the moved block",
+  "file": "examples/storage/rvec.omni",
+  "old": "cur = Meta { data: nb.addr, serial: nb.serial, cap: nb.count, len: x.len }",
+  "new": "cur = Meta { data: x.data, serial: x.serial, cap: nb.count, len: x.len }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R13 push keeps the old capacity",
+  "file": "examples/storage/rvec.omni",
+  "old": "cur = Meta { data: nb.addr, serial: nb.serial, cap: nb.count, len: x.len }",
+  "new": "cur = Meta { data: nb.addr, serial: nb.serial, cap: x.cap, len: x.len }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R14 push does not store the new length",
+  "file": "examples/storage/rvec.omni",
+  "old": "let w = put_meta<T>(borrow(hp), v, Meta { data: cur.data, serial: cur.serial, cap: cur.cap, len: cur.len + 1u64 })",
+  "new": "let w = put_meta<T>(borrow(hp), v, Meta { data: cur.data, serial: cur.serial, cap: cur.cap, len: cur.len })",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R15 new gives the metadata block back with the wrong code",
+  "file": "examples/storage/rvec.omni",
+  "old": "Ok(n) { return Err<Resource<RVec<T>>,u32>(code) }\n            Err(c)",
+  "new": "Ok(n) { return Err<Resource<RVec<T>>,u32>(0u32) }\n            Err(c)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R16 new keeps the metadata block when the elements do not fit",
+  "file": "examples/storage/rvec.omni",
+  "old": "let undo = heap.free<Meta>(hp, meta)",
+  "new": "let undo = heap.load<Meta>(borrow(hp), meta)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R17 new records the wrong capacity",
+  "file": "examples/storage/rvec.omni",
+  "old": "cap: capacity, len: 0u64 })",
+  "new": "cap: capacity + 1u64, len: 0u64 })",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R18 destroy keeps the element block",
+  "file": "examples/storage/rvec.omni",
+  "old": "let f1 = heap.free<T>(hp, data_of<T>(x))",
+  "new": "let f1 = heap.load_at<T>(borrow(hp), data_of<T>(x), 0u64)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R19 destroy keeps the metadata block",
+  "file": "examples/storage/rvec.omni",
+  "old": "let f2 = heap.free<Meta>(hp, blk)",
+  "new": "let f2 = heap.load<Meta>(borrow(hp), blk)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R20 capacity reports the length",
+  "file": "examples/storage/rvec.omni",
+  "old": "match m { Ok(x) { return x.cap } Err(code) { return 0u64 } }",
+  "new": "match m { Ok(x) { return x.len } Err(code) { return 0u64 } }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R21 len reports the capacity",
+  "file": "examples/storage/rvec.omni",
+  "old": "match m { Ok(x) { return x.len } Err(code) { return 0u64 } }",
+  "new": "match m { Ok(x) { return x.cap } Err(code) { return 0u64 } }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "N1 a new heap over a retired range starts again",
+  "file": "examples/storage/heap.omni",
+  "old": "first = old.serial",
+  "new": "first = 0u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "N2 a new heap over a retired range starts one serial late",
+  "file": "examples/storage/heap.omni",
+  "old": "first = old.serial",
+  "new": "first = old.serial + 1u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "N3 a retired range with spent serials is accepted",
+  "file": "examples/storage/heap.omni",
+  "old": "if old.serial >= serial_max() { return Err<Resource<Heap>,u32>(9u32) }",
+  "new": "if old.serial > serial_max() { return Err<Resource<Heap>,u32>(9u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "N4 the retired mark is not recognised",
+  "file": "examples/storage/heap.omni",
+  "old": "if old.magic == retired() {",
+  "new": "if old.magic == 0u64 {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "N5 destroy forgets the last serial",
+  "file": "examples/storage/heap.omni",
+  "old": "serial: last, free_head: 0u64",
+  "new": "serial: 0u64, free_head: 0u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "N6 destroy leaves no retired mark",
+  "file": "examples/storage/heap.omni",
+  "old": "mark = retired()",
+  "new": "mark = 0u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "N7 destroy marks a damaged header as retired",
+  "file": "examples/storage/heap.omni",
+  "old": "var mark u64 = 0u64\n  if h.magic == magic() {",
+  "new": "var mark u64 = retired()\n  if h.magic == magic() {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "N8 destroy keeps the live count in the header",
+  "file": "examples/storage/heap.omni",
+  "old": "limit: 0u64, serial: last, free_head: 0u64, live: 0u64",
+  "new": "limit: 0u64, serial: last, free_head: 0u64, live: h.live",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R22 reserve overflows",
+  "file": "examples/storage/rvec.omni",
+  "old": "if additional > 18446744073709551615u64 - x.len { return Err<u64,u32>(6u32) }",
+  "new": "if additional > 18446744073709551615u64 - x.len && false { return Err<u64,u32>(6u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R23 reserve at the boundary of the overflow",
+  "file": "examples/storage/rvec.omni",
+  "old": "if additional > 18446744073709551615u64 - x.len { return Err<u64,u32>(6u32) }",
+  "new": "if additional >= 18446744073709551615u64 - x.len { return Err<u64,u32>(6u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ],
+  "equivalent": "when additional equals max - len the wanted capacity is max, and heap.realloc_array refuses a count whose bytes would wrap with the same code 6, before any change: both operators answer 6 and leave the vector alone"
+ },
+ {
+  "name": "R24 reserve grows even when there is room",
+  "file": "examples/storage/rvec.omni",
+  "old": "if want <= x.cap { return Ok<u64,u32>(x.cap) }",
+  "new": "if want < x.cap { return Ok<u64,u32>(x.cap) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ],
+  "equivalent": "with want == cap the call reaches heap.realloc_array with the block it already has, which answers with the same block and the same count (the count is not smaller and the bytes fit): the result and the state are those of the early return"
+ },
+ {
+  "name": "R25 reserve reports the old capacity",
+  "file": "examples/storage/rvec.omni",
+  "old": "Ok(k) { return Ok<u64,u32>(nb.count) }",
+  "new": "Ok(k) { return Ok<u64,u32>(x.cap) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R26 reserve does not record the new capacity",
+  "file": "examples/storage/rvec.omni",
+  "old": "Meta { data: nb.addr, serial: nb.serial, cap: nb.count, len: x.len })\n          match w {\n            Err(code) { return Err<u64,u32>(code) }\n            Ok(k) { return Ok<u64,u32>(nb.count) }",
+  "new": "Meta { data: nb.addr, serial: nb.serial, cap: x.cap, len: x.len })\n          match w {\n            Err(code) { return Err<u64,u32>(code) }\n            Ok(k) { return Ok<u64,u32>(nb.count) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R27 reserve forgets where the elements went",
+  "file": "examples/storage/rvec.omni",
+  "old": "Meta { data: nb.addr, serial: nb.serial, cap: nb.count, len: x.len })\n          match w {\n            Err(code) { return Err<u64,u32>(code) }\n            Ok(k) { return Ok<u64,u32>(nb.count) }",
+  "new": "Meta { data: x.data, serial: x.serial, cap: nb.count, len: x.len })\n          match w {\n            Err(code) { return Err<u64,u32>(code) }\n            Ok(k) { return Ok<u64,u32>(nb.count) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ },
+ {
+  "name": "R28 a vector is found through a descriptor of the wrong size",
+  "file": "examples/storage/rvec.omni",
+  "old": "return heap.descriptor_at<Meta>(hp, r.m, 1u64)",
+  "new": "return heap.descriptor_at<Meta>(hp, r.m, 2u64)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "HeapLibraryTests"
+  ]
+ }
+]

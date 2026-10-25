@@ -1,0 +1,23 @@
+module adt_demo
+
+enum State {
+    Pending,
+    Active(u32),
+    Failed(Text),
+}
+
+func score(s State) u32 {
+    match s {
+        Pending { return 0 }
+        Active(value) { return value }
+        Failed(message) { return text.len(message) }
+    }
+}
+
+func main() u32 !{io.print} {
+    let a State = State.Active(42u32)
+    let b State = State.Failed("oops")
+    print(score(a))
+    print(score(b))
+    return 0
+}

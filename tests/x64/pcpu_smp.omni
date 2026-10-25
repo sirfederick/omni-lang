@@ -1,0 +1,82 @@
+module t
+import rt "rt.omni"
+
+// Per-CPU blocks (spec/TLS_AND_PERCPU_CANDIDATE.md): pcpu.* addresses memory relative to the GS base, which is a per-CPU register
+// (IA32_GS_BASE = 0xC0000101, 3221225729). Each CPU installs its own block and increments a counter in it 200000 times with a plain
+// load+store (not an atomic RMW). Because the blocks are different, no update can be lost: both counters are exact. The control (made by
+// text substitution in the test) points both CPUs at the same block and the counter loses updates.
+// Blocks: CPU 0 at 0x590000 (5832704), CPU 1 at 0x591000 (5836800); header magic "OMNIPCP1" (3553414118101634383), size 256.
+// The AP is woken by the test-owned adapter; cells: AP up 5308864, go 5308928, done 5308992 (as in smp_counter.omni).
+
+func set_gs(base u64) u32 !{cpu.control} {
+  return cpu.wrmsr(3221225729u32, u32(bit.and(base, 4294967295u64)), u32(bit.shr(base, 32u32)))
+}
+
+func init_block(dst u64) u32 !{memory.raw} {
+  let m u32 = raw.store64(dst, 3553414118101634383u64)
+  let s u32 = raw.store64(dst + 8u64, 256u64)
+  let c u32 = raw.store64(dst + 16u64, 0u64)
+  return raw.store64(dst + 24u64, 0u64)
+}
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func count_up(n u32) u32 !{memory.pcpu} {
+  for i in 0u32..n {
+    let v u64 = pcpu.load64(16u64)
+    let s u32 = pcpu.store64(16u64, v + 1u64)
+  }
+  return 0u32
+}
+
+func ap_main() u32 !{memory.raw,memory.atomic,memory.pcpu,cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  let g u32 = set_gs(5836800u64)
+  let tag u32 = pcpu.store64(24u64, u64(id) + 100u64)
+  let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+  let go u32 = wait_flag(5308928u64)
+  let c u32 = count_up(200000u32)
+  let done u32 = atomic.store32(5308992u64, 1u32, 2u32)
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,memory.pcpu,port.io,cpu.control} {
+  let i0 u32 = init_block(5832704u64)
+  let i1 u32 = init_block(5836800u64)
+  let g u32 = set_gs(5832704u64)
+  let tag u32 = pcpu.store64(24u64, 100u64)
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+  let init u32 = raw.store32(4276093696u64, 17664u32)
+  let w1 u32 = delay()
+  let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+  let w2 u32 = delay()
+  let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+  let up u32 = wait_flag(5308864u64)
+  if up == 0u32 {
+    print(999u32)
+    return rt.finish(2u32)
+  }
+  let go u32 = atomic.store32(5308928u64, 1u32, 2u32)
+  let c u32 = count_up(200000u32)
+  let done u32 = wait_flag(5308992u64)
+  print(raw.load64(5832704u64 + 16u64))
+  print(raw.load64(5836800u64 + 16u64))
+  print(raw.load64(5832704u64 + 24u64))
+  print(raw.load64(5836800u64 + 24u64))
+  return rt.finish(0u32)
+}

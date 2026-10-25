@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+"""H03 PAR-01 evaluator/native semantic and canonical OMI1 parity."""
+import ctypes as c, hashlib, json, os, pathlib, shutil, struct, subprocess, time
+ROOT=pathlib.Path(os.environ['OMNI_H03_EVIDENCE_ROOT']); OUT=ROOT/'parity'; PKG=OUT/'package'; DIST=ROOT/'dist'
+if OUT.exists():shutil.rmtree(OUT)
+shutil.copytree(ROOT/'fixture',PKG); src=PKG/'src/host.omni'; text=src.read_text()
+text=text.replace('func main() u32 !pure { return 0u32 }','func main() u32 !pure { let x = Nested { pair: Pair { left: 4u32, right: 5u32 }, choice: Choice.Full(6u32) }; let y = echo_nested(x); match y.choice { Full(value) { return value } Empty { return 0u32 } } }')
+src.write_text(text)
+env=os.environ.copy();env.update({'OMNI_HOME':str(DIST),'LD_LIBRARY_PATH':str(DIST/'runtime')})
+lock=subprocess.run([str(DIST/'bin/omni'),'package','lock',str(PKG),'--offline'],env=env,capture_output=True); ev=subprocess.run([str(DIST/'bin/omni'),'eval',str(src)],env=env,capture_output=True); artifact=OUT/'nested.so'; build=subprocess.run([str(DIST/'bin/omni'),'build',str(PKG),'--host-entry','src/host.omni:echo_nested','-o',str(artifact),'--offline'],env=env,capture_output=True)
+rows=[]
+def check(n,a,e):rows.append({'name':n,'actual':a,'expected':e,'passed':a==e})
+check('package_lock',lock.returncode,0);check('evaluator_nested_result',ev.returncode,6);check('native_build',build.returncode,0)
+if build.returncode==0:
+ m=json.loads(pathlib.Path(str(artifact)+'.omireceipt.json').read_text());lib=c.CDLL(str(DIST/'runtime/libomni_invocation_v1.so'));u8,u32,u64,p8=c.c_uint8,c.c_uint32,c.c_uint64,c.POINTER(c.c_uint8)
+ for n,a in [('omni_invocation_v1_module_open',[p8,u32,p8,p8,c.POINTER(u64)]),('omni_invocation_v1_invocation_create',[u64,p8,u32,p8,u32,u64,u64,u64,u32,u32,p8,c.POINTER(u64)]),('omni_invocation_v1_invoke',[u64,c.POINTER(u32),c.POINTER(u32)]),('omni_invocation_v1_result_read',[u64,p8,u32,c.POINTER(u32)]),('omni_invocation_v1_invocation_destroy',[u64]),('omni_invocation_v1_module_close',[u64])]:f=getattr(lib,n);f.argtypes=a;f.restype=u32
+ def a(x):return(u8*len(x)).from_buffer_copy(x)
+ def tid(x):return hashlib.sha256(('omni.type/1\n'+x).encode()).digest()
+ def v(tag,name,data):return bytes([tag])+tid(name)+data
+ def n(x):return v(4,'u32',struct.pack('<I',x))
+ pair=v(15,'record:host_probe.Pair',struct.pack('<H',2)+n(4)+n(5));choice=v(16,'enum:host_probe.Choice',struct.pack('<HB',1,1)+n(6));nested=v(15,'record:host_probe.Nested',struct.pack('<H',2)+pair+choice);frame=b'OMIV1\0\0\0'+struct.pack('<II',1,1)+bytes.fromhex(m['signature_digest'])+struct.pack('<II',len(nested),1)+nested
+ h=u64();raw=str(artifact).encode();opened=lib.omni_invocation_v1_module_open(a(raw),len(raw),a(bytes.fromhex(m['artifact_sha256'])),a(bytes.fromhex(m['descriptor_sha256'])),c.byref(h));i=u64();created=lib.omni_invocation_v1_invocation_create(h,a(frame),len(frame),None,0,0,time.clock_gettime_ns(time.CLOCK_MONOTONIC)+5000000000,67108864,1048576,0,a(bytes(16)),c.byref(i));effect,length=u32(),u32();called=lib.omni_invocation_v1_invoke(i,c.byref(effect),c.byref(length));out=(u8*length.value)();copied=u32();read=lib.omni_invocation_v1_result_read(i,out,length,c.byref(copied));check('native_canonical_nested',(opened,created,called,effect.value,read,bytes(out[:copied.value])[56:]),(0,0,0,0,0,nested));check('destroy_close',(lib.omni_invocation_v1_invocation_destroy(i),lib.omni_invocation_v1_module_close(h)),(0,0))
+ # PAR-02: evaluator and native invocation both deny the same declared effect
+ # when no evaluator host policy / OHP1 grant is supplied.
+ deny=OUT/'denial'; shutil.copytree(ROOT/'fixture',deny); deny_src=deny/'src/host.omni'; deny_text=deny_src.read_text().replace('func main() u32 !pure { return 0u32 }','func main() u32 !{fs.read} { return read_denied() }'); deny_src.write_text(deny_text)
+ deny_lock=subprocess.run([str(DIST/'bin/omni'),'package','lock',str(deny),'--offline'],env=env,capture_output=True); deny_eval=subprocess.run([str(DIST/'bin/omni'),'eval',str(deny_src)],env=env,capture_output=True); deny_artifact=OUT/'read_denied.so'; deny_build=subprocess.run([str(DIST/'bin/omni'),'build',str(deny),'--host-entry','src/host.omni:read_denied','-o',str(deny_artifact),'--offline'],env=env,capture_output=True)
+ check('par02_denial_lock',deny_lock.returncode,0); check('par02_evaluator_denial',deny_eval.returncode,1); check('par02_native_build',deny_build.returncode,0)
+ if deny_build.returncode==0:
+  dm=json.loads(pathlib.Path(str(deny_artifact)+'.omireceipt.json').read_text());dh=u64();dpath=str(deny_artifact).encode();do=lib.omni_invocation_v1_module_open(a(dpath),len(dpath),a(bytes.fromhex(dm['artifact_sha256'])),a(bytes.fromhex(dm['descriptor_sha256'])),c.byref(dh));dr=b'OMIV1\0\0\0'+struct.pack('<II',1,1)+bytes.fromhex(dm['signature_digest'])+struct.pack('<II',0,0);di=u64();dc=lib.omni_invocation_v1_invocation_create(dh,a(dr),len(dr),None,0,0,time.clock_gettime_ns(time.CLOCK_MONOTONIC)+5000000000,67108864,1048576,0,a(bytes(16)),c.byref(di));de,dl=u32(),u32();ds=lib.omni_invocation_v1_invoke(di,c.byref(de),c.byref(dl));dbo=(u8*dl.value)();dbn=u32();dread=lib.omni_invocation_v1_result_read(di,dbo,dl.value,c.byref(dbn));check('par02_native_denial',(do,dc,ds,de.value,dread,struct.unpack_from('<I',bytes(dbo),89)[0]),(0,0,0,0,0,1));check('par02_cleanup',(lib.omni_invocation_v1_invocation_destroy(di),lib.omni_invocation_v1_module_close(dh)),(0,0))
+report={'schema':'omni.core-host-03-parity/1','checks':rows,'passed':sum(x['passed'] for x in rows),'total':len(rows),'par03_scope':{'evaluator_deadline_cancel_unknown_outcome':'NOT_APPLICABLE','reason':'the evaluator has no host invocation deadline, cancellation token, or external effect dispatch; native causal classifications are covered by TIME-02/TIME-04/TIME-05 and EFF-05'}};(OUT/'report.json').write_text(json.dumps(report,indent=2,default=lambda value:value.hex() if isinstance(value,bytes) else str(value))+'\n');print(json.dumps({'passed':report['passed'],'total':report['total']}));raise SystemExit(0 if report['passed']==report['total'] else 1)

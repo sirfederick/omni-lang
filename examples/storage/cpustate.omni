@@ -1,0 +1,77 @@
+module cpustate
+
+// CP-10 (spec/FPU_SSE_STATE_CANDIDATE.md section 6): discovery of the CPU state the image relies on, from CPUID and from the hardware's own state area, never assumed.
+//   features      FXSR (the 512-byte FXSAVE area), SSE2 (what an `--target-isa sse2` image executes), XSAVE (the extended-state area), AVX (NOT supported by the profile: asking is allowed, using it is not)
+//   xsave area    leaf 0xD sub-leaf 0: the mask of state components the CPU supports (edx:eax), the size of the area for the components ENABLED now (ebx) and for ALL supported components (ecx)
+//   fxsave area   512 bytes, 16-aligned; the MXCSR_MASK the CPU reports in the area (offset 28; zero means the architectural default 0xFFBF) says which MXCSR bits may be set
+// All of it needs the capability cpu.control (CPUID) and, for the area, memory.raw. An image that executes SSE2 must find FXSR and SSE2 here; `isa_covered` answers that question.
+
+pub func fxsave_size() u32 { return 512u32 }
+pub func fxsave_align() u32 { return 16u32 }
+pub func xsave_header_bytes() u32 { return 64u32 }
+
+pub func max_leaf() u32 !{cpu.control} { return cpu.cpuid(0u32, 0u32) }
+pub func has_fxsr() bool !{cpu.control} { return bit.and(cpu.cpuid(1u32, 3u32), 16777216u32) != 0u32 }
+pub func has_sse2() bool !{cpu.control} { return bit.and(cpu.cpuid(1u32, 3u32), 67108864u32) != 0u32 }
+pub func has_xsave() bool !{cpu.control} { return bit.and(cpu.cpuid(1u32, 2u32), 67108864u32) != 0u32 }
+pub func has_avx() bool !{cpu.control} { return bit.and(cpu.cpuid(1u32, 2u32), 268435456u32) != 0u32 }
+
+// Is the instruction set of an `--target-isa sse2` image covered by the CPU (FXSR gives the state area, SSE2 the instructions)?
+pub func isa_covered() bool !{cpu.control} {
+  if !has_fxsr() { return false }
+  return has_sse2()
+}
+
+// The extended-state components the CPU supports (bit 0 x87, bit 1 SSE, bit 2 AVX, ...), or 0 when the CPU has no XSAVE or no leaf 0xD.
+pub func xsave_mask() u64 !{cpu.control} {
+  if !has_xsave() { return 0u64 }
+  if max_leaf() < 13u32 { return 0u64 }
+  let low u32 = cpu.cpuid_sub(13u32, 0u32, 0u32)
+  let high u32 = cpu.cpuid_sub(13u32, 0u32, 3u32)
+  return bit.or(u64(low), bit.shl(u64(high), 32u32))
+}
+
+// Bytes of the XSAVE area for the components enabled in XCR0 right now, and for every component the CPU supports; 0 without XSAVE.
+pub func xsave_size_enabled() u32 !{cpu.control} {
+  if !has_xsave() { return 0u32 }
+  if max_leaf() < 13u32 { return 0u32 }
+  return cpu.cpuid_sub(13u32, 0u32, 1u32)
+}
+
+pub func xsave_size_max() u32 !{cpu.control} {
+  if !has_xsave() { return 0u32 }
+  if max_leaf() < 13u32 { return 0u32 }
+  return cpu.cpuid_sub(13u32, 0u32, 2u32)
+}
+
+// Size and offset of one state component (leaf 0xD sub-leaf n >= 2): eax is its size in bytes, ebx its offset in the standard (non-compacted) area.
+pub func component_size(n u32) u32 !{cpu.control} {
+  if n < 2u32 { return 0u32 }
+  if !has_xsave() { return 0u32 }
+  if max_leaf() < 13u32 { return 0u32 }
+  return cpu.cpuid_sub(13u32, n, 0u32)
+}
+
+pub func component_offset(n u32) u32 !{cpu.control} {
+  if n < 2u32 { return 0u32 }
+  if !has_xsave() { return 0u32 }
+  if max_leaf() < 13u32 { return 0u32 }
+  return cpu.cpuid_sub(13u32, n, 1u32)
+}
+
+// The MXCSR bits this CPU lets software set, read from the area `cpu.fxsave` writes (16-aligned, 512 bytes at `area`).
+pub func mxcsr_mask(area u64) u32 !{memory.raw,cpu.control} {
+  let saved u32 = cpu.fxsave(area)
+  return mask_or_default(raw.load32(area + 28u64))
+}
+
+// What the area reports, or the architectural default 0xFFBF when it reports 0 (older CPUs leave the field zero).
+pub func mask_or_default(reported u32) u32 {
+  if reported == 0u32 { return 65471u32 }
+  return reported
+}
+
+// A value is a legal MXCSR when it sets no bit the CPU reserves.
+pub func mxcsr_valid(value u32, mask u32) bool {
+  return bit.and(value, bit.not(mask)) == 0u32
+}

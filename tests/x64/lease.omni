@@ -1,0 +1,45 @@
+module lease
+
+// CP-03 row 3.4, CONFORMANCE FIXTURE (not a Core library): a resource whose close can fail, with an oracle in raw memory, so that a test can tell a leak, a double close, a close that failed and an
+// acquisition that failed apart. It stands for whatever a real task owns (a device claim, a mapping, a lock lease). Written in Omni on a nominal affine resource: the checker already makes every
+// path consume it exactly once; the oracle shows what actually happened at run time.
+//   table (cells, 4-byte): +0 live, +4 acquired, +8 closed ok, +12 closed with a failure, +16 capacity (acquisitions allowed at once), +20 inject (1: the NEXT lease is poisoned: its close fails), slots +64.. (0 free, 1 live, 2 poisoned)
+// Outcome codes: 30 over capacity (the injected or real exhaustion of an acquisition), 31 no free slot, 33 the close failed (the lease IS consumed, as a POSIX descriptor is after EIO), 34 closing a free slot.
+pub struct Lease { h u64 }
+
+pub func acquire(tbl u64) Result<Resource<Lease>,u32> !{memory.raw,memory.atomic} {
+  if atomic.load32(tbl, 4u32) >= atomic.load32(tbl + 16u64, 4u32) { return Err<Resource<Lease>,u32>(30u32) }
+  for i in 0u32..8u32 {
+    let slot u64 = tbl + 64u64 + u64(i) * 4u64
+    if atomic.cas32(slot, 0u32, 1u32, 3u32, 1u32) == 0u32 {
+      let live u32 = atomic.fetch_add32(tbl, 1u32, 4u32)
+      let acq u32 = atomic.fetch_add32(tbl + 4u64, 1u32, 4u32)
+      if atomic.load32(tbl + 20u64, 4u32) == 1u32 {
+        let off u32 = atomic.store32(tbl + 20u64, 0u32, 4u32)
+        let poisoned u32 = atomic.store32(slot, 2u32, 4u32)
+      }
+      return Ok<Resource<Lease>,u32>(resource.seal(Lease { h: slot }))
+    }
+  }
+  return Err<Resource<Lease>,u32>(31u32)
+}
+
+// The slot a lease occupies (a view: it lends the lease for reading).
+pub func slot(l Borrow<Lease>) u64 {
+  let s Lease = resource.peek(l)
+  return s.h
+}
+
+pub func release(tbl u64, l Resource<Lease>) Result<u32,u32> !{memory.atomic} {
+  let s Lease = resource.unseal(move(l))
+  let seen u32 = atomic.load32(s.h, 4u32)
+  if seen == 0u32 { return Err<u32,u32>(34u32) }
+  let free u32 = atomic.store32(s.h, 0u32, 4u32)
+  let live u32 = atomic.fetch_add32(tbl, 4294967295u32, 4u32)
+  if seen == 2u32 {
+    let failed u32 = atomic.fetch_add32(tbl + 12u64, 1u32, 4u32)
+    return Err<u32,u32>(33u32)
+  }
+  let ok u32 = atomic.fetch_add32(tbl + 8u64, 1u32, 4u32)
+  return Ok<u32,u32>(1u32)
+}

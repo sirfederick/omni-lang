@@ -1,0 +1,362 @@
+[
+ {
+  "name": "S1 put overwrites an occupied cell",
+  "file": "runtime/omni_runtime.c",
+  "old": "uint32_t st=omni_slots_state(h,tag,i); if(st!=0)return st;\n    OmniBufferSlot *s=buffer_get(h); for",
+  "new": "uint32_t st=omni_slots_state(h,tag,i); if(st>=2)return st;\n    OmniBufferSlot *s=buffer_get(h); for",
+  "tests": [
+   "tests/cp01_owned_slots.py"
+  ]
+ },
+ {
+  "name": "S2 take leaves the cell occupied",
+  "file": "runtime/omni_runtime.c",
+  "old": "s->occ[i]=0; *out=v; return 0;",
+  "new": "*out=v; return 0;",
+  "tests": [
+   "tests/cp01_owned_slots.py"
+  ]
+ },
+ {
+  "name": "S3 the resource key is not compared",
+  "file": "runtime/omni_runtime.c",
+  "old": "return (s->slots&&s->tag&&tag&&strcmp(s->tag,tag)==0)?s:NULL;",
+  "new": "return s->slots?s:NULL;",
+  "tests": [
+   "tests/cp01_owned_slots.py"
+  ]
+ },
+ {
+  "name": "S4 slots.release frees an occupied buffer",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(slots_occupied(s))return 1;return omni_buffer_release(h);}",
+  "new": "return omni_buffer_release(h);}",
+  "tests": [
+   "tests/cp01_owned_slots.py"
+  ]
+ },
+ {
+  "name": "S5 buffer.release of an occupied slot buffer is silent",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(s->occ[i])fault(\"E_SLOT_OCCUPIED\");",
+  "new": "if(s->occ[i]) (void)0;",
+  "tests": [
+   "tests/cp01_owned_slots.py"
+  ]
+ },
+ {
+  "name": "S6 read_u8 reads the cells as bytes",
+  "file": "runtime/omni_runtime.c",
+  "old": "OmniBufferSlot *s=buffer_get(h); if(s->slots)return 8; if(index>=s->n)return 1;*out=s->p[index];return 0;}",
+  "new": "OmniBufferSlot *s=buffer_get(h); if(index>=s->n)return 1;*out=s->p[index];return 0;}",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "S7 read_u32le reads the cells as bytes",
+  "file": "runtime/omni_runtime.c",
+  "old": "OmniBufferSlot *s=buffer_get(h); if(s->slots)return 8; if(index>s->n||4u>s->n-index)return 1;*out=",
+  "new": "OmniBufferSlot *s=buffer_get(h); if(index>s->n||4u>s->n-index)return 1;*out=",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "S8 read_u64le reads the cells as bytes",
+  "file": "runtime/omni_runtime.c",
+  "old": "OmniBufferSlot *s=buffer_get(h); if(s->slots)return 8; if(index>s->n||8u>s->n-index)return 1;uint64_t v=0;",
+  "new": "OmniBufferSlot *s=buffer_get(h); if(index>s->n||8u>s->n-index)return 1;uint64_t v=0;",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "S9 write_u32le writes bytes into the cells",
+  "file": "runtime/omni_runtime.c",
+  "old": "OmniBufferSlot *s=buffer_get(h); if(s->slots)return 8; if(index>s->n||4u>s->n-index)return 1;for",
+  "new": "OmniBufferSlot *s=buffer_get(h); if(index>s->n||4u>s->n-index)return 1;for",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "S10 write_u64le writes bytes into the cells",
+  "file": "runtime/omni_runtime.c",
+  "old": "OmniBufferSlot *s=buffer_get(h); if(s->slots)return 8; if(index>s->n||8u>s->n-index)return 1;for",
+  "new": "OmniBufferSlot *s=buffer_get(h); if(index>s->n||8u>s->n-index)return 1;for",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "S11 write_u8 writes bytes into the cells",
+  "file": "runtime/omni_runtime.c",
+  "old": "OmniBufferSlot *s=buffer_get(h); if(s->slots)return 8; if(index>=s->n||value>255)return 1;",
+  "new": "OmniBufferSlot *s=buffer_get(h); if(index>=s->n||value>255)return 1;",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "S12 zero clears cells as bytes",
+  "file": "runtime/omni_runtime.c",
+  "old": "OmniBufferSlot *s=buffer_get(h); if(s->slots)return 8; if(offset>s->n||len>s->n-offset)return 1;",
+  "new": "OmniBufferSlot *s=buffer_get(h); if(offset>s->n||len>s->n-offset)return 1;",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "S13 buffer.grow resizes a slot buffer without its occupancy",
+  "file": "runtime/omni_runtime.c",
+  "old": "    if(!out)return 3;*out=0; OmniBufferSlot *s=buffer_get(h);\n    if(s->slots)return 8;\n",
+  "new": "    if(!out)return 3;*out=0; OmniBufferSlot *s=buffer_get(h);\n",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "S14 freeze of a slot buffer is not refused",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(s->slots){omni_buffer_release(h);return 8;}",
+  "new": "if(s->slots){return 8;}",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "S15 lending an empty cell reads zero instead of faulting",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(!s||i>=s->n/OMNI_SLOT_CELL||!s->occ[i])fault(\"E_SLOT_STATE\");",
+  "new": "if(!s||i>=s->n/OMNI_SLOT_CELL)fault(\"E_SLOT_STATE\");",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "S16 slots.grow loses the occupancy of the old cells",
+  "file": "runtime/omni_runtime.c",
+  "old": "memcpy(p,s->p,s->n);memcpy(o,s->occ,old);",
+  "new": "memcpy(p,s->p,s->n);",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "OwnedSequenceTests"
+  ]
+ },
+ {
+  "name": "S17 slots.grow does not account the new cells in the budget",
+  "file": "runtime/omni_runtime.c",
+  "old": "s->n=cells*OMNI_SLOT_CELL;buffer_total+=add;*out=cells;return 0;",
+  "new": "s->n=cells*OMNI_SLOT_CELL;*out=cells;return 0;",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "OwnedSequenceTests"
+  ]
+ },
+ {
+  "name": "S18 slots.alloc does not account the occupancy bytes in the budget",
+  "file": "runtime/omni_runtime.c",
+  "old": "s->occ=occ;s->tag=key;s->slots=1;buffer_total+=cells;*out_h=h;return 0;",
+  "new": "s->occ=occ;s->tag=key;s->slots=1;*out_h=h;return 0;",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "OwnedSequenceTests"
+  ]
+ },
+ {
+  "name": "E1 evaluator: put overwrites an occupied cell",
+  "file": "compiler/src/check.cpp",
+  "old": "if(st!=0){ r.fields.push_back(a[2]); return r; }   // refused",
+  "new": "if(st>=2){ r.fields.push_back(a[2]); return r; }   // refused",
+  "tests": [
+   "tests/cp01_owned_slots.py"
+  ]
+ },
+ {
+  "name": "E2 evaluator: take leaves the cell occupied",
+  "file": "compiler/src/check.cpp",
+  "old": "slotMeta.at(a[0].handle).occ[static_cast<size_t>(a[1].bits)]=0; r.bits=1;",
+  "new": "r.bits=1;",
+  "tests": [
+   "tests/cp01_owned_slots.py"
+  ]
+ },
+ {
+  "name": "E3 evaluator: the resource key is not compared",
+  "file": "compiler/src/check.cpp",
+  "old": "if(m==slotMeta.end()||m->second.tag!=tag)return 3;",
+  "new": "if(m==slotMeta.end())return 3;",
+  "tests": [
+   "tests/cp01_owned_slots.py"
+  ]
+ },
+ {
+  "name": "E4 evaluator: release frees an occupied buffer",
+  "file": "compiler/src/check.cpp",
+  "old": "if(m!=slotMeta.end()&&slotsOccupied(m->second)!=0){ r.fields.push_back(a[0]); return r; }",
+  "new": "if(m!=slotMeta.end()&&slotsOccupied(m->second)!=0&&false){ r.fields.push_back(a[0]); return r; }",
+  "tests": [
+   "tests/cp01_owned_slots.py"
+  ]
+ },
+ {
+  "name": "E5 evaluator: an occupied slot buffer is dropped silently",
+  "file": "compiler/src/check.cpp",
+  "old": "if(slotsOccupied(m->second)!=0)fail(\"E_SLOT_OCCUPIED\",",
+  "new": "if(false)fail(\"E_SLOT_OCCUPIED\",",
+  "tests": [
+   "tests/cp01_owned_slots.py"
+  ]
+ },
+ {
+  "name": "E6 evaluator: byte operations see slot buffers",
+  "file": "compiler/src/check.cpp",
+  "old": "if(!slotMeta.empty()&&slotMeta.count(a[0].handle)&&(e.resolved==\"@builtin:buffer.read_u8\"",
+  "new": "if(false&&(e.resolved==\"@builtin:buffer.read_u8\"",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "E7 evaluator: lending an empty cell does not fault",
+  "file": "compiler/src/check.cpp",
+  "old": "if(state(a[0].handle,a[1].bits)!=1)fault(\"E_SLOT_STATE\"",
+  "new": "if(false)fault(\"E_SLOT_STATE\"",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "E8 evaluator: growth forgets the occupancy of the new cells accounting",
+  "file": "compiler/src/check.cpp",
+  "old": "bufferBytes+=(cells-old)*9u;",
+  "new": "",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "OwnedSequenceTests"
+  ]
+ },
+ {
+  "name": "L1 lowering: a refused put returns a different handle",
+  "file": "compiler/src/llvm.cpp",
+  "old": "return result(isZero(er),\"i32\",av[1],\"i64\",av[2]);",
+  "new": "return result(isZero(er),\"i32\",av[1],\"i64\",\"0\");",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "OwnedSequenceTests"
+  ]
+ },
+ {
+  "name": "L2 lowering: release refusal does not give the buffer back",
+  "file": "compiler/src/llvm.cpp",
+  "old": "return result(isZero(er),\"i32\",\"0\",\"i64\",av[0]);",
+  "new": "return result(isZero(er),\"i32\",\"0\",\"i64\",\"0\");",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "L3 lowering: the key of the call is not passed",
+  "file": "compiler/src/llvm.cpp",
+  "old": "auto r=reg(); emit(r+\" = call i32 @omni_slots_state(i64 \"+av[0]+\", ptr \"+keyName+\", i32 \"+av[1]+\")\"); return r;",
+  "new": "auto r=reg(); emit(r+\" = call i32 @omni_slots_state(i64 \"+av[0]+\", ptr null, i32 \"+av[1]+\")\"); return r;",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "SlotPrimitiveTests"
+  ]
+ },
+ {
+  "name": "Q1 Seq.destroy does not dispose the remaining elements",
+  "file": "examples/storage/seq.omni",
+  "old": "Ok(x) { total = total + Dispose.dispose<T>(move(x)) }",
+  "new": "Ok(x) { total = total + 0u32 + Dispose.dispose<T>(move(x)) - 1u32 }",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "OwnedSequenceTests"
+  ]
+ },
+ {
+  "name": "Q2 Seq.reserve grows by one cell",
+  "file": "examples/storage/seq.omni",
+  "old": "var want u32 = cap * 2u32",
+  "new": "var want u32 = cap + 1u32",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "OwnedSequenceTests"
+  ]
+ },
+ {
+  "name": "Q3 Seq.pop takes the first element",
+  "file": "examples/storage/seq.omni",
+  "old": "return slots.take<T>(resource.inner_mut(v), n - 1u32)",
+  "new": "return slots.take<T>(resource.inner_mut(v), 0u32)",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "OwnedSequenceTests"
+  ]
+ },
+ {
+  "name": "P1 a projection is accepted from any Place",
+  "file": "compiler/src/check.cpp",
+  "old": "const bool isProjection=s.expr.kind==Expr::Call&&s.expr.placeRoot==sourceBinding&&sourceBinding>=0;",
+  "new": "const bool isProjection=s.expr.kind==Expr::Call;",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "OwnedSlotLawTests"
+  ]
+ },
+ {
+  "name": "P2 a mutable projection from a shared region is accepted",
+  "file": "compiler/src/check.cpp",
+  "old": "const bool projection=!sameShape&&(f.result.kind==Type::Borrow||source->type.kind==Type::BorrowMut);",
+  "new": "const bool projection=!sameShape;",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "OwnedSlotLawTests"
+  ]
+ },
+ {
+  "name": "V1 a generic instance may name any private resource without validation",
+  "file": "compiler/src/check.cpp",
+  "old": "if(ri->second->module!=mod&&!ri->second->pub&&!generatedTypeAccess(k))fail(\"E_VISIBILITY\",\"struct privado: \"+t.name,l);",
+  "new": "",
+  "tests": [
+   "tests/cp01_generic_resources.py",
+   "tests/cp01_owned_slots.py"
+  ]
+ },
+ {
+  "name": "F1 the slots calls are not part of the Wave21 fence",
+  "file": "compiler/src/formats.cpp",
+  "old": "                   n.rfind(\"slots.\",0)==0;                // CP-01/CP-04: owned slots",
+  "new": "                   false;                // CP-01/CP-04: owned slots",
+  "tests": [
+   "tests/cp01_owned_slots.py",
+   "RepresentationTests"
+  ],
+  "equivalent": "Every slots.* call in a bundle presupposes a slots.alloc<T> of a nominal resource T in the same bundle; the only source of a Resource<T> value is resource.seal, which is already in the Wave21/OMC21 fence (hardwareIntrinsicName), so a program with slots.* and without seal cannot exist and the slots entry never decides the label. It is kept as defence in depth."
+ },
+ {
+  "name": "S37 the evaluator reads the first argument of every call before knowing the callee",
+  "file": "compiler/src/check.cpp",
+  "old": "                        if(!slotMeta.empty()&&(e.resolved==\"@builtin:buffer.read_u8\"||e.resolved==\"@builtin:buffer.read_u32le\"||e.resolved==\"@builtin:buffer.read_u64le\"||\n                           e.resolved==\"@builtin:buffer.write_u8\"||e.resolved==\"@builtin:buffer.write_u32le\"||e.resolved==\"@builtin:buffer.write_u64le\"||\n                           e.resolved==\"@builtin:buffer.grow\"||e.resolved==\"@builtin:buffer.zero\"||e.resolved==\"@builtin:buffer.freeze\")&&!a.empty()&&slotMeta.count(a[0].handle)) {",
+  "new": "                        if(!slotMeta.empty()&&slotMeta.count(a[0].handle)&&(e.resolved==\"@builtin:buffer.read_u8\"||e.resolved==\"@builtin:buffer.read_u32le\"||e.resolved==\"@builtin:buffer.read_u64le\"||\n                           e.resolved==\"@builtin:buffer.write_u8\"||e.resolved==\"@builtin:buffer.write_u32le\"||e.resolved==\"@builtin:buffer.write_u64le\"||\n                           e.resolved==\"@builtin:buffer.grow\"||e.resolved==\"@builtin:buffer.zero\"||e.resolved==\"@builtin:buffer.freeze\")) {",
+  "tests": [
+   "tests/cp01_owned_slots.py"
+  ]
+ }
+]

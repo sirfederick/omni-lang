@@ -1,0 +1,29 @@
+module t
+import rt "rt.omni"
+
+// x87/SSE state primitives (spec/FPU_SSE_STATE_CANDIDATE.md). The operands come from volatile reads so LLVM cannot fold the division at
+// compile time with round-to-nearest: the rounding mode in MXCSR is what decides the comparisons below.
+//   1/3 rounded to nearest, times 3, is exactly 1.0 (tie to even); rounded toward zero it is below 1.0; rounded up it is above 1.0.
+// MXCSR values: 0x1F80 = 8064 (default, nearest), 0x7F80 = 32640 (toward zero), 0x5F80 = 24448 (up). State area: 0x520400 (5374976), 16-aligned.
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let seed1 u32 = raw.store32(5373952u64, 1u32)
+  let seed3 u32 = raw.store32(5373960u64, 3u32)
+  let a f64 = f64(raw.load32(5373952u64))
+  let b f64 = f64(raw.load32(5373960u64))
+  print(cpu.read_mxcsr())
+  let nearest f64 = (a / b) * b
+  if nearest < a { print(1u32) } else { print(0u32) }
+  let toward_zero u32 = cpu.write_mxcsr(32640u32)
+  let rz f64 = (a / b) * b
+  if rz < a { print(1u32) } else { print(0u32) }
+  let up u32 = cpu.write_mxcsr(24448u32)
+  let ru f64 = (a / b) * b
+  if ru > a { print(1u32) } else { print(0u32) }
+  let saved u32 = cpu.fxsave(5374976u64)
+  let changed u32 = cpu.write_mxcsr(32640u32)
+  print(bit.and(cpu.read_mxcsr(), 65472u32))
+  let restored u32 = cpu.fxrstor(5374976u64)
+  // MXCSR bits 0..5 are sticky exception flags (here "inexact" from 1/3) and travel with the saved state; the mode is what is compared
+  print(bit.and(cpu.read_mxcsr(), 65472u32))
+  return rt.finish(0u32)
+}

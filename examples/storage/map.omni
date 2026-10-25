@@ -1,0 +1,339 @@
+module map
+import alloc "alloc.omni"
+import vec "vec.omni"
+
+// CP-05 (spec/COLLECTIONS_PROTOCOLS_CANDIDATE.md): Map<K, V> and Set<K>, written in Omni over ONE Resource<Buffer> that comes from the allocator `A` (alloc.omni).
+// Keys and values are plain data stored by their codec; a key also says how it is hashed and compared (`Key`). Nothing is hidden: the table is open addressing with
+// linear probing, every growth is an explicit step that can fail with a typed code and leaves the table exactly as it was, and a cursor refuses (typed) a table that
+// changed under it. A Map/Set is a nominal resource: it is lent with Borrow / BorrowMut and consumed by `destroy` exactly once.
+//   buffer layout: bytes 0..3 live entries, 4..7 used slots (live + tombstones), 8..11 slots, 12..15 version (raised by every insert of a new key, remove and rehash);
+//   from byte 16 each slot is: 1 state byte (0 empty, 1 full, 2 tombstone, 3 pending during a rehash), then the key, then the value
+// Outcome codes (a failing call changes neither the entries nor the version):
+//   1 capacity (the buffer cannot hold that many slots)   2 budget   3 host out of memory   12 arithmetic on sizes would overflow
+//   13 no such key   14 cursor exhausted   15 cursor stale (the table changed since the cursor was made)
+pub trait Key {
+  func size() u32 !pure
+  func put(b BorrowMut<Buffer>, off u32, v Self) Result<u32,u32> !{memory.write}
+  func get(b Borrow<Buffer>, off u32) Result<Self,u32> !{memory.read}
+  func hash(v Self) u64 !pure
+  func same(a Self, b Self) bool !pure
+}
+
+impl Key for u32 {
+  func size() u32 { return 4u32 }
+  func put(b BorrowMut<Buffer>, off u32, v u32) Result<u32,u32> !{memory.write} { return buffer.write_u32le(b, off, v) }
+  func get(b Borrow<Buffer>, off u32) Result<u32,u32> !{memory.read} { return buffer.read_u32le(b, off) }
+  func hash(v u32) u64 { return (u64(v) * 2654435761u64) % 4294967291u64 }
+  func same(a u32, b u32) bool { return a == b }
+}
+
+impl Key for u64 {
+  func size() u32 { return 8u32 }
+  func put(b BorrowMut<Buffer>, off u32, v u64) Result<u32,u32> !{memory.write} { return buffer.write_u64le(b, off, v) }
+  func get(b Borrow<Buffer>, off u32) Result<u64,u32> !{memory.read} { return buffer.read_u64le(b, off) }
+  func hash(v u64) u64 { return ((v % 4294967291u64) * 2654435761u64 + (v / 4294967291u64) * 40503u64) % 4294967291u64 }
+  func same(a u64, b u64) bool { return a == b }
+}
+
+// The value of a Set: nothing, in zero bytes.
+pub struct Nothing { tag u32 }
+
+impl vec.Codec for Nothing {
+  func size() u32 { return 0u32 }
+  func put(b BorrowMut<Buffer>, off u32, v Nothing) Result<u32,u32> !{memory.write} { return Ok<u32,u32>(0u32) }
+  func get(b Borrow<Buffer>, off u32) Result<Nothing,u32> !{memory.read} { return Ok<Nothing,u32>(Nothing { tag: 0u32 }) }
+}
+
+pub struct Map<K: Key, V: vec.Codec, A: alloc.Allocator> { buf Resource<Buffer> }
+pub struct Set<K: Key, A: alloc.Allocator> { buf Resource<Buffer> }
+
+// A position in the table and the version it was made for. It is plain data: it proves nothing, and `next` checks it against the table every time.
+pub struct Cursor { slot u32, version u32 }
+pub struct Entry<K: Key, V: vec.Codec> { key K, value V, next Cursor }
+
+func header_bytes() u32 { return 16u32 }
+func limit_bytes() u32 { return 1048576u32 }
+
+// ---- reading and writing the table (offsets are inside the buffer by construction; a short buffer reads as zero and is never produced by this module)
+func rd(b Borrow<Buffer>, off u32) u32 !{memory.read} {
+  let r = buffer.read_u32le(b, off)
+  match r { Ok(v) { return v } Err(code) { return 0u32 } }
+}
+func rd8(b Borrow<Buffer>, off u32) u32 !{memory.read} {
+  let r = buffer.read_u8(b, off)
+  match r { Ok(v) { return v } Err(code) { return 0u32 } }
+}
+func wr(b BorrowMut<Buffer>, off u32, v u32) u32 !{memory.write} {
+  let r = buffer.write_u32le(b, off, v)
+  match r { Ok(d) { return 0u32 } Err(code) { return code } }
+}
+func wr8(b BorrowMut<Buffer>, off u32, v u32) u32 !{memory.write} {
+  let r = buffer.write_u8(b, off, v)
+  match r { Ok(d) { return 0u32 } Err(code) { return code } }
+}
+
+func stride<K: Key, V: vec.Codec>() u32 { return 1u32 + Key.size<K>() + vec.Codec.size<V>() }
+func slot_off<K: Key, V: vec.Codec>(i u32) u32 { return header_bytes() + i * stride<K,V>() }
+func max_slots<K: Key, V: vec.Codec>() u32 { return (limit_bytes() - header_bytes()) / stride<K,V>() }
+
+// The slot holding `key`, or the number of slots when the key is absent.
+func find<K: Key, V: vec.Codec>(b Borrow<Buffer>, key K) u32 !{memory.read} {
+  let slots u32 = rd(b, 8u32)
+  if slots == 0u32 { return 0u32 }
+  var i u32 = u32(Key.hash<K>(key) % u64(slots))
+  var steps u32 = 0u32
+  for steps < slots {
+    let off u32 = slot_off<K,V>(i)
+    let st u32 = rd8(b, off)
+    if st == 0u32 { return slots }
+    if st == 1u32 {
+      let k = Key.get<K>(b, off + 1u32)
+      match k { Ok(x) { if Key.same<K>(x, key) { return i } } Err(code) { return slots } }
+    }
+    i = i + 1u32
+    if i == slots { i = 0u32 }
+    steps = steps + 1u32
+  }
+  return slots
+}
+
+// The first slot on the probe sequence of `key` that can take an entry (empty or a tombstone), or the number of slots when there is none.
+func free_slot<K: Key, V: vec.Codec>(b Borrow<Buffer>, key K) u32 !{memory.read} {
+  let slots u32 = rd(b, 8u32)
+  if slots == 0u32 { return 0u32 }
+  var i u32 = u32(Key.hash<K>(key) % u64(slots))
+  var steps u32 = 0u32
+  for steps < slots {
+    let st u32 = rd8(b, slot_off<K,V>(i))
+    if st == 0u32 { return i }
+    if st == 2u32 { return i }
+    i = i + 1u32
+    if i == slots { i = 0u32 }
+    steps = steps + 1u32
+  }
+  return slots
+}
+
+func write_entry<K: Key, V: vec.Codec>(b BorrowMut<Buffer>, i u32, key K, v V) u32 !{memory.read,memory.write} {
+  let off u32 = slot_off<K,V>(i)
+  let k = Key.put<K>(b, off + 1u32, key)
+  match k { Ok(d) { } Err(code) { return code } }
+  let w = vec.Codec.put<V>(b, off + 1u32 + Key.size<K>(), v)
+  match w { Ok(d) { } Err(code) { return code } }
+  return wr8(b, off, 1u32)
+}
+
+// ---- growth: the buffer grows through the allocator first (a failure there changes nothing), then the entries are placed again in the larger table in place
+// (an entry is marked pending, taken out and put back by its hash; pending slots count as taken, so nothing is placed over an entry that has not moved yet).
+func rehash<K: Key, V: vec.Codec, A: alloc.Allocator>(b BorrowMut<Buffer>) Result<u32,u32> !{memory.read,memory.write} {
+  let old u32 = rd(borrow(b), 8u32)
+  let live u32 = rd(borrow(b), 0u32)
+  let used u32 = rd(borrow(b), 4u32)
+  var want u32 = old * 2u32
+  if want < 4u32 { want = 4u32 }
+  if want > max_slots<K,V>() { want = max_slots<K,V>() }
+  // A table that is mostly tombstones (fewer than half of its slots are live) is compacted in place instead of doubled: insert / remove churn must not grow it without bound.
+  if used > live {
+    if live * 2u32 <= old { want = old }
+  }
+  // The table grows when it can. When it cannot (the limit, or the allocator refuses) it can still drop its tombstones in place; with none to drop there is no room.
+  if want > old {
+    let g = alloc.Allocator.resize<A>(b, slot_off<K,V>(want))
+    match g {
+      Ok(n) { }
+      Err(code) {
+        if used == live { return Err<u32,u32>(code) }
+        want = old
+      }
+    }
+  } else {
+    if used == live { return Err<u32,u32>(1u32) }
+    want = old
+  }
+  var e u32 = wr(b, 8u32, want)
+  var i u32 = 0u32
+  for i < old {
+    let off u32 = slot_off<K,V>(i)
+    if rd8(borrow(b), off) == 1u32 { e = wr8(b, off, 3u32) }
+    else { e = wr8(b, off, 0u32) }
+    i = i + 1u32
+  }
+  i = 0u32
+  for i < old {
+    let off u32 = slot_off<K,V>(i)
+    if rd8(borrow(b), off) == 3u32 {
+      let k = Key.get<K>(borrow(b), off + 1u32)
+      match k {
+        Ok(kk) {
+          let v = vec.Codec.get<V>(borrow(b), off + 1u32 + Key.size<K>())
+          match v {
+            Ok(vv) {
+              e = wr8(b, off, 0u32)
+              let at u32 = free_slot<K,V>(borrow(b), kk)
+              e = write_entry<K,V>(b, at, kk, vv)
+            }
+            Err(code) { return Err<u32,u32>(code) }
+          }
+        }
+        Err(code) { return Err<u32,u32>(code) }
+      }
+    }
+    i = i + 1u32
+  }
+  e = wr(b, 4u32, live)
+  let cur1 u32 = rd(borrow(b), 12u32)
+  e = wr(b, 12u32, cur1 + 1u32)
+  return Ok<u32,u32>(want)
+}
+
+// ---- the table operations, on the buffer (Map and Set are the two nominal faces of the same table)
+func t_init<K: Key, V: vec.Codec, A: alloc.Allocator>(slots u32) Result<Resource<Buffer>,u32> !{memory.read,memory.write} {
+  if slots > max_slots<K,V>() { return Err<Resource<Buffer>,u32>(1u32) }
+  let a = alloc.Allocator.allocate<A>(slot_off<K,V>(slots))
+  match a {
+    Ok(b) {
+      let e u32 = wr(borrow_mut(b), 8u32, slots)
+      return Ok<Resource<Buffer>,u32>(move(b))
+    }
+    Err(code) { return Err<Resource<Buffer>,u32>(code) }
+  }
+}
+
+func t_get<K: Key, V: vec.Codec>(b Borrow<Buffer>, key K) Result<V,u32> !{memory.read} {
+  let at u32 = find<K,V>(b, key)
+  if at >= rd(b, 8u32) { return Err<V,u32>(13u32) }
+  return vec.Codec.get<V>(b, slot_off<K,V>(at) + 1u32 + Key.size<K>())
+}
+
+func t_insert<K: Key, V: vec.Codec, A: alloc.Allocator>(b BorrowMut<Buffer>, key K, v V) Result<u32,u32> !{memory.read,memory.write} {
+  let at u32 = find<K,V>(borrow(b), key)
+  let slots u32 = rd(borrow(b), 8u32)
+  if at < slots {
+    let w = vec.Codec.put<V>(b, slot_off<K,V>(at) + 1u32 + Key.size<K>(), v)
+    match w { Ok(d) { return Ok<u32,u32>(0u32) } Err(code) { return Err<u32,u32>(code) } }
+  }
+  let used u32 = rd(borrow(b), 4u32)
+  if (used + 1u32) * 4u32 > slots * 3u32 {
+    let g = rehash<K,V,A>(b)
+    match g { Ok(n) { } Err(code) { if used >= slots { return Err<u32,u32>(code) } } }
+  }
+  let free u32 = free_slot<K,V>(borrow(b), key)
+  if free >= rd(borrow(b), 8u32) { return Err<u32,u32>(1u32) }
+  let was u32 = rd8(borrow(b), slot_off<K,V>(free))
+  let e u32 = write_entry<K,V>(b, free, key, v)
+  if e != 0u32 { return Err<u32,u32>(e) }
+  let cur2 u32 = rd(borrow(b), 0u32)
+  let c u32 = wr(b, 0u32, cur2 + 1u32)
+  let used_now u32 = rd(borrow(b), 4u32)
+  if was == 0u32 { let u u32 = wr(b, 4u32, used_now + 1u32) }
+  let cur3 u32 = rd(borrow(b), 12u32)
+  let ver u32 = wr(b, 12u32, cur3 + 1u32)
+  return Ok<u32,u32>(1u32)
+}
+
+func t_remove<K: Key, V: vec.Codec>(b BorrowMut<Buffer>, key K) Result<V,u32> !{memory.read,memory.write} {
+  let at u32 = find<K,V>(borrow(b), key)
+  if at >= rd(borrow(b), 8u32) { return Err<V,u32>(13u32) }
+  let old = vec.Codec.get<V>(borrow(b), slot_off<K,V>(at) + 1u32 + Key.size<K>())
+  match old {
+    Ok(x) {
+      let s u32 = wr8(b, slot_off<K,V>(at), 2u32)
+      let cur4 u32 = rd(borrow(b), 0u32)
+      let c u32 = wr(b, 0u32, cur4 - 1u32)
+      let cur5 u32 = rd(borrow(b), 12u32)
+      let ver u32 = wr(b, 12u32, cur5 + 1u32)
+      return Ok<V,u32>(x)
+    }
+    Err(code) { return Err<V,u32>(code) }
+  }
+}
+
+func t_cursor(b Borrow<Buffer>) Cursor !{memory.read} { return Cursor { slot: 0u32, version: rd(b, 12u32) } }
+
+func t_next<K: Key, V: vec.Codec>(b Borrow<Buffer>, c Cursor) Result<Entry<K,V>,u32> !{memory.read} {
+  if c.version != rd(b, 12u32) { return Err<Entry<K,V>,u32>(15u32) }
+  let slots u32 = rd(b, 8u32)
+  var i u32 = c.slot
+  for i < slots {
+    let off u32 = slot_off<K,V>(i)
+    if rd8(b, off) == 1u32 {
+      let k = Key.get<K>(b, off + 1u32)
+      match k {
+        Ok(kk) {
+          let v = vec.Codec.get<V>(b, off + 1u32 + Key.size<K>())
+          match v {
+            Ok(vv) { return Ok<Entry<K,V>,u32>(Entry<K,V> { key: kk, value: vv, next: Cursor { slot: i + 1u32, version: c.version } }) }
+            Err(code) { return Err<Entry<K,V>,u32>(code) }
+          }
+        }
+        Err(code) { return Err<Entry<K,V>,u32>(code) }
+      }
+    }
+    i = i + 1u32
+  }
+  return Err<Entry<K,V>,u32>(14u32)
+}
+
+// ---- Map
+pub func new<K: Key, V: vec.Codec, A: alloc.Allocator>(slots u32) Result<Resource<Map<K,V,A>>,u32> !{memory.read,memory.write} {
+  let t = t_init<K,V,A>(slots)
+  match t {
+    Ok(b) {
+      let inner Map<K,V,A> = Map<K,V,A> { buf: move(b) }
+      return Ok<Resource<Map<K,V,A>>,u32>(resource.seal(move(inner)))
+    }
+    Err(code) { return Err<Resource<Map<K,V,A>>,u32>(code) }
+  }
+}
+pub func len<K: Key, V: vec.Codec, A: alloc.Allocator>(m Borrow<Map<K,V,A>>) u32 !{memory.read} { return rd(resource.inner(m), 0u32) }
+pub func capacity<K: Key, V: vec.Codec, A: alloc.Allocator>(m Borrow<Map<K,V,A>>) u32 !{memory.read} { return rd(resource.inner(m), 8u32) }
+pub func contains<K: Key, V: vec.Codec, A: alloc.Allocator>(m Borrow<Map<K,V,A>>, key K) bool !{memory.read} {
+  return find<K,V>(resource.inner(m), key) < rd(resource.inner(m), 8u32)
+}
+pub func get<K: Key, V: vec.Codec, A: alloc.Allocator>(m Borrow<Map<K,V,A>>, key K) Result<V,u32> !{memory.read} { return t_get<K,V>(resource.inner(m), key) }
+// Ok(1): a new key was added. Ok(0): the key was there and its value was replaced. Err: nothing changed.
+pub func insert<K: Key, V: vec.Codec, A: alloc.Allocator>(m BorrowMut<Map<K,V,A>>, key K, v V) Result<u32,u32> !{memory.read,memory.write} {
+  return t_insert<K,V,A>(resource.inner_mut(m), key, v)
+}
+// Removes the key and returns its value. The slot becomes a tombstone.
+pub func remove<K: Key, V: vec.Codec, A: alloc.Allocator>(m BorrowMut<Map<K,V,A>>, key K) Result<V,u32> !{memory.read,memory.write} {
+  return t_remove<K,V>(resource.inner_mut(m), key)
+}
+pub func cursor<K: Key, V: vec.Codec, A: alloc.Allocator>(m Borrow<Map<K,V,A>>) Cursor !{memory.read} { return t_cursor(resource.inner(m)) }
+// The next entry at or after the cursor, with the cursor that follows it. Err(14): no more entries. Err(15): the table changed since the cursor was made.
+pub func next<K: Key, V: vec.Codec, A: alloc.Allocator>(m Borrow<Map<K,V,A>>, c Cursor) Result<Entry<K,V>,u32> !{memory.read} { return t_next<K,V>(resource.inner(m), c) }
+pub func destroy<K: Key, V: vec.Codec, A: alloc.Allocator>(m Resource<Map<K,V,A>>) u32 !{memory.write} {
+  let inner Map<K,V,A> = resource.unseal(move(m))
+  return alloc.Allocator.release<A>(move(inner.buf))
+}
+
+// ---- Set: the keys of the same table, with a value of zero bytes
+pub func set_new<K: Key, A: alloc.Allocator>(slots u32) Result<Resource<Set<K,A>>,u32> !{memory.read,memory.write} {
+  let t = t_init<K,Nothing,A>(slots)
+  match t {
+    Ok(b) {
+      let inner Set<K,A> = Set<K,A> { buf: move(b) }
+      return Ok<Resource<Set<K,A>>,u32>(resource.seal(move(inner)))
+    }
+    Err(code) { return Err<Resource<Set<K,A>>,u32>(code) }
+  }
+}
+pub func set_len<K: Key, A: alloc.Allocator>(s Borrow<Set<K,A>>) u32 !{memory.read} { return rd(resource.inner(s), 0u32) }
+pub func set_capacity<K: Key, A: alloc.Allocator>(s Borrow<Set<K,A>>) u32 !{memory.read} { return rd(resource.inner(s), 8u32) }
+pub func set_contains<K: Key, A: alloc.Allocator>(s Borrow<Set<K,A>>, key K) bool !{memory.read} {
+  return find<K,Nothing>(resource.inner(s), key) < rd(resource.inner(s), 8u32)
+}
+// Ok(1): added. Ok(0): it was already there. Err: nothing changed.
+pub func set_insert<K: Key, A: alloc.Allocator>(s BorrowMut<Set<K,A>>, key K) Result<u32,u32> !{memory.read,memory.write} {
+  return t_insert<K,Nothing,A>(resource.inner_mut(s), key, Nothing { tag: 0u32 })
+}
+pub func set_remove<K: Key, A: alloc.Allocator>(s BorrowMut<Set<K,A>>, key K) Result<u32,u32> !{memory.read,memory.write} {
+  let r = t_remove<K,Nothing>(resource.inner_mut(s), key)
+  match r { Ok(x) { return Ok<u32,u32>(1u32) } Err(code) { return Err<u32,u32>(code) } }
+}
+pub func set_cursor<K: Key, A: alloc.Allocator>(s Borrow<Set<K,A>>) Cursor !{memory.read} { return t_cursor(resource.inner(s)) }
+pub func set_next<K: Key, A: alloc.Allocator>(s Borrow<Set<K,A>>, c Cursor) Result<Entry<K,Nothing>,u32> !{memory.read} { return t_next<K,Nothing>(resource.inner(s), c) }
+pub func set_destroy<K: Key, A: alloc.Allocator>(s Resource<Set<K,A>>) u32 !{memory.write} {
+  let inner Set<K,A> = resource.unseal(move(s))
+  return alloc.Allocator.release<A>(move(inner.buf))
+}

@@ -1,0 +1,2 @@
+module t
+func main() u32 { return closure(x u32) u32 { return x + 1u32 }(40u32) }

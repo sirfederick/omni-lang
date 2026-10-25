@@ -1,0 +1,15 @@
+{
+  "schema": "omni.a97-operations-maintenance-matrix/1",
+  "seed": 97002026,
+  "hard_max_seconds": 1200,
+  "claim_boundary": "exact candidate on the exercised local Linux host/profile; not an SLO, portability or external-provider claim",
+  "scenarios": [
+    {"id":"A97-O01","layer":"L0","boundary":"METRIC_SCHEMA","claim":"declared units, denominators and bounded labels","oracle":"invalid report budget or label set is rejected"},
+    {"id":"A97-O02","layer":"L3","boundary":"COMPILER_PROCESS","claim":"cold and warm command measurements","oracle":"three bounded repetitions produce ordered percentile data"},
+    {"id":"A97-O03","layer":"L4","boundary":"CLEAN_LOCAL_STAGING","claim":"exact binary starts in a clean local staging directory","oracle":"staged binary reports the exact version and actionable doctor JSON"},
+    {"id":"A97-O04","layer":"L4","boundary":"DIAGNOSTICS_PROFILE","claim":"diagnostics and profile are observable on the exact binary","oracle":"registered diagnostics and redacted profile schema are valid"},
+    {"id":"A97-O05","layer":"L4","boundary":"OFFLINE_PACKAGE_UPDATE_ROLLBACK","claim":"local package change and rollback preserve lock integrity","oracle":"changed bytes are denied until the original source and lock are restored"},
+    {"id":"A97-O06","layer":"L3","boundary":"LIFECYCLE_RECOVERY","claim":"lost acknowledgement is bounded and child cleanup completes","oracle":"existing real-process recovery regression remains green"},
+    {"id":"A97-O07","layer":"L3","boundary":"DURABLE_PUBLICATION_RECOVERY","claim":"publication recovery preserves its atomic contract","oracle":"existing publication-phase recovery regression remains green"}
+  ]
+}

@@ -1,0 +1,236 @@
+module coop
+import heap "heap.omni"
+
+// CP-03 row 3.4 (spec/CANCELLATION_CANDIDATE.md): cancellation of a REAL cooperative task that owns resources, with an acknowledgement that only the task can give and a teardown that is
+// safe only after it. SDK Systems library for the `baremetal-x86_64` profile; it needs the machine's context switch (`cpu.switch_context`, `cpu.thread_trampoline`) and nothing else:
+// no scheduler policy, no preemption, no kernel.
+// What a task is here: a context (the 56-byte save area of `cpu.switch_context`) with its own stack, started by a scheduler that is plain code on some CPU. The BODY of the task is the
+// function the image names with `--thread-entry`; it learns which task it is from the control block its scheduler passes, owns its resources as ordinary `Resource<T>` locals (the
+// checker makes it consume every one on every path, including the path taken after a cancellation), and ends by calling `finish`.
+// Ownership:
+//   - the owner holds a `Resource<Task>`: a nominal resource, sealed here, that owns TWO heap blocks (the control block and the stack). It is consumed by `destroy` exactly once.
+//   - `request_cancel` is a REQUEST: it sets a flag the task reads at its checkpoints (a task that never reaches one is not cancelled by this library, and is never freed under itself).
+//   - the ACKNOWLEDGEMENT of an end is the task's own `finish` (a release store of the state): the owner has no function that writes it. Whatever the task owned was consumed before `finish`,
+//     because the checker refuses a body that returns, on any path, with a live resource.
+//   - four things are told apart: the request (`stop` flag), the end of the cleanup (state DONE, the acknowledgement the task gives), the quiescence of the execution (state RETIRED) and
+//     the right to reuse the stack (only after RETIRED). After it stores DONE the task is STILL executing: the return address of its last call is pushed on its stack and `cpu.switch_context`
+//     saves its registers in the control block. Only the scheduler knows that the CPU has really left the task: `run` returns on the scheduler's own stack and its LAST access to the control
+//     block is the release store DONE -> RETIRED. So the acknowledgement of an end is not a licence to free anything.
+//   - `destroy` frees the stack and the control block ONLY if the task is RETIRED or never started (CANCELLED_UNSTARTED). If the task may still run, or may still be running its last
+//     instructions, it frees NOTHING, consumes the handle and answers 24 (ABANDONED): the memory leaks on purpose, because a stack that can still run must never be freed. The heap reports
+//     the leak (heap.live). An owner that wants the memory back waits for `await_retired` first. Only `run` publishes RETIRED: a scheduler that does not use `run` must do the same.
+//   - a task that has not started is cancelled by a compare-and-swap NEW -> CANCELLED_UNSTARTED, and a scheduler starts it by a compare-and-swap NEW -> RUNNING: exactly one wins.
+// Outcome of an end (`outcome`) never says "not applied" on a guess: it reads the task's own journal of its externally visible effect (none / dispatched / confirmed):
+//   0 completed   1 cancelled, no effect was dispatched (NOT_APPLIED)   2 cancelled with an effect dispatched and not confirmed (UNKNOWN_OUTCOME)   3 failed (the code is in `result`)
+//   4 not finished (pending: a timeout of `await_end` is this, never 1)   5 cancelled after the effect was confirmed (APPLIED)
+// States: 1 NEW, 2 RUNNING, 3 DONE (cleanup finished, acknowledged), 4 CANCELLED_UNSTARTED, 5 RETIRED (DONE and the CPU has left the task) (0 is memory that was freed: nothing matches it).
+// Task result codes are the body's; by convention 0 = completed and 1 = cancelled. Outcome codes of the library: 20 bad geometry of the stack, 23 join timed out, 24 abandoned, 25 the task
+// is not in a state that can be resumed, and the heap's (1 out of memory, 4 stale, 6, 10, 11, 12).
+struct Word { w u64 }
+struct Ctrl { state u32, stop u32, result u32, journal u32, arg u64, stack u64, words u64, c0 u64, c1 u64, c2 u64, c3 u64, c4 u64, c5 u64, c6 u64 }
+
+pub struct Task { m u64 }
+
+func s_new() u32 { return 1u32 }
+func s_running() u32 { return 2u32 }
+func s_done() u32 { return 3u32 }
+func s_unstarted() u32 { return 4u32 }
+func s_retired() u32 { return 5u32 }
+
+// ---- owner side -------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+func ctrl_block(hp Borrow<heap.Heap>, t Borrow<Task>) Result<heap.Block<Ctrl>,u32> !{memory.raw} {
+  let r Task = resource.peek(t)
+  return heap.descriptor_at<Ctrl>(hp, r.m, 1u64)
+}
+
+// A new task in state NEW with a stack of `words` 8-byte words (even, 64..65536) and the scenario number `arg` that its body reads.
+pub func create(hp BorrowMut<heap.Heap>, words u64, arg u64) Result<Resource<Task>,u32> !{memory.raw,memory.atomic,cpu.control} {
+  if words < 64u64 { return Err<Resource<Task>,u32>(20u32) }
+  if words > 65536u64 { return Err<Resource<Task>,u32>(20u32) }
+  if bit.and(words, 1u64) != 0u64 { return Err<Resource<Task>,u32>(20u32) }
+  let sb = heap.alloc_array<Word>(hp, words)
+  match sb {
+    Err(code) { return Err<Resource<Task>,u32>(code) }
+    Ok(stack) {
+      let cb = heap.alloc<Ctrl>(hp)
+      match cb {
+        Err(code) {
+          let undo = heap.free<Word>(hp, stack)
+          match undo { Ok(n) { return Err<Resource<Task>,u32>(code) } Err(c) { return Err<Resource<Task>,u32>(c) } }
+        }
+        Ok(ctrl) {
+          let top u64 = stack.addr + words * 8u64
+          let tr u32 = raw.store64(top - 16u64, cpu.thread_trampoline())
+          let w = heap.store<Ctrl>(borrow(hp), ctrl, Ctrl { state: s_new(), stop: 0u32, result: 0u32, journal: 0u32, arg: arg, stack: stack.addr, words: words,
+                                                           c0: 0u64, c1: 0u64, c2: 0u64, c3: 0u64, c4: 0u64, c5: 0u64, c6: top - 16u64 })
+          match w {
+            Err(code) { return Err<Resource<Task>,u32>(code) }
+            Ok(n) { return Ok<Resource<Task>,u32>(resource.seal(Task { m: ctrl.addr })) }
+          }
+        }
+      }
+    }
+  }
+}
+
+// The address of the control block (what the scheduler and the body are given) and of the save area of the context.
+pub func ctrl_addr(hp Borrow<heap.Heap>, t Borrow<Task>) Result<u64,u32> !{memory.raw} {
+  let b = ctrl_block(hp, t)
+  match b { Ok(blk) { return Ok<u64,u32>(blk.addr) } Err(code) { return Err<u64,u32>(code) } }
+}
+
+pub func state(hp Borrow<heap.Heap>, t Borrow<Task>) Result<u32,u32> !{memory.raw,memory.atomic} {
+  let b = ctrl_block(hp, t)
+  match b { Ok(blk) { return Ok<u32,u32>(atomic.load32(blk.addr, 1u32)) } Err(code) { return Err<u32,u32>(code) } }
+}
+
+// Asks the task to end. Returns 1 if it had not started (it is now CANCELLED_UNSTARTED and will never run), 0 if the request was made (the task ends at its next checkpoint).
+pub func request_cancel(hp Borrow<heap.Heap>, t Borrow<Task>) Result<u32,u32> !{memory.raw,memory.atomic} {
+  let b = ctrl_block(hp, t)
+  match b {
+    Err(code) { return Err<u32,u32>(code) }
+    Ok(blk) {
+      let seen u32 = atomic.cas32(blk.addr, s_new(), s_unstarted(), 3u32, 1u32)
+      if seen == s_new() { return Ok<u32,u32>(1u32) }
+      let flag u32 = atomic.store32(blk.addr + 4u64, 1u32, 2u32)
+      return Ok<u32,u32>(0u32)
+    }
+  }
+}
+
+// Waits (a bounded number of tries) for the end of the task. Ok(result) once it ended or never started; Err(23) if it did not end in time, which says NOTHING about what it did.
+pub func await_end(hp Borrow<heap.Heap>, t Borrow<Task>, attempts u32) Result<u32,u32> !{memory.raw,memory.atomic} {
+  let b = ctrl_block(hp, t)
+  match b {
+    Err(code) { return Err<u32,u32>(code) }
+    Ok(blk) {
+      for i in 0u32..attempts {
+        let st u32 = atomic.load32(blk.addr, 1u32)
+        if st == s_done() { return Ok<u32,u32>(atomic.load32(blk.addr + 8u64, 1u32)) }
+        if st == s_retired() { return Ok<u32,u32>(atomic.load32(blk.addr + 8u64, 1u32)) }
+        if st == s_unstarted() { return Ok<u32,u32>(0u32) }
+      }
+      return Err<u32,u32>(23u32)
+    }
+  }
+}
+
+// Waits (a bounded number of tries) until the CPU has left the task for good: RETIRED, or never started. Ok(1) then; Err(23) if not in time. Only after it may the owner expect `destroy` to free.
+pub func await_retired(hp Borrow<heap.Heap>, t Borrow<Task>, attempts u32) Result<u32,u32> !{memory.raw,memory.atomic} {
+  let b = ctrl_block(hp, t)
+  match b {
+    Err(code) { return Err<u32,u32>(code) }
+    Ok(blk) {
+      for i in 0u32..attempts {
+        let st u32 = atomic.load32(blk.addr, 1u32)
+        if st == s_retired() { return Ok<u32,u32>(1u32) }
+        if st == s_unstarted() { return Ok<u32,u32>(1u32) }
+      }
+      return Err<u32,u32>(23u32)
+    }
+  }
+}
+
+// What the end of the task means (see the header): never "not applied" unless the journal says that nothing was dispatched.
+pub func outcome(hp Borrow<heap.Heap>, t Borrow<Task>) Result<u32,u32> !{memory.raw,memory.atomic} {
+  let b = ctrl_block(hp, t)
+  match b {
+    Err(code) { return Err<u32,u32>(code) }
+    Ok(blk) {
+      let st u32 = atomic.load32(blk.addr, 1u32)
+      if st == s_unstarted() { return Ok<u32,u32>(1u32) }
+      if st != s_done() {
+        if st != s_retired() { return Ok<u32,u32>(4u32) }
+      }
+      let result u32 = atomic.load32(blk.addr + 8u64, 1u32)
+      let journal u32 = atomic.load32(blk.addr + 12u64, 1u32)
+      if result == 0u32 { return Ok<u32,u32>(0u32) }
+      if result != 1u32 { return Ok<u32,u32>(3u32) }
+      if journal == 1u32 { return Ok<u32,u32>(2u32) }
+      if journal == 2u32 { return Ok<u32,u32>(5u32) }
+      return Ok<u32,u32>(1u32)
+    }
+  }
+}
+
+// Gives the task back. 0: the task had ended (or never started), its stack and control block are freed (and zeroed by the heap). 24: the task may still run: NOTHING is freed.
+pub func destroy(hp BorrowMut<heap.Heap>, t Resource<Task>) u32 !{memory.raw,memory.atomic} {
+  let r Task = resource.unseal(move(t))
+  let b = heap.descriptor_at<Ctrl>(borrow(hp), r.m, 1u64)
+  match b {
+    Err(code) { return code }
+    Ok(blk) {
+      let st u32 = atomic.load32(blk.addr, 1u32)
+      if st != s_retired() {
+        if st != s_unstarted() { return 24u32 }
+      }
+      let c Ctrl = raw.read<Ctrl>(blk.addr)
+      let sb = heap.descriptor_at<Word>(borrow(hp), c.stack, c.words)
+      var code u32 = 0u32
+      match sb {
+        Err(e) { code = e }
+        Ok(stack) {
+          let f1 = heap.free<Word>(hp, stack)
+          match f1 { Ok(n) { } Err(e) { code = e } }
+        }
+      }
+      let f2 = heap.free<Ctrl>(hp, blk)
+      match f2 { Ok(n) { } Err(e) { if code == 0u32 { code = e } } }
+      return code
+    }
+  }
+}
+
+// ---- scheduler side (plain code on some CPU; the addresses are those of ctrl_addr) --------------------------------------------------------------------------------------------------------
+
+// Starts the task if it has not started (exactly one of `run` and `request_cancel` wins), then switches into it. Returns when the task yields or ends, with the state it is in: 2 RUNNING
+// (it yielded), 3 DONE (the task has just ended and is now RETIRED), 4 CANCELLED_UNSTARTED, 5 RETIRED (it ended earlier). `sched` is the save area for the scheduler's own context.
+pub func run(ctrl u64, sched u64) u32 !{memory.atomic,cpu.control} {
+  let seen u32 = atomic.cas32(ctrl, s_new(), s_running(), 3u32, 1u32)
+  let st u32 = atomic.load32(ctrl, 1u32)
+  if st != s_running() { return st }
+  let back u64 = cpu.switch_context(sched, ctrl + 40u64)
+  let after u32 = atomic.load32(ctrl, 1u32)
+  if after == s_done() {
+    let left u32 = atomic.store32(ctrl, s_retired(), 2u32)      // the LAST access of the scheduler to the control block: the CPU is on its own stack again
+    return s_done()
+  }
+  return after
+}
+
+// ---- task side (the body of the task, which is the function named by --thread-entry) --------------------------------------------------------------------------------------------------
+
+// Yields to the scheduler and, when resumed, answers 1 if the task was asked to end and 0 if not. This is a cancellation point.
+pub func checkpoint(ctrl u64, sched u64) u32 !{memory.atomic,cpu.control} {
+  let y u64 = cpu.switch_context(ctrl + 40u64, sched)
+  return atomic.load32(ctrl + 4u64, 1u32)
+}
+
+// Reads the request without yielding.
+pub func cancelled(ctrl u64) u32 !{memory.atomic} {
+  return atomic.load32(ctrl + 4u64, 1u32)
+}
+
+pub func scenario(ctrl u64) u64 !{memory.raw} {
+  return raw.load64(ctrl + 16u64)
+}
+
+// The journal of the task's externally visible effect: dispatch BEFORE doing it, confirm after it is known to have happened.
+pub func dispatch(ctrl u64) u32 !{memory.atomic} {
+  return atomic.store32(ctrl + 12u64, 1u32, 2u32)
+}
+
+pub func confirm(ctrl u64) u32 !{memory.atomic} {
+  return atomic.store32(ctrl + 12u64, 2u32, 2u32)
+}
+
+// Ends the task: the result first, then the state with a release store (the acknowledgement), then back to the scheduler for good.
+pub func finish(ctrl u64, result u32, sched u64) u32 !{memory.atomic,cpu.control} {
+  let r u32 = atomic.store32(ctrl + 8u64, result, 2u32)
+  let s u32 = atomic.store32(ctrl, 3u32, 2u32)      // s_done(), written as the literal so that the order of the two stores can be read on the IR
+  for i in 0u32..4000000000u32 {
+    let y u64 = cpu.switch_context(ctrl + 40u64, sched)
+  }
+  return cpu.halt()
+}

@@ -1,0 +1,24 @@
+module app
+
+func main() u32 !{io.print,memory.read,memory.write} {
+    let allocation = buffer.alloc(2)
+    match allocation {
+        Ok(buf) {
+            let w0 = buffer.write_u8(borrow_mut(buf), 0, 72)
+            match w0 { Ok(ok) { print(ok) } Err(e) { print(e) } }
+            let w1 = buffer.write_u8(borrow_mut(buf), 1, 105)
+            match w1 { Ok(ok) { print(ok) } Err(e) { print(e) } }
+            let frozen = buffer.freeze(move(buf))
+            match frozen {
+                Ok(bytes) {
+                    print(bytes.len(bytes))
+                    let t = bytes.to_text(bytes)
+                    match t { Ok(text) { print(text) } Err(e) { print(e) } }
+                }
+                Err(e) { print(e) }
+            }
+        }
+        Err(e) { print(e) }
+    }
+    return 0
+}

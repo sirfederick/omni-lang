@@ -1,0 +1,534 @@
+[
+ {
+  "name": "E1 swap16 shifts the high byte by 9",
+  "file": "examples/storage/endian.omni",
+  "old": "return bit.or(bit.shl(x, 8u32), bit.shr(x, 8u32))",
+  "new": "return bit.or(bit.shl(x, 8u32), bit.shr(x, 9u32))",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "E2 swap32 moves the second byte to the wrong place",
+  "file": "examples/storage/endian.omni",
+  "old": "bit.shl(bit.and(bit.shr(x, 8u32), 255u32), 16u32)",
+  "new": "bit.shl(bit.and(bit.shr(x, 8u32), 255u32), 15u32)",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "E3 swap32 does not mask the third byte",
+  "file": "examples/storage/endian.omni",
+  "old": "bit.shl(bit.and(bit.shr(x, 16u32), 255u32), 8u32)",
+  "new": "bit.shl(bit.shr(x, 16u32), 8u32)",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "E4 swap64 does not swap the halves",
+  "file": "examples/storage/endian.omni",
+  "old": "return bit.or(bit.shl(u64(swap32(low)), 32u32), u64(swap32(high)))",
+  "new": "return bit.or(bit.shl(u64(swap32(high)), 32u32), u64(swap32(low)))",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "E5 to_be32 swaps on a big-endian target instead",
+  "file": "examples/storage/endian.omni",
+  "old": "pub func to_be32(x u32) u32 {\n  if target.little_endian() { return swap32(x) }",
+  "new": "pub func to_be32(x u32) u32 {\n  if !target.little_endian() { return swap32(x) }",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "E6 to_le16 swaps on a little-endian target",
+  "file": "examples/storage/endian.omni",
+  "old": "pub func to_le16(x u16) u16 {\n  if target.little_endian() { return x }\n  return swap16(x)",
+  "new": "pub func to_le16(x u16) u16 {\n  if target.little_endian() { return swap16(x) }\n  return x",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "E7 from_be64 is the identity",
+  "file": "examples/storage/endian.omni",
+  "old": "pub func from_be64(x u64) u64 {\n  if target.little_endian() { return swap64(x) }",
+  "new": "pub func from_be64(x u64) u64 {\n  if target.little_endian() { return x }",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "EM1 the range check forgets the last byte",
+  "file": "examples/storage/endian_mem.omni",
+  "old": "let last = addr.virt_add(a, n - 1u64)",
+  "new": "let last = addr.virt_add(a, n - 2u64)",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "EM2 the range check is one byte too strict",
+  "file": "examples/storage/endian_mem.omni",
+  "old": "let last = addr.virt_add(a, n - 1u64)",
+  "new": "let last = addr.virt_add(a, n)",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "EM3 gather_le starts at the wrong byte",
+  "file": "examples/storage/endian_mem.omni",
+  "old": "var i u64 = n\n  for i > 0u64 {",
+  "new": "var i u64 = n - 1u64\n  for i > 0u64 {",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "EM4 gather_be accumulates little-endian",
+  "file": "examples/storage/endian_mem.omni",
+  "old": "func gather_be(base u64, n u64) u64 !{memory.raw} {\n  var v u64 = 0u64\n  var i u64 = 0u64\n  for i < n {\n    v = bit.or(bit.shl(v, 8u32), u64(raw.load8(base + i)))",
+  "new": "func gather_be(base u64, n u64) u64 !{memory.raw} {\n  var v u64 = 0u64\n  var i u64 = 0u64\n  for i < n {\n    v = bit.or(v, bit.shl(u64(raw.load8(base + i)), u32(i * 8u64)))",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "EM5 scatter_le masks seven bits",
+  "file": "examples/storage/endian_mem.omni",
+  "old": "func scatter_le(base u64, n u64, x u64) u32 !{memory.raw} {\n  var i u64 = 0u64\n  for i < n {\n    let byte u64 = bit.and(bit.shr(x, u32(i * 8u64)), 255u64)",
+  "new": "func scatter_le(base u64, n u64, x u64) u32 !{memory.raw} {\n  var i u64 = 0u64\n  for i < n {\n    let byte u64 = bit.and(bit.shr(x, u32(i * 8u64)), 127u64)",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "EM6 scatter_be writes the bytes in little-endian order",
+  "file": "examples/storage/endian_mem.omni",
+  "old": "bit.shr(x, u32((n - 1u64 - i) * 8u64))",
+  "new": "bit.shr(x, u32(i * 8u64))",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "EM7 scatter_le writes one byte too many",
+  "file": "examples/storage/endian_mem.omni",
+  "old": "func scatter_le(base u64, n u64, x u64) u32 !{memory.raw} {\n  var i u64 = 0u64\n  for i < n {",
+  "new": "func scatter_le(base u64, n u64, x u64) u32 !{memory.raw} {\n  var i u64 = 0u64\n  for i <= n {",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "EM8 store_be32 stores through the 16-bit width",
+  "file": "examples/storage/endian_mem.omni",
+  "old": "pub func store_be32(a addr.Virt, x u32) Result<u32,u32> !{memory.raw} {\n  let s = span(a, 4u64)\n  match s { Ok(base) { return Ok<u32,u32>(scatter_be(base, 4u64, u64(x))) }",
+  "new": "pub func store_be32(a addr.Virt, x u32) Result<u32,u32> !{memory.raw} {\n  let s = span(a, 4u64)\n  match s { Ok(base) { return Ok<u32,u32>(scatter_be(base, 2u64, u64(x))) }",
+  "tests": [
+   "tests/cp07_endian.py"
+  ]
+ },
+ {
+  "name": "B1 a field may end one bit past the register",
+  "file": "examples/storage/bitfield.omni",
+  "old": "return w <= bits - s",
+  "new": "return w <= bits - s + 1u32",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "B2 a field may start at the end of the register",
+  "file": "examples/storage/bitfield.omni",
+  "old": "if s >= bits { return false }",
+  "new": "if s > bits { return false }",
+  "tests": [
+   "tests/cp08_fields.py"
+  ],
+  "equivalent": "when s == bits the next guard `w <= bits - s` is `w <= 0`, which is false for every valid width (w >= 1 is checked before); `s >= bits` and `s > bits` therefore give the same answer for every input. The guard only matters for s > bits, where the unsigned subtraction would wrap."
+ },
+ {
+  "name": "B3 a field of zero width is valid",
+  "file": "examples/storage/bitfield.omni",
+  "old": "  if w == 0u32 { return false }\n  if s >= bits",
+  "new": "  if s >= bits",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "B4 the mask is one bit too wide",
+  "file": "examples/storage/bitfield.omni",
+  "old": "return bit.shl(bit.shl(1u64, w) - 1u64, s)",
+  "new": "return bit.shl(bit.shl(1u64, w), s)",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "B5 disjoint reports overlap as disjoint",
+  "file": "examples/storage/bitfield.omni",
+  "old": "return bit.and(mask<A>(), mask<B>()) == 0u64",
+  "new": "return bit.and(mask<A>(), mask<B>()) != 0u64",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "B6 the limit is one too small",
+  "file": "examples/storage/bitfield.omni",
+  "old": "  if w >= 64u32 { return 18446744073709551615u64 }\n  return bit.shl(1u64, w) - 1u64\n}\n\n// The field of a register value",
+  "new": "  if w >= 64u32 { return 18446744073709551615u64 }\n  return bit.shl(1u64, w) - 2u64\n}\n\n// The field of a register value",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "B7 get does not shift the field down",
+  "file": "examples/storage/bitfield.omni",
+  "old": "return bit.shr(bit.and(v, mask<F>()), Field.shift<F>())",
+  "new": "return bit.and(v, mask<F>())",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "B8 put accepts a value of exactly 2^width",
+  "file": "examples/storage/bitfield.omni",
+  "old": "if x > limit<F>() { return Err<u64,u32>(1u32) }\n  return Ok<u64,u32>",
+  "new": "if x > limit<F>() + 1u64 { return Err<u64,u32>(1u32) }\n  return Ok<u64,u32>",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "B9 put keeps the old field bits",
+  "file": "examples/storage/bitfield.omni",
+  "old": "bit.or(bit.and(v, bit.not(mask<F>())), bit.shl(x, Field.shift<F>()))",
+  "new": "bit.or(v, bit.shl(x, Field.shift<F>()))",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "B10 put loses the neighbours",
+  "file": "examples/storage/bitfield.omni",
+  "old": "bit.or(bit.and(v, bit.not(mask<F>())), bit.shl(x, Field.shift<F>()))",
+  "new": "bit.shl(x, Field.shift<F>())",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "B11 a field wider than 64 bits is valid",
+  "file": "examples/storage/bitfield.omni",
+  "old": "  if bits > 64u32 { return false }\n",
+  "new": "",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "F1 update does not shift the value into place",
+  "file": "examples/storage/field.omni",
+  "old": "bit.shl(x, bitfield.Field.shift<F>())",
+  "new": "x",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "F2 update does not check the value",
+  "file": "examples/storage/field.omni",
+  "old": "  if x > bitfield.limit<F>() { return Err<u64,u32>(1u32) }\n  return mmio.modify",
+  "new": "  return mmio.modify",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "F3 clear stores the whole register",
+  "file": "examples/storage/field.omni",
+  "old": "return mmio.clear<G,R>(m, bitfield.mask<F>())",
+  "new": "return mmio.clear<G,R>(m, 4294967295u64)",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "F4 read does not extract the field",
+  "file": "examples/storage/field.omni",
+  "old": "Ok(v) { return Ok<u64,u32>(bitfield.get<F>(v)) }",
+  "new": "Ok(v) { return Ok<u64,u32>(v) }",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "F5 update clears nothing",
+  "file": "examples/storage/field.omni",
+  "old": "mmio.modify<G,R>(m, bitfield.mask<F>(),",
+  "new": "mmio.modify<G,R>(m, 0u64,",
+  "tests": [
+   "tests/cp08_fields.py"
+  ]
+ },
+ {
+  "name": "D1 finish returns the block while the device is busy",
+  "file": "examples/storage/dma.omni",
+  "old": "      if v == 0u64 {\n        let inner InFlight<S>",
+  "new": "      if v != 0u64 {\n        let inner InFlight<S>",
+  "tests": [
+   "tests/cp08_dma.py"
+  ]
+ },
+ {
+  "name": "D2 an empty region can be claimed",
+  "file": "examples/storage/dma.omni",
+  "old": "  if size == 0u64 { return Err<Resource<Block<S>>,u32>(3u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp08_dma.py"
+  ]
+ },
+ {
+  "name": "D3 the last word of the block is out of range",
+  "file": "examples/storage/dma.omni",
+  "old": "if mmio.Region.size<S>() - u64(off) < 4u64 { return Err<u64,u32>(1u32) }",
+  "new": "if mmio.Region.size<S>() - u64(off) <= 4u64 { return Err<u64,u32>(1u32) }",
+  "tests": [
+   "tests/cp08_dma.py"
+  ]
+ },
+ {
+  "name": "D4 an unaligned offset is accepted",
+  "file": "examples/storage/dma.omni",
+  "old": "if off % 4u32 != 0u32 { return Err<u64,u32>(2u32) }",
+  "new": "if off % 2u32 != 0u32 { return Err<u64,u32>(2u32) }",
+  "tests": [
+   "tests/cp08_dma.py"
+  ]
+ },
+ {
+  "name": "D5 start gives the block away when the doorbell fails",
+  "file": "examples/storage/dma.omni",
+  "old": "Err(code) { return Err<Resource<InFlight<S>>,Resource<Block<S>>>(move(b)) }",
+  "new": "Err(code) { let inner Block<S> = resource.unseal(move(b))\n      return Ok<Resource<InFlight<S>>,Resource<Block<S>>>(resource.seal(InFlight<S> { h: inner.h })) }",
+  "tests": [
+   "tests/cp08_dma.py"
+  ]
+ },
+ {
+  "name": "D6 finished is true while the status is non-zero",
+  "file": "examples/storage/dma.omni",
+  "old": "return Ok<bool,u32>(v == 0u64)",
+  "new": "return Ok<bool,u32>(v != 0u64)",
+  "tests": [
+   "tests/cp08_dma.py"
+  ]
+ },
+ {
+  "name": "D7 a block that wraps the address space can be claimed",
+  "file": "examples/storage/dma.omni",
+  "old": "  if size - 1u64 > 18446744073709551615u64 - base { return Err<Resource<Block<S>>,u32>(3u32) }   // the last byte is base + size - 1: a block that ends at the very last address does not wrap\n",
+  "new": "",
+  "tests": [
+   "tests/cp08_dma.py"
+  ]
+ },
+ {
+  "name": "A1 a physical address may be exactly 2^52",
+  "file": "examples/storage/addr.omni",
+  "old": "if v >= phys_limit() { return Err<Phys,u32>(1u32) }",
+  "new": "if v > phys_limit() { return Err<Phys,u32>(1u32) }",
+  "tests": [
+   "tests/cp07_address_domains.py"
+  ]
+ },
+ {
+  "name": "A2 the first address of the hole is canonical",
+  "file": "examples/storage/addr.omni",
+  "old": "if v >= canonical_hole_low() {",
+  "new": "if v > canonical_hole_low() {",
+  "tests": [
+   "tests/cp07_address_domains.py"
+  ]
+ },
+ {
+  "name": "A3 the first upper-half address is not canonical",
+  "file": "examples/storage/addr.omni",
+  "old": "if v < canonical_hole_high() { return Err<Virt,u32>(2u32) }",
+  "new": "if v <= canonical_hole_high() { return Err<Virt,u32>(2u32) }",
+  "tests": [
+   "tests/cp07_address_domains.py"
+  ]
+ },
+ {
+  "name": "A4 phys_add reaches the limit",
+  "file": "examples/storage/addr.omni",
+  "old": "if p.v >= phys_limit() - n { return Err<Phys,u32>(3u32) }",
+  "new": "if p.v > phys_limit() - n { return Err<Phys,u32>(3u32) }",
+  "tests": [
+   "tests/cp07_address_domains.py"
+  ]
+ },
+ {
+  "name": "A5 virt_add wraps at the top",
+  "file": "examples/storage/addr.omni",
+  "old": "if n > 18446744073709551615u64 - a.v { return Err<Virt,u32>(3u32) }",
+  "new": "if n > 18446744073709551615u64 - a.v + 1u64 { return Err<Virt,u32>(3u32) }",
+  "tests": [
+   "tests/cp07_address_domains.py"
+  ]
+ },
+ {
+  "name": "A6 phys_within admits the limit",
+  "file": "examples/storage/addr.omni",
+  "old": "if v >= limit { return Err<Phys,u32>(1u32) }",
+  "new": "if v > limit { return Err<Phys,u32>(1u32) }",
+  "tests": [
+   "tests/cp07_address_domains.py"
+  ]
+ },
+ {
+  "name": "A7 virt_add reports the wrong code when it leaves the domain",
+  "file": "examples/storage/addr.omni",
+  "old": "Err(code) { return Err<Virt,u32>(3u32) } }\n}",
+  "new": "Err(code) { return Err<Virt,u32>(2u32) } }\n}",
+  "tests": [
+   "tests/cp07_address_domains.py"
+  ]
+ },
+ {
+  "name": "R1 an unaligned register is reachable",
+  "file": "examples/storage/mmio.omni",
+  "old": "if off % width != 0u32 { return Err<u64,u32>(2u32) }",
+  "new": "if off % width == 0u32 { return Err<u64,u32>(2u32) }",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ },
+ {
+  "name": "R2 the last register of a region is out of range",
+  "file": "examples/storage/mmio.omni",
+  "old": "if Region.size<G>() - u64(off) < u64(width) { return Err<u64,u32>(1u32) }",
+  "new": "if Region.size<G>() - u64(off) <= u64(width) { return Err<u64,u32>(1u32) }",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ },
+ {
+  "name": "R3 a register may run past the end of the region",
+  "file": "examples/storage/mmio.omni",
+  "old": "if Region.size<G>() - u64(off) < u64(width) { return Err<u64,u32>(1u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ },
+ {
+  "name": "R4 a byte register accepts 256",
+  "file": "examples/storage/mmio.omni",
+  "old": "if width == 1u32 { return v <= 255u64 }",
+  "new": "if width == 1u32 { return v <= 256u64 }",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ },
+ {
+  "name": "R5 write does not check the value against the width",
+  "file": "examples/storage/mmio.omni",
+  "old": "  if !fits(Writable.width<R>(), v) { return Err<u32,u32>(4u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ },
+ {
+  "name": "R6 modify does not clear before it sets",
+  "file": "examples/storage/mmio.omni",
+  "old": "bit.or(bit.and(old, bit.not(clear_mask)), set_mask)",
+  "new": "bit.or(old, set_mask)",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ },
+ {
+  "name": "R7 modify returns the new value",
+  "file": "examples/storage/mmio.omni",
+  "old": "return Ok<u64,u32>(old)",
+  "new": "return Ok<u64,u32>(next)",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ },
+ {
+  "name": "R8 port 65536 is valid",
+  "file": "examples/storage/mmio.omni",
+  "old": "if port > 65535u32 { return false }",
+  "new": "if port > 65536u32 { return false }",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ },
+ {
+  "name": "R9 a 16-bit port may be odd",
+  "file": "examples/storage/mmio.omni",
+  "old": "if width == 2u32 { return port % 2u32 == 0u32 }",
+  "new": "if width == 2u32 { return true }",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ },
+ {
+  "name": "R10 a byte port accepts 256",
+  "file": "examples/storage/mmio.omni",
+  "old": "if PortWritable.width<R>() == 1u32 { if v > 255u32",
+  "new": "if PortWritable.width<R>() == 1u32 { if v > 256u32",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ },
+ {
+  "name": "R11 a region that wraps the address space can be mapped",
+  "file": "examples/storage/mmio.omni",
+  "old": "  if size - 1u64 > 18446744073709551615u64 - base { return Err<Resource<Mapping<G>>,u32>(6u32) }   // the last byte is base + size - 1: a region that ends at the very last address does not wrap\n",
+  "new": "",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ },
+ {
+  "name": "R12 an empty region can be mapped",
+  "file": "examples/storage/mmio.omni",
+  "old": "  if size == 0u64 { return Err<Resource<Mapping<G>>,u32>(5u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ },
+ {
+  "name": "R13 a non-canonical region can be mapped",
+  "file": "examples/storage/mmio.omni",
+  "old": "  match last { Ok(a) { } Err(code) { return Err<Resource<Mapping<G>>,u32>(7u32) } }\n",
+  "new": "  match last { Ok(a) { } Err(code) { } }\n",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ },
+ {
+  "name": "R14 clear loads before it stores",
+  "file": "examples/storage/mmio.omni",
+  "old": "at { Ok(address) { return Ok<u32,u32>(store(address, W1C.width<R>(), mask)) }",
+  "new": "at { Ok(address) { let seen u64 = load(address, W1C.width<R>())\n    return Ok<u32,u32>(store(address, W1C.width<R>(), bit.or(mask, seen))) }",
+  "tests": [
+   "tests/cp08_mmio.py"
+  ]
+ }
+]

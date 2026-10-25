@@ -1,0 +1,32 @@
+module t
+func main() u32 {
+  let stream = channel<u32>(1u32);
+  let first = send(stream, 7u32);
+  match first { Ok(sent) {
+  let second = send(stream, 9u32);
+  match second {
+    Ok(unexpected) { return unexpected; }
+    Err(backpressure) {
+      let received = receive(stream);
+      match received {
+        Ok(item) {
+          match item {
+            Some(value) {
+              let closed = close(stream);
+              match closed { Ok(closed_code) {
+              let drained = receive(stream);
+              match drained {
+                Ok(final_item) { match final_item { Some(other) { return other; } None { return value; } } }
+                Err(code) { return code; }
+              }
+              } Err(code) { return code; } }
+            }
+            None { return 90u32; }
+          }
+        }
+        Err(code) { return code; }
+      }
+    }
+  }
+  } Err(code) { return code; } }
+}

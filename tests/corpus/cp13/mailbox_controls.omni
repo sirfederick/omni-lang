@@ -1,0 +1,179 @@
+module t
+import rt "rt.omni"
+import mailbox "mailbox.omni"
+
+// CP-13 row 13.5, controls: the same hand-off with a producer written by hand on the cells of the library, so that the order of publication can be broken on purpose and the oracle of
+// mailbox_handoff.omni (every message in order, intact) shows that it notices. MODE is replaced by the test:
+//   0  the producer writes the payload, then publishes the tail with a release store (what the library does)
+//   1  the producer publishes the tail FIRST and writes the payload after a pause: the consumer sees a published message whose payload is not there yet
+//   2  the consumer does not look at the tail at all (it reads the slot the producer has not filled yet)
+// Cells: mailbox 0x5C0000 (6029312); results at 0x5C8000 + 64 n: received 6062080, bad 6062144, done 6062528, error 6062592. 200 messages, 4 slots.
+struct Msg { seq u64, a u64, b u32, c u32 }
+
+func mode() u32 { return 0u32 }
+func total() u64 { return 200u64 }
+func fa(s u64) u64 { return s * 1000003u64 + 12345u64 }
+func fb(s u64) u32 { return u32(s % 65521u64) }
+func fc(s u64) u32 { return bit.xor(u32(s), 3735928559u32) }
+func mk(s u64) Msg { return Msg { seq: s, a: fa(s), b: fb(s), c: fc(s) } }
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func dwell(n u32) u32 !{memory.raw} {
+  for i in 0u32..n {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func wrong(x Msg, expected u64) u32 {
+  var bad u32 = 0u32
+  if x.seq != expected { bad = 1u32 }
+  if x.a != fa(x.seq) { bad = 1u32 }
+  if x.b != fb(x.seq) { bad = 1u32 }
+  if x.c != fc(x.seq) { bad = 1u32 }
+  return bad
+}
+
+func consume(c BorrowMut<mailbox.Consumer>) u32 !{memory.raw,memory.atomic} {
+  var expected u64 = 0u64
+  var bad u32 = 0u32
+  var tries u32 = 0u32
+  for i in 0u32..4000000000u32 {
+    if expected == total() { break }
+    let m = mailbox.pop<Msg>(c)
+    match m {
+      Ok(x) {
+        bad = bad + wrong(x, expected)
+        expected = expected + 1u64
+        tries = 0u32
+      }
+      Err(e) {
+        tries = tries + 1u32
+        if tries > 100000000u32 { return 1u32 }
+      }
+    }
+  }
+  let r u32 = atomic.store32(6062080u64, u32(expected), 2u32)
+  let b u32 = atomic.store32(6062144u64, bad, 2u32)
+  return 0u32
+}
+
+// the consumer that never looks at the tail: it reads the slot it would read next and moves on
+func consume_blind() u32 !{memory.raw,memory.atomic} {
+  var bad u32 = 0u32
+  var head u64 = 0u64
+  for i in 0u32..200u32 {
+    let m Msg = raw.read<Msg>(6029312u64 + 448u64 + bit.and(head, 3u64) * 24u64)
+    bad = bad + wrong(m, head)
+    head = head + 1u64
+    let h u32 = atomic.store64(6029312u64 + 256u64, head, 2u32)
+    let pause u32 = dwell(500u32)
+  }
+  let r u32 = atomic.store32(6062080u64, 200u32, 2u32)
+  let b u32 = atomic.store32(6062144u64, bad, 2u32)
+  return 0u32
+}
+
+func ap_main() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  let who u32 = raw.store32(5308800u64, id + 100u32)
+  let opened = mailbox.open_consumer(6029312u64)
+  match opened {
+    Err(e) {
+      let f u32 = atomic.store32(6062592u64, e + 200u32, 2u32)
+      let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+      return 1u32
+    }
+    Ok(c) {
+      let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+      let go u32 = wait_flag(6062464u64)
+      var r u32 = 0u32
+      if mode() == 2u32 {
+        r = consume_blind()
+      }
+      if mode() != 2u32 {
+        r = consume(borrow_mut(c))
+      }
+      let cl u32 = mailbox.close_consumer(move(c))
+      let done u32 = atomic.store32(6062528u64, 1u32, 2u32)
+      return r
+    }
+  }
+}
+
+// the producer by hand: waits for room (bounded), then publishes in the order MODE says
+func produce(s u64) u32 !{memory.raw,memory.atomic} {
+  let base u64 = 6029312u64
+  for i in 0u32..100000000u32 {
+    let head u64 = atomic.load64(base + 256u64, 1u32)
+    let tail u64 = atomic.load64(base + 192u64, 0u32)
+    var room bool = head > tail
+    if head <= tail {
+      room = tail - head < 4u64
+    }
+    if room {
+      let slot u64 = base + 448u64 + bit.and(tail, 3u64) * 24u64
+      if mode() == 1u32 {
+        let t u32 = atomic.store64(base + 192u64, tail + 1u64, 2u32)
+        let pause u32 = dwell(3000u32)
+        let w u32 = raw.write<Msg>(slot, mk(s))
+        return 0u32
+      }
+      let w u32 = raw.write<Msg>(slot, mk(s))
+      let t u32 = atomic.store64(base + 192u64, tail + 1u64, 2u32)
+      return 0u32
+    }
+  }
+  return 1u32
+}
+
+func flag(b bool) u32 {
+  if b { return 1u32 }
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let made = mailbox.create(6029312u64, 4u64, 24u64)
+  match made { Ok(n) { } Err(e) { print(e) } }
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+  let init u32 = raw.store32(4276093696u64, 17664u32)
+  let w1 u32 = delay()
+  let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+  let w2 u32 = delay()
+  let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+  let up u32 = wait_flag(5308864u64)
+  if up == 0u32 {
+    print(999u32)
+    return rt.finish(2u32)
+  }
+  let go u32 = atomic.store32(6062464u64, 1u32, 2u32)
+  var s u64 = 0u64
+  var fails u32 = 0u32
+  for i in 0u32..200u32 {
+    if atomic.load32(6062528u64, 1u32) != 0u32 { break }
+    fails = fails + produce(s)
+    s = s + 1u64
+  }
+  let done u32 = wait_flag(6062528u64)
+  print(atomic.load32(6062080u64, 1u32))
+  print(flag(atomic.load32(6062144u64, 1u32) > 0u32))
+  print(fails)
+  print(atomic.load32(6062592u64, 1u32))
+  return rt.finish(0u32)
+}

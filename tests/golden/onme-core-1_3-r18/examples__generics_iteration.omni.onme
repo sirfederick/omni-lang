@@ -1,0 +1,5 @@
+ONME2
+Rsha256:2b0314b3bf024cbc1947953896cc37f384513712383535293073183bae023039
+Psha256:2b0314b3bf024cbc1947953896cc37f384513712383535293073183bae023039
+Csha256:ff5018b7dd5f1b3ccb0c3b47a48f1abda64df2be679b0c79b994d6f640939f96
+(!WA2:22(A16:authoring-sourceQ344:"module abstraction_demo\n\nfunc add<T:Integer>(a T, b T) T !pure {\n    return (a + b);\n}\n\nfunc main() u32 !pure {\n    let values Array<u32,3> = array(10, 12, 20);\n    let values_view View<u32> = view(values);\n    var total u32 = 0;\n    for item in values_view {\n        total = (total)::add<u32>(item);\n    }\n    return total;\n}\n"))

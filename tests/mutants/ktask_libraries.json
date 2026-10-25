@@ -1,0 +1,442 @@
+[
+ {
+  "name": "K1 a priority of 256 is accepted",
+  "file": "examples/storage/ktask.omni",
+  "old": "if prio > 255u32 { return Err<Resource<Task>,u32>(20u32) }",
+  "new": "if prio > 256u32 { return Err<Resource<Task>,u32>(20u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K2 a priority of 255 is refused",
+  "file": "examples/storage/ktask.omni",
+  "old": "if prio > 255u32 { return Err<Resource<Task>,u32>(20u32) }",
+  "new": "if prio >= 255u32 { return Err<Resource<Task>,u32>(20u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K3 an empty stack is accepted",
+  "file": "examples/storage/ktask.omni",
+  "old": "if stack_size == 0u64 {",
+  "new": "if stack_size == 1u64 {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K4 a stack base aligned to 8 is accepted",
+  "file": "examples/storage/ktask.omni",
+  "old": "if bit.and(stack_base, 15u64) != 0u64 { return Err<Resource<Task>,u32>(20u32) }",
+  "new": "if bit.and(stack_base, 7u64) != 0u64 { return Err<Resource<Task>,u32>(20u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K5 a stack that ends at the last address is refused",
+  "file": "examples/storage/ktask.omni",
+  "old": "if stack_size > max64() - stack_base {",
+  "new": "if stack_size >= max64() - stack_base {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K6 a stack that wraps is accepted",
+  "file": "examples/storage/ktask.omni",
+  "old": "if stack_size > max64() - stack_base {",
+  "new": "if stack_size > max64() - stack_base && false {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K7 a new task is ready",
+  "file": "examples/storage/ktask.omni",
+  "old": "state: 0u32, prio: prio",
+  "new": "state: 1u32, prio: prio",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K8 the id is stored plus one",
+  "file": "examples/storage/ktask.omni",
+  "old": "Record { id: id, state: 0u32",
+  "new": "Record { id: id + 1u64, state: 0u32",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K9 a new task has ticks",
+  "file": "examples/storage/ktask.omni",
+  "old": "stack_size: stack_size, ticks: 0u64 }",
+  "new": "stack_size: stack_size, ticks: 1u64 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K10 the top of the stack is its base",
+  "file": "examples/storage/ktask.omni",
+  "old": "x.stack_base + x.stack_size",
+  "new": "x.stack_base",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K11 the base of the stack is its size",
+  "file": "examples/storage/ktask.omni",
+  "old": "Ok(x) { return Ok<u64,u32>(x.stack_base) }",
+  "new": "Ok(x) { return Ok<u64,u32>(x.stack_size) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K12 a dead task can move",
+  "file": "examples/storage/ktask.omni",
+  "old": "if from == 4u32 { return false }",
+  "new": "if from == 4u32 && false { return false }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K13 only a blocked task can die",
+  "file": "examples/storage/ktask.omni",
+  "old": "if to == 4u32 { return true }",
+  "new": "if to == 4u32 { return from == 3u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K14 a new task goes to running",
+  "file": "examples/storage/ktask.omni",
+  "old": "if from == 0u32 { return to == 1u32 }",
+  "new": "if from == 0u32 { return to == 2u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K15 a ready task goes to blocked",
+  "file": "examples/storage/ktask.omni",
+  "old": "if from == 1u32 { return to == 2u32 }",
+  "new": "if from == 1u32 { return to == 3u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K16 a running task cannot block",
+  "file": "examples/storage/ktask.omni",
+  "old": "return to == 1u32 || to == 3u32",
+  "new": "return to == 1u32",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K17 a running task cannot go back to ready",
+  "file": "examples/storage/ktask.omni",
+  "old": "return to == 1u32 || to == 3u32",
+  "new": "return to == 3u32",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K18 a blocked task goes to running",
+  "file": "examples/storage/ktask.omni",
+  "old": "if from == 3u32 { return to == 1u32 }",
+  "new": "if from == 3u32 { return to == 2u32 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K19 transition answers the new state",
+  "file": "examples/storage/ktask.omni",
+  "old": "Ok(n) { return Ok<u32,u32>(x.state) }",
+  "new": "Ok(n) { return Ok<u32,u32>(to) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K20 transition does not change the state",
+  "file": "examples/storage/ktask.omni",
+  "old": "Record { id: x.id, state: to,",
+  "new": "Record { id: x.id, state: x.state,",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K21 transition resets the ticks",
+  "file": "examples/storage/ktask.omni",
+  "old": "state: to, prio: x.prio, stack_base: x.stack_base, stack_size: x.stack_size, ticks: x.ticks }",
+  "new": "state: to, prio: x.prio, stack_base: x.stack_base, stack_size: x.stack_size, ticks: 0u64 }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K22 transition resets the priority",
+  "file": "examples/storage/ktask.omni",
+  "old": "state: to, prio: x.prio,",
+  "new": "state: to, prio: 0u32,",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K23 a priority of 256 is set",
+  "file": "examples/storage/ktask.omni",
+  "old": "if p > 255u32 { return Err<u32,u32>(20u32) }",
+  "new": "if p > 256u32 { return Err<u32,u32>(20u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K24 a priority of 255 cannot be set",
+  "file": "examples/storage/ktask.omni",
+  "old": "if p > 255u32 { return Err<u32,u32>(20u32) }",
+  "new": "if p >= 255u32 { return Err<u32,u32>(20u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K25 set_prio answers the new priority",
+  "file": "examples/storage/ktask.omni",
+  "old": "Ok(n) { return Ok<u32,u32>(x.prio) }",
+  "new": "Ok(n) { return Ok<u32,u32>(p) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K26 set_prio loses the stack",
+  "file": "examples/storage/ktask.omni",
+  "old": "prio: p, stack_base: x.stack_base,",
+  "new": "prio: p, stack_base: 0u64,",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K27 ticks are charged to a ready task",
+  "file": "examples/storage/ktask.omni",
+  "old": "if x.state != 2u32 { return Err<u64,u32>(22u32) }",
+  "new": "if x.state != 2u32 && x.state != 1u32 { return Err<u64,u32>(22u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K28 ticks are charged to a blocked task",
+  "file": "examples/storage/ktask.omni",
+  "old": "if x.state != 2u32 { return Err<u64,u32>(22u32) }",
+  "new": "if x.state != 2u32 && x.state != 3u32 { return Err<u64,u32>(22u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K29 the last tick is refused",
+  "file": "examples/storage/ktask.omni",
+  "old": "if n > max64() - x.ticks { return Err<u64,u32>(6u32) }",
+  "new": "if n >= max64() - x.ticks { return Err<u64,u32>(6u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K30 ticks wrap",
+  "file": "examples/storage/ktask.omni",
+  "old": "if n > max64() - x.ticks { return Err<u64,u32>(6u32) }",
+  "new": "if n > max64() - x.ticks && false { return Err<u64,u32>(6u32) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K31 charge does not store",
+  "file": "examples/storage/ktask.omni",
+  "old": "stack_size: x.stack_size, ticks: x.ticks + n }",
+  "new": "stack_size: x.stack_size, ticks: x.ticks }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K32 charge answers the old total",
+  "file": "examples/storage/ktask.omni",
+  "old": "Ok(k) { return Ok<u64,u32>(x.ticks + n) }",
+  "new": "Ok(k) { return Ok<u64,u32>(x.ticks) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K33 destroy keeps the record",
+  "file": "examples/storage/ktask.omni",
+  "old": "let f = heap.free<Record>(hp, blk)",
+  "new": "let f = heap.store<Record>(borrow(hp), blk, Record { id: 0u64, state: 0u32, prio: 0u32, stack_base: 0u64, stack_size: 0u64, ticks: 0u64 })",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K34 the record is looked up as two records",
+  "file": "examples/storage/ktask.omni",
+  "old": "return heap.descriptor_at<Record>(hp, r.m, 1u64)",
+  "new": "return heap.descriptor_at<Record>(hp, r.m, 2u64)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K35 the task points past its record",
+  "file": "examples/storage/ktask.omni",
+  "old": "resource.seal(Task { m: blk.addr })",
+  "new": "resource.seal(Task { m: blk.addr + 16u64 })",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K36 id answers the ticks",
+  "file": "examples/storage/ktask.omni",
+  "old": "Ok(x) { return Ok<u64,u32>(x.id) }",
+  "new": "Ok(x) { return Ok<u64,u32>(x.ticks) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K37 ticks answers the id",
+  "file": "examples/storage/ktask.omni",
+  "old": "Ok(x) { return Ok<u64,u32>(x.ticks) }",
+  "new": "Ok(x) { return Ok<u64,u32>(x.id) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K38 state answers the priority",
+  "file": "examples/storage/ktask.omni",
+  "old": "Ok(x) { return Ok<u32,u32>(x.state) }",
+  "new": "Ok(x) { return Ok<u32,u32>(x.prio) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K39 prio answers the state",
+  "file": "examples/storage/ktask.omni",
+  "old": "Ok(x) { return Ok<u32,u32>(x.prio) }",
+  "new": "Ok(x) { return Ok<u32,u32>(x.state) }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K40 create stores the stack size as the base",
+  "file": "examples/storage/ktask.omni",
+  "old": "prio: prio, stack_base: stack_base, stack_size: stack_size,",
+  "new": "prio: prio, stack_base: stack_size, stack_size: stack_size,",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K41 create stores the priority as the id",
+  "file": "examples/storage/ktask.omni",
+  "old": "Record { id: id, state: 0u32, prio: prio,",
+  "new": "Record { id: id, state: 0u32, prio: 0u32,",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K42 an out-of-memory create does not report it",
+  "file": "examples/storage/ktask.omni",
+  "old": "Err(code) { return Err<Resource<Task>,u32>(code) }\n    Ok(blk) {",
+  "new": "Err(code) { return Err<Resource<Task>,u32>(0u32) }\n    Ok(blk) {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K43 destroy reports success on a stale record",
+  "file": "examples/storage/ktask.omni",
+  "old": "Err(code) { return code }\n    Ok(blk) {",
+  "new": "Err(code) { return 0u32 }\n    Ok(blk) {",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ },
+ {
+  "name": "K44 transition from a stale record is allowed",
+  "file": "examples/storage/ktask.omni",
+  "old": "Err(code) { return Err<u32,u32>(code) }\n    Ok(x) {\n      if allowed",
+  "new": "Err(code) { return Ok<u32,u32>(0u32) }\n    Ok(x) {\n      if allowed",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "KtaskLibraryTests"
+  ]
+ }
+]

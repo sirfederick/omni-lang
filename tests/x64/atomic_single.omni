@@ -1,0 +1,36 @@
+module t
+import rt "rt.omni"
+
+// G2: single-vCPU native execution of every atomic form of the ST09 candidate. Serial output is the oracle:
+// each line is the value the contract requires (see tests/x64 expectations in language_0_8_3_alpha8.py).
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let c32 u64 = 5308416u64
+  let n32 u64 = 5308420u64
+  let c64 u64 = 5308424u64
+  let guard u32 = raw.store32(n32, 3735928559u32)
+  let s0 u32 = atomic.store32(c32, 41u32, 4u32)
+  print(atomic.load32(c32, 4u32))
+  print(atomic.fetch_add32(c32, 1u32, 4u32))
+  print(atomic.load32(c32, 1u32))
+  print(atomic.cas32(c32, 42u32, 100u32, 4u32, 4u32))
+  print(atomic.load32(c32, 0u32))
+  print(atomic.cas32(c32, 42u32, 7u32, 4u32, 4u32))
+  print(atomic.load32(c32, 4u32))
+  let s1 u32 = atomic.store32(c32, 4294967295u32, 2u32)
+  print(atomic.fetch_add32(c32, 2u32, 3u32))
+  print(atomic.load32(c32, 4u32))
+  let s2 u32 = atomic.store64(c64, 4294967301u64, 4u32)
+  print(atomic.load64(c64, 4u32))
+  print(atomic.fetch_add64(c64, 18446744073709551615u64, 4u32))
+  print(atomic.load64(c64, 1u32))
+  print(atomic.cas64(c64, 4294967300u64, 9u64, 4u32, 1u32))
+  print(atomic.load64(c64, 0u32))
+  print(atomic.cas64(c64, 1u64, 2u64, 3u32, 1u32))
+  print(atomic.load64(c64, 4u32))
+  let f1 u32 = atomic.fence(4u32)
+  let f2 u32 = atomic.fence(3u32)
+  let f3 u32 = atomic.fence(1u32)
+  let f4 u32 = atomic.fence(2u32)
+  print(raw.load32(n32))
+  return rt.finish(0u32)
+}

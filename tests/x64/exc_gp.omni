@@ -1,0 +1,18 @@
+module t
+import rt "rt.omni"
+import idt "idt.omni"
+
+// Terminal exception mode (--exception-handler without --exception-resume): the handler reports and ends the guest; the tail would
+// otherwise `cli; hlt`. A load from a non-canonical address raises #GP(0), vector 13, error code 0.
+func on_exception(frame u64) u32 !{io.print,memory.raw,port.io,cpu.control} {
+  print(raw.load64(frame))
+  print(raw.load64(frame + 8u64))
+  return rt.finish(100u32 + u32(raw.load64(frame)))
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let installed u32 = idt.install()
+  let seen u32 = raw.load32(9223372036854775808u64)
+  print(999u32)
+  return rt.finish(0u32)
+}

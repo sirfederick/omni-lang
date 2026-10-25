@@ -1,0 +1,89 @@
+{
+  "schema": "omni.golden-onme/1",
+  "written_by": {
+    "gate": "r18",
+    "compiler_sha256": "bdd3849956f470684664f39e4cb613d26b4aae059b16b70f380bbab872f6613a"
+  },
+  "unchanged": {
+    "examples/hola.omni": {
+      "file": "examples__hola.omni.onme",
+      "sha256": "950853d1aacbf559f2a0718466f8c754b7232ca4784ceb512db71409b336a5af",
+      "bytes": 564,
+      "version": "ONME2"
+    },
+    "examples/adt_enum.omni": {
+      "file": "examples__adt_enum.omni.onme",
+      "sha256": "ca14c0b3b06cca6c4ac2d5f59ebdc81656626579f654d81a20a9aa38c728a235",
+      "bytes": 791,
+      "version": "ONME2"
+    },
+    "examples/generics_iteration.omni": {
+      "file": "examples__generics_iteration.omni.onme",
+      "sha256": "641fc8da030c0e2d917b66b033f5984bfc29f605e48908de0b5afcb703afc518",
+      "bytes": 606,
+      "version": "ONME2"
+    },
+    "examples/resource_buffer.omni": {
+      "file": "examples__resource_buffer.omni.onme",
+      "sha256": "b70802e87df593c3056f2721bec5e92d382a1d2c43bf0bebf5ac5add5c498426",
+      "bytes": 1145,
+      "version": "ONME2"
+    },
+    "examples/borrow_mut.omni": {
+      "file": "examples__borrow_mut.omni.onme",
+      "sha256": "1f0a52b325498c2605bdc713b30c25d11a0d7a395135c84248f63e9bf32ed14a",
+      "bytes": 772,
+      "version": "ONME2"
+    },
+    "examples/option.omni": {
+      "file": "examples__option.omni.onme",
+      "sha256": "3778f2557fd778a932c566b13f3788d3a53deb2e82249d500a12898c4f62b36f",
+      "bytes": 787,
+      "version": "ONME2"
+    },
+    "examples/product_types.omni": {
+      "file": "examples__product_types.omni.onme",
+      "sha256": "bd604b842d88b90fc571528c33f9cf30f95abc174ac59481e7065317c3d3edd3",
+      "bytes": 873,
+      "version": "ONME2"
+    },
+    "examples/sumatoria.omni": {
+      "file": "examples__sumatoria.omni.onme",
+      "sha256": "deca417ce14e31fb00b38c0488089ac9396bc5dd2af2ee1d17539771bce0147a",
+      "bytes": 668,
+      "version": "ONME2"
+    }
+  },
+  "qualified": {
+    "examples/storage/mailbox.omni": {
+      "file": "examples__storage__mailbox.omni.onme",
+      "sha256": "b6fededf778ee98b1aa98065bac88c3d55f17b9558a76c94c55a6ff466876797",
+      "bytes": 6277,
+      "version": "ONME2"
+    },
+    "examples/storage/vec.omni": {
+      "file": "examples__storage__vec.omni.onme",
+      "sha256": "efe4b3c6fd6d865e5ccf2c52786326e80c36e63e025e42e19e483995d39ca509",
+      "bytes": 8569,
+      "version": "ONME2"
+    },
+    "tests/x64/cb_basic.omni": {
+      "file": "tests__x64__cb_basic.omni.onme",
+      "sha256": "b33aeefb95917eb91f870dbd6e48e441b7b8c484a10d315fcb7090a4d4289fa5",
+      "bytes": 16901,
+      "version": "ONME2"
+    },
+    "tests/x64/cb_smp.omni": {
+      "file": "tests__x64__cb_smp.omni.onme",
+      "sha256": "f44323de935e791aa0222b5d6311e67fdc1db41008054bfd4c2a22913f5663b2",
+      "bytes": 19541,
+      "version": "ONME2"
+    },
+    "tests/x64/cbreg.omni": {
+      "file": "tests__x64__cbreg.omni.onme",
+      "sha256": "2f2eb0ff0c4a20725359d783f8315c39d479167ead32198d3d83a4bf1e6afa95",
+      "bytes": 14618,
+      "version": "ONME2"
+    }
+  }
+}

@@ -1,0 +1,72 @@
+[
+ {
+  "name": "H1 the compiler FFI child is dumpable",
+  "file": "compiler/src/host_ffi.cpp",
+  "old": "        (void)prctl(PR_SET_DUMPABLE,0,0,0,0);\n",
+  "new": "",
+  "tests": [
+   "tests/language_0_8_6_alpha8.py",
+   "A86HostPolicyTests.test_the_ffi_child_is_not_dumpable"
+  ]
+ },
+ {
+  "name": "H2 the runtime FFI child is dumpable",
+  "file": "runtime/omni_runtime.c",
+  "old": "        (void)prctl(PR_SET_DUMPABLE,0,0,0,0);\n",
+  "new": "",
+  "tests": [
+   "tests/language_0_8_6_alpha8.py",
+   "A86HostPolicyTests.test_the_ffi_child_is_not_dumpable"
+  ]
+ },
+ {
+  "name": "H3 endpoint octets of any length",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(digits==0||digits>3||value>255u)return 0;",
+  "new": "if(digits==0||value>255u)return 0;",
+  "tests": [
+   "tests/robustness_limits.py",
+   "HostPolicyEndpointParityTests"
+  ]
+ },
+ {
+  "name": "H4 endpoint with trailing text",
+  "file": "runtime/omni_runtime.c",
+  "old": "return digits>0&&*p=='\\0'&&port>0&&port<=65535ul;",
+  "new": "return digits>0&&port>0&&port<=65535ul;",
+  "tests": [
+   "tests/robustness_limits.py",
+   "HostPolicyEndpointParityTests"
+  ]
+ },
+ {
+  "name": "H5 endpoint port zero",
+  "file": "runtime/omni_runtime.c",
+  "old": "return digits>0&&*p=='\\0'&&port>0&&port<=65535ul;",
+  "new": "return digits>0&&*p=='\\0'&&port<=65535ul;",
+  "tests": [
+   "tests/robustness_limits.py",
+   "HostPolicyEndpointParityTests"
+  ]
+ },
+ {
+  "name": "H6 endpoint port above 65535",
+  "file": "runtime/omni_runtime.c",
+  "old": "port<=65535ul;",
+  "new": "port<=6553500ul;",
+  "tests": [
+   "tests/robustness_limits.py",
+   "HostPolicyEndpointParityTests"
+  ]
+ },
+ {
+  "name": "H7 endpoint with a sign",
+  "file": "runtime/omni_runtime.c",
+  "old": "    const char *p=raw;\n    for(int i=0;i<4;i++) {",
+  "new": "    const char *p=raw;\n    if(*p=='+')++p;\n    for(int i=0;i<4;i++) {",
+  "tests": [
+   "tests/robustness_limits.py",
+   "HostPolicyEndpointParityTests"
+  ]
+ }
+]

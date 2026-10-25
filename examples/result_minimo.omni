@@ -1,0 +1,15 @@
+module demo
+struct Par { total u32; cantidad u32; }
+func promedio(p Par) Result<u32,u32> !pure {
+    if p.cantidad == 0 { return Err<u32,u32>(100) }
+    return Ok<u32,u32>(p.total / p.cantidad)
+}
+func main() u32 !io {
+    let entrada = Par { total: 40, cantidad: 0 }
+    match promedio(entrada) {
+        Ok(valor) { print(valor) }
+        Err(codigo) { print(codigo) }
+    }
+    print("El programa continua")
+    return 0
+}

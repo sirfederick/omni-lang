@@ -1,0 +1,31 @@
+module pin
+import rt "rt.omni"
+
+// CP-14 no-migration (candidate library, written in Omni). A pin guard records the CPU a section started on and checks, when the section ends,
+// that it is still there. Core has no scheduler, so it cannot PREVENT a context from being resumed on another CPU; what it provides is the
+// obligation (the guard is a nominal affine resource: a section is ended exactly once or the program does not compile) and the detection of the
+// violation: `exit` reports it, `exit_strict` ends the guest with exit value 94 (never continues as if the CPU-local data were still valid).
+// The CPU identity is the initial APIC id (CPUID leaf 1, EBX[31:24]).
+pub struct Pin { h u64 }
+
+pub func cpu_id() u32 !{cpu.control} {
+  return cpu.cpuid(1u32, 1u32) / 16777216u32
+}
+
+pub func enter() Resource<Pin> !{cpu.control} {
+  return resource.seal(Pin { h: u64(cpu_id()) })
+}
+
+pub func exit(g Resource<Pin>) u32 !{cpu.control} {
+  let s Pin = resource.unseal(move(g))
+  if u64(cpu_id()) == s.h { return 0u32 }
+  return 1u32
+}
+
+pub func exit_strict(g Resource<Pin>) u32 !{cpu.control,port.io} {
+  let moved u32 = exit(move(g))
+  if moved != 0u32 {
+    let dead u32 = rt.finish(94u32)
+  }
+  return 0u32
+}

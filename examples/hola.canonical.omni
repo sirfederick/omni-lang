@@ -1,0 +1,15 @@
+module demo
+
+func factorial(n u32) u32 !pure {
+    if (n <= 1) {
+        return 1;
+    } else {
+        return (n * factorial((n - 1)));
+    }
+}
+
+func main() u32 !{fs.read,fs.write,io.print} {
+    print("Hola, Omni");
+    print(factorial(6));
+    return 0;
+}

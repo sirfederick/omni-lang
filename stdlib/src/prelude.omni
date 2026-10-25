@@ -1,0 +1,13 @@
+module omni_std
+
+pub func ok_u32(value u32) Result<u32,u32> !pure {
+  return Ok<u32,u32>(value)
+}
+
+pub func err_u32(code u32) Result<u32,u32> !pure {
+  return Err<u32,u32>(code)
+}
+
+pub func text_is_empty(value Text) bool !pure {
+  return text.equals(value, "")
+}

@@ -1,0 +1,204 @@
+{
+  "schema": "omni.test-matrix/1",
+  "version": "0.1.0.00",
+  "policy": "Integrated WIP distribution. Groups retain compatibility identifiers; only actual executions provide verification.",
+  "groups": {
+    "core": [
+      "tests/core_compat_current.py"
+    ],
+    "compatibility": [
+      "tests/current_compatibility.py"
+    ],
+    "alpha5": [
+      "tests/language_0_2_alpha5.py"
+    ],
+    "alpha6": [
+      "tests/language_0_2_alpha6.py"
+    ],
+    "security": [
+      "tests/security_regressions_alpha6.py"
+    ],
+    "differential": [
+      "tests/numeric_differential.py",
+      "tests/adt_differential.py",
+      "tests/product_differential.py",
+      "tests/view_differential.py",
+      "tests/abstraction_differential.py"
+    ],
+    "smoke": [
+      "tests/language_sanitizer_smoke.py"
+    ],
+    "alpha7": [
+      "tests/language_0_7_alpha7.py"
+    ],
+    "alpha8": [
+      "tests/language_0_8_alpha8.py",
+      "tests/memory_authority_differential.py"
+    ],
+    "alpha8_1": [
+      "tests/language_0_8_1_alpha8.py",
+      "tests/float_differential.py",
+      "tests/unicode_differential.py",
+      "tests/data_control_differential.py",
+      "tests/range_differential.py"
+    ],
+    "a82": [
+      "tests/language_0_8_2_alpha8.py"
+    ],
+    "a83": [
+      "tests/language_0_8_3_alpha8.py",
+      "tests/option_owning_record.py"
+    ],
+    "a84": [
+      "tests/language_0_8_4_alpha8.py"
+    ],
+    "a85": [
+      "tests/language_0_8_5_alpha8.py"
+    ],
+    "a86": [
+      "tests/language_0_8_6_alpha8.py"
+    ],
+    "a87": [
+      "tests/language_0_8_7_alpha8.py"
+    ],
+    "a88": [
+      "tests/language_0_8_8_alpha8.py"
+    ],
+    "a89": [
+      "tests/language_0_8_9_alpha8.py"
+    ],
+    "a92": [
+      "tests/language_0_9_2.py"
+    ],
+    "a93": [
+      "tests/language_0_9_3.py"
+    ],
+    "a94": [
+      "tests/language_0_9_4.py"
+    ],
+    "a95": [
+      "tests/language_0_9_5.py"
+    ],
+    "a96": [
+      "tests/language_0_9_6.py"
+    ],
+    "a97": [
+      "tests/language_0_9_7.py"
+    ],
+    "hardware13": [
+      "tests/language_1_3_hardware_primitives.py"
+    ],
+    "storage13": [
+      "tests/cp04_dynamic_storage.py"
+    ],
+    "limits13": [
+      "tests/robustness_limits.py"
+    ],
+    "containers13": [
+      "tests/cp02_borrowed_containers.py"
+    ],
+    "generic_resources13": [
+      "tests/cp01_generic_resources.py"
+    ],
+    "owned_slots13": [
+      "tests/cp01_owned_slots.py"
+    ],
+    "cleanup_failure13": [
+      "tests/cp03_cleanup_failure.py"
+    ],
+    "callable_registry13": [
+      "tests/cp06_callable_registry.py"
+    ],
+    "collections13": [
+      "tests/cp05_collections.py"
+    ],
+    "adversarial13": [
+      "tests/cp02_adversarial.py"
+    ],
+    "windows13": [
+      "tests/cp02_windows.py"
+    ],
+    "packages13": [
+      "tests/cp05_packages.py"
+    ],
+    "arena_users13": [
+      "tests/cp04_arena_live_users.py"
+    ],
+    "mmio13": [
+      "tests/cp08_mmio.py",
+      "tests/cp08_dma.py",
+      "tests/cp08_fields.py",
+      "tests/cp08_raw_boundary.py"
+    ],
+    "cpustate13": [
+      "tests/cp10_state.py",
+      "tests/cp11_tls_irq.py",
+      "tests/cp12_frames.py",
+      "tests/cp12_stacks.py",
+      "tests/cp10_simd.py"
+    ],
+    "freestanding13": [
+      "tests/cp09_freestanding.py",
+      "tests/cp09_linkage.py"
+    ],
+    "address13": [
+      "tests/cp07_address_domains.py",
+      "tests/cp07_casts.py",
+      "tests/cp07_static_data.py",
+      "tests/cp07_static_assert.py",
+      "tests/cp07_target.py",
+      "tests/cp07_endian.py"
+    ],
+    "projection13": [
+      "tests/cp15_projection.py"
+    ],
+    "scale13": [
+      "tests/cp15_scale.py"
+    ],
+    "diagnostics13": [
+      "tests/cp16_diagnostics.py",
+      "tests/cp16_single_checker.py",
+      "tests/cp16_tooling.py"
+    ],
+    "sdk13": [
+      "tests/cp17_distribution.py",
+      "tests/cp17_semantic_exports.py"
+    ],
+    "smp13": [
+      "tests/cp13_atomics.py",
+      "tests/cp13_memory_model.py"
+    ],
+    "sections13": [
+      "tests/cp14_sections.py"
+    ],
+    "cancellation13": [
+      "tests/cp03_cancellation.py"
+    ],
+    "identity13": [
+      "tests/artifact_identity.py"
+    ],
+    "structural": [
+      "tests/structural_verifiers.py"
+    ]
+  },
+  "not_portable": {
+    "tests/cp18_traceability.py": "Private-history or exact-Git workflow dependency; not a language-semantic pass",
+    "tests/dev_tool.py": "Private-history or exact-Git workflow dependency; not a language-semantic pass",
+    "tests/gate_tools.py": "Private-history or exact-Git workflow dependency; not a language-semantic pass",
+    "tests/language_0_9_8.py": "Private-history or exact-Git workflow dependency; not a language-semantic pass",
+    "tests/language_0_9_9.py": "Private-history or exact-Git workflow dependency; not a language-semantic pass",
+    "compatibility.publication_presence": "Four historical research/editorial checks excluded explicitly in COMPATIBILITY_COVERAGE.json; not counted as skips or passes"
+  },
+  "adapter_inputs": [
+    "tests/language_0_2_alpha.py",
+    "tests/language_0_2_alpha1.py",
+    "tests/language_0_2_alpha2.py",
+    "tests/language_0_2_alpha3.py",
+    "tests/language_0_2_alpha4.py"
+  ],
+  "group_requirements": {
+    "a89": "Postcommit exact-source audit requires Git; not part of no-Git precommit acceptance",
+    "a96": "Postcommit exact-source audit requires Git; not part of no-Git precommit acceptance",
+    "a97": "Postcommit exact-source audit requires Git; not part of no-Git precommit acceptance"
+  }
+}

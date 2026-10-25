@@ -1,0 +1,63 @@
+module bitfield
+
+// CP-08 / MN-05 (spec/REGISTER_FIELDS_CANDIDATE.md): the pure half of typed register fields. A register value is an integer; the fields of a hardware register are named bit ranges with rules
+// of their own. A FIELD is a policy type, like a register and a region are: it says where its bits are (`shift`, `width`) and nothing else. Everything here is a pure function of the register
+// value (no capability), so it runs anywhere - hosted, in the evaluator, in a freestanding image and at compile time inside a `static_assert`.
+//   fits / disjoint   questions a `static_assert` asks about the layout: does the field lie inside a register of N bits, do two fields share a bit
+//   mask / limit      the bits of the field in place, and the largest value it holds
+//   get / put         read a field of a value, replace one (every other bit stays)
+// The operations on a MAPPED register (read a field, change one field in place, clear one field) are field.omni.
+// A register layout is declared once, next to the register, and checked by the compiler:
+//     struct Mode { tag u32 }  impl bitfield.Field for Mode { func shift() u32 { return 1u32 }  func width() u32 { return 3u32 } }
+//     static_assert(bitfield.fits<Mode>(32u32) && bitfield.disjoint<Mode, Enable>(), "the layout of Control")
+// Outcome codes: 1 the value does not fit the field (x needs more bits than the field has)   2 the field itself is not valid (zero width, or beyond 64 bits)
+pub trait Field {
+  func shift() u32 !pure
+  func width() u32 !pure
+}
+
+// Is the field a valid bit range inside a register of `bits` bits (1..64)?
+pub func fits<F: Field>(bits u32) bool {
+  let w u32 = Field.width<F>()
+  let s u32 = Field.shift<F>()
+  if bits == 0u32 { return false }
+  if bits > 64u32 { return false }
+  if w == 0u32 { return false }
+  if s >= bits { return false }
+  return w <= bits - s
+}
+
+// The bits of the field, in place. A field that is not valid has no mask (0): nothing built on it can change a bit.
+pub func mask<F: Field>() u64 {
+  if !fits<F>(64u32) { return 0u64 }
+  let w u32 = Field.width<F>()
+  let s u32 = Field.shift<F>()
+  if w == 64u32 { return 18446744073709551615u64 }
+  return bit.shl(bit.shl(1u64, w) - 1u64, s)
+}
+
+// Do the two fields share a bit? (A field that is not valid shares none, and `fits` is what reports it.)
+pub func disjoint<A: Field, B: Field>() bool {
+  return bit.and(mask<A>(), mask<B>()) == 0u64
+}
+
+// The largest value the field holds.
+pub func limit<F: Field>() u64 {
+  let w u32 = Field.width<F>()
+  if w == 0u32 { return 0u64 }
+  if w >= 64u32 { return 18446744073709551615u64 }
+  return bit.shl(1u64, w) - 1u64
+}
+
+// The field of a register value, as a number from 0.
+pub func get<F: Field>(v u64) u64 {
+  if !fits<F>(64u32) { return 0u64 }
+  return bit.shr(bit.and(v, mask<F>()), Field.shift<F>())
+}
+
+// The register value with the field replaced and every other bit as it was; refused when x needs more bits than the field has.
+pub func put<F: Field>(v u64, x u64) Result<u64,u32> {
+  if !fits<F>(64u32) { return Err<u64,u32>(2u32) }
+  if x > limit<F>() { return Err<u64,u32>(1u32) }
+  return Ok<u64,u32>(bit.or(bit.and(v, bit.not(mask<F>())), bit.shl(x, Field.shift<F>())))
+}

@@ -1,0 +1,190 @@
+module mmio
+import addr "addr.omni"
+
+// CP-08 (spec/MMIO_PORTS_CANDIDATE.md): typed access to memory-mapped registers and I/O ports, with the permissions the DEVICE declares, no accidental read-modify-write, a mapping
+// that is a resource, and a transfer that keeps its storage alive until the device is done.
+//
+// A device is described by POLICY TYPES, like the allocator is: a `Region` names where its registers are, and each register is a type that implements the traits of what the device
+// allows on it. An operation exists only for the registers that implement its trait, so a forbidden access is not a runtime check: it does not compile (E_GENERIC_CONSTRAINT).
+//   Readable    a read has no side effect                      read
+//   Writable    a write stores the value                       write          (a write-only register has no `read`)
+//   ReadClear   a read changes the device (clears flags)       read_clear     (it has no plain `read`: nobody reads it by accident, as a debugger would)
+//   W1C         writing a 1 clears that bit                    clear          (a single store of the mask: never a read-modify-write)
+//   ReadWrite   a register that can be changed in place        modify         (the explicit, non-atomic read-modify-write)
+// What is checked at run time is what depends on the numbers: the width (1, 2, 4 or 8 bytes), the alignment of the offset to the width, the offset against the size of the region, and a value that
+// does not fit the width. A Mapping is an owned resource: it is lent to every access and consumed by `unmap`, so a register cannot be reached after the mapping ended (E_RESOURCE_MOVED) and a
+// mapping cannot be forgotten (E_RESOURCE_UNCONSUMED). Raw access is still raw: it needs the capability `memory.raw` (`port.io` for ports) wherever it is used.
+// Outcome codes: 1 the register does not fit the region   2 the offset is not aligned to the width   3 the width is not 1, 2, 4 or 8   4 the value does not fit the width
+//   5 the region is empty   6 the region wraps the address space   7 the region is not canonical   8 the port or the width is not valid for a port
+pub trait Region {
+  func base() u64 !pure
+  func size() u64 !pure
+}
+
+pub trait Readable { func offset() u32 !pure
+  func width() u32 !pure }
+pub trait Writable { func offset() u32 !pure
+  func width() u32 !pure }
+pub trait ReadClear { func offset() u32 !pure
+  func width() u32 !pure }
+pub trait W1C { func offset() u32 !pure
+  func width() u32 !pure }
+pub trait ReadWrite { func offset() u32 !pure
+  func width() u32 !pure }
+
+pub trait PortReadable { func port() u32 !pure
+  func width() u32 !pure }
+pub trait PortWritable { func port() u32 !pure
+  func width() u32 !pure }
+pub trait PortReadClear { func port() u32 !pure
+  func width() u32 !pure }
+
+// The records raw memory works on: one field of the width of the access.
+pub struct W8 { v u8 }
+pub struct W16 { v u16 }
+pub struct W32 { v u32 }
+pub struct W64 { v u64 }
+
+// The mapping of a region: owned, lent to the accesses, consumed by `unmap`. It holds the base the region had when it was mapped.
+pub struct Mapping<G: Region> { h u64 }
+
+pub func map<G: Region>() Result<Resource<Mapping<G>>,u32> !{memory.raw} {
+  let base u64 = Region.base<G>()
+  let size u64 = Region.size<G>()
+  if size == 0u64 { return Err<Resource<Mapping<G>>,u32>(5u32) }
+  if size - 1u64 > 18446744073709551615u64 - base { return Err<Resource<Mapping<G>>,u32>(6u32) }   // the last byte is base + size - 1: a region that ends at the very last address does not wrap
+  let first = addr.virt(base)
+  match first { Ok(a) { } Err(code) { return Err<Resource<Mapping<G>>,u32>(7u32) } }
+  let last = addr.virt(base + (size - 1u64))
+  match last { Ok(a) { } Err(code) { return Err<Resource<Mapping<G>>,u32>(7u32) } }
+  return Ok<Resource<Mapping<G>>,u32>(resource.seal(Mapping<G> { h: base }))
+}
+
+pub func unmap<G: Region>(m Resource<Mapping<G>>) u32 {
+  let inner Mapping<G> = resource.unseal(move(m))
+  return 0u32
+}
+
+// The address of a register of `width` bytes at `off` inside the mapping, or the code that says why it cannot be reached.
+func locate<G: Region>(m Borrow<Mapping<G>>, off u32, width u32) Result<u64,u32> {
+  if width != 1u32 {
+    if width != 2u32 {
+      if width != 4u32 {
+        if width != 8u32 { return Err<u64,u32>(3u32) }
+      }
+    }
+  }
+  if off % width != 0u32 { return Err<u64,u32>(2u32) }
+  if u64(off) > Region.size<G>() { return Err<u64,u32>(1u32) }
+  if Region.size<G>() - u64(off) < u64(width) { return Err<u64,u32>(1u32) }
+  let mapped Mapping<G> = resource.peek(m)
+  return Ok<u64,u32>(mapped.h + u64(off))
+}
+
+func load(address u64, width u32) u64 !{memory.raw} {
+  if width == 1u32 {
+    let w W8 = raw.read<W8>(address)
+    return u64(w.v)
+  }
+  if width == 2u32 {
+    let w W16 = raw.read<W16>(address)
+    return u64(w.v)
+  }
+  if width == 4u32 {
+    let w W32 = raw.read<W32>(address)
+    return u64(w.v)
+  }
+  let w W64 = raw.read<W64>(address)
+  return w.v
+}
+
+func fits(width u32, v u64) bool {
+  if width == 1u32 { return v <= 255u64 }
+  if width == 2u32 { return v <= 65535u64 }
+  if width == 4u32 { return v <= 4294967295u64 }
+  return true
+}
+
+// ONE store of `v`: nothing is read first.
+func store(address u64, width u32, v u64) u32 !{memory.raw} {
+  if width == 1u32 { return raw.write<W8>(address, W8 { v: u8(v) }) }
+  if width == 2u32 { return raw.write<W16>(address, W16 { v: u16(v) }) }
+  if width == 4u32 { return raw.write<W32>(address, W32 { v: u32(v) }) }
+  return raw.write<W64>(address, W64 { v: v })
+}
+
+pub func read<G: Region, R: Readable>(m Borrow<Mapping<G>>) Result<u64,u32> !{memory.raw} {
+  let at = locate<G>(m, Readable.offset<R>(), Readable.width<R>())
+  match at { Ok(address) { return Ok<u64,u32>(load(address, Readable.width<R>())) } Err(code) { return Err<u64,u32>(code) } }
+}
+
+pub func read_clear<G: Region, R: ReadClear>(m Borrow<Mapping<G>>) Result<u64,u32> !{memory.raw} {
+  let at = locate<G>(m, ReadClear.offset<R>(), ReadClear.width<R>())
+  match at { Ok(address) { return Ok<u64,u32>(load(address, ReadClear.width<R>())) } Err(code) { return Err<u64,u32>(code) } }
+}
+
+pub func write<G: Region, R: Writable>(m BorrowMut<Mapping<G>>, v u64) Result<u32,u32> !{memory.raw} {
+  if !fits(Writable.width<R>(), v) { return Err<u32,u32>(4u32) }
+  let at = locate<G>(borrow(m), Writable.offset<R>(), Writable.width<R>())
+  match at { Ok(address) { return Ok<u32,u32>(store(address, Writable.width<R>(), v)) } Err(code) { return Err<u32,u32>(code) } }
+}
+
+// Writes the mask, and only the mask: bits that are 1 are cleared by the device, bits that are 0 are left alone. There is no read before it.
+pub func clear<G: Region, R: W1C>(m BorrowMut<Mapping<G>>, mask u64) Result<u32,u32> !{memory.raw} {
+  if !fits(W1C.width<R>(), mask) { return Err<u32,u32>(4u32) }
+  let at = locate<G>(borrow(m), W1C.offset<R>(), W1C.width<R>())
+  match at { Ok(address) { return Ok<u32,u32>(store(address, W1C.width<R>(), mask)) } Err(code) { return Err<u32,u32>(code) } }
+}
+
+// The explicit read-modify-write of a register that can be changed in place: bits of `clear_mask` are cleared, then bits of `set_mask` are set. It is not atomic.
+pub func modify<G: Region, R: ReadWrite>(m BorrowMut<Mapping<G>>, clear_mask u64, set_mask u64) Result<u64,u32> !{memory.raw} {
+  if !fits(ReadWrite.width<R>(), set_mask) { return Err<u64,u32>(4u32) }
+  let at = locate<G>(borrow(m), ReadWrite.offset<R>(), ReadWrite.width<R>())
+  match at {
+    Ok(address) {
+      let old u64 = load(address, ReadWrite.width<R>())
+      let next u64 = bit.or(bit.and(old, bit.not(clear_mask)), set_mask)
+      let done u32 = store(address, ReadWrite.width<R>(), next)
+      return Ok<u64,u32>(old)
+    }
+    Err(code) { return Err<u64,u32>(code) }
+  }
+}
+
+// ---- I/O ports: the same permissions on port numbers
+func port_ok(port u32, width u32) bool {
+  if port > 65535u32 { return false }
+  if width == 1u32 { return true }
+  if width == 2u32 { return port % 2u32 == 0u32 }
+  if width == 4u32 { return port % 4u32 == 0u32 }
+  return false
+}
+
+func port_in(port u32, width u32) u32 !{port.io} {
+  if width == 1u32 { return port.in8(port) }
+  if width == 2u32 { return port.in16(port) }
+  return port.in32(port)
+}
+
+func port_out(port u32, width u32, v u32) u32 !{port.io} {
+  if width == 1u32 { return port.out8(port, v) }
+  if width == 2u32 { return port.out16(port, v) }
+  return port.out32(port, v)
+}
+
+pub func port_read<R: PortReadable>() Result<u32,u32> !{port.io} {
+  if !port_ok(PortReadable.port<R>(), PortReadable.width<R>()) { return Err<u32,u32>(8u32) }
+  return Ok<u32,u32>(port_in(PortReadable.port<R>(), PortReadable.width<R>()))
+}
+
+pub func port_read_clear<R: PortReadClear>() Result<u32,u32> !{port.io} {
+  if !port_ok(PortReadClear.port<R>(), PortReadClear.width<R>()) { return Err<u32,u32>(8u32) }
+  return Ok<u32,u32>(port_in(PortReadClear.port<R>(), PortReadClear.width<R>()))
+}
+
+pub func port_write<R: PortWritable>(v u32) Result<u32,u32> !{port.io} {
+  if !port_ok(PortWritable.port<R>(), PortWritable.width<R>()) { return Err<u32,u32>(8u32) }
+  if PortWritable.width<R>() == 1u32 { if v > 255u32 { return Err<u32,u32>(4u32) } }
+  if PortWritable.width<R>() == 2u32 { if v > 65535u32 { return Err<u32,u32>(4u32) } }
+  return Ok<u32,u32>(port_out(PortWritable.port<R>(), PortWritable.width<R>(), v))
+}

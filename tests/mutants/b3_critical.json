@@ -1,0 +1,461 @@
+[
+ {
+  "name": "P1 a section may allocate",
+  "file": "examples/storage/critical.omni",
+  "old": "  func run(arg u64) u32 !{memory.raw,memory.atomic}\n",
+  "new": "  func run(arg u64) u32 !{memory.raw,memory.atomic,memory.write}\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "P2 a section may wait on a device",
+  "file": "examples/storage/critical.omni",
+  "old": "  func run(arg u64) u32 !{memory.raw,memory.atomic}\n",
+  "new": "  func run(arg u64) u32 !{memory.raw,memory.atomic,port.io}\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "P3 a section may control the CPU",
+  "file": "examples/storage/critical.omni",
+  "old": "  func run(arg u64) u32 !{memory.raw,memory.atomic}\n",
+  "new": "  func run(arg u64) u32 !{memory.raw,memory.atomic,cpu.control}\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "P4 a section may use thread-local state",
+  "file": "examples/storage/critical.omni",
+  "old": "  func run(arg u64) u32 !{memory.raw,memory.atomic}\n",
+  "new": "  func run(arg u64) u32 !{memory.raw,memory.atomic,memory.tls}\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "P5 a section may make a system call",
+  "file": "examples/storage/critical.omni",
+  "old": "  func run(arg u64) u32 !{memory.raw,memory.atomic}\n",
+  "new": "  func run(arg u64) u32 !{memory.raw,memory.atomic,cpu.syscall}\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "P6 a section has no atomics",
+  "file": "examples/storage/critical.omni",
+  "old": "  func run(arg u64) u32 !{memory.raw,memory.atomic}\n",
+  "new": "  func run(arg u64) u32 !{memory.raw}\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "P7 a section has no raw memory",
+  "file": "examples/storage/critical.omni",
+  "old": "  func run(arg u64) u32 !{memory.raw,memory.atomic}\n",
+  "new": "  func run(arg u64) u32 !{memory.atomic}\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "P8 a section may print",
+  "file": "examples/storage/critical.omni",
+  "old": "  func run(arg u64) u32 !{memory.raw,memory.atomic}\n",
+  "new": "  func run(arg u64) u32 !{memory.raw,memory.atomic,io.print}\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "P9 a section may call foreign code",
+  "file": "examples/storage/critical.omni",
+  "old": "  func run(arg u64) u32 !{memory.raw,memory.atomic}\n",
+  "new": "  func run(arg u64) u32 !{memory.raw,memory.atomic,ffi.call}\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "R1 irq_off does not disable interrupts",
+  "file": "examples/storage/critical.omni",
+  "old": "let off u32 = cpu.cli()\n  let r u32 = Section.run<S>(arg)",
+  "new": "let off u32 = 0u32\n  let r u32 = Section.run<S>(arg)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "R2 irq_off enables interrupts that were disabled",
+  "file": "examples/storage/critical.omni",
+  "old": "if bit.and(flags, 512u64) != 0u64 {\n    let on u32 = cpu.sti()\n  }\n  return r\n}",
+  "new": "if bit.and(flags, 512u64) != 99u64 {\n    let on u32 = cpu.sti()\n  }\n  return r\n}",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "R3 irq_off never restores interrupts",
+  "file": "examples/storage/critical.omni",
+  "old": "if bit.and(flags, 512u64) != 0u64 {\n    let on u32 = cpu.sti()\n  }\n  return r\n}",
+  "new": "if bit.and(flags, 512u64) == 99u64 {\n    let on u32 = cpu.sti()\n  }\n  return r\n}",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "R4 irq_off loses the result of the body",
+  "file": "examples/storage/critical.omni",
+  "old": "let on u32 = cpu.sti()\n  }\n  return r\n}",
+  "new": "let on u32 = cpu.sti()\n  }\n  return 0u32\n}",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L1 locked does not disable interrupts",
+  "file": "examples/storage/critical.omni",
+  "old": "let off u32 = cpu.cli()\n  var got bool",
+  "new": "let off u32 = 0u32\n  var got bool",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L2 locked takes the lock from 1 to 0",
+  "file": "examples/storage/critical.omni",
+  "old": "if atomic.cas32(lock, 0u32, 1u32, 3u32, 1u32) == 0u32 {",
+  "new": "if atomic.cas32(lock, 1u32, 0u32, 3u32, 1u32) == 0u32 {",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L3 locked takes a lock that is held",
+  "file": "examples/storage/critical.omni",
+  "old": "if atomic.cas32(lock, 0u32, 1u32, 3u32, 1u32) == 0u32 {",
+  "new": "if atomic.cas32(lock, 0u32, 1u32, 3u32, 1u32) != 99u32 {",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L4 locked takes the lock with relaxed orders",
+  "file": "examples/storage/critical.omni",
+  "old": "if atomic.cas32(lock, 0u32, 1u32, 3u32, 1u32) == 0u32 {",
+  "new": "if atomic.cas32(lock, 0u32, 1u32, 0u32, 0u32) == 0u32 {",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L5 locked tries only once",
+  "file": "examples/storage/critical.omni",
+  "old": "for i in 0u32..attempts {",
+  "new": "for i in 0u32..1u32 {",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L6 locked does not give the lock back",
+  "file": "examples/storage/critical.omni",
+  "old": "let rel u32 = atomic.store32(lock, 0u32, 2u32)",
+  "new": "let rel u32 = atomic.store32(lock, 1u32, 2u32)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L7 locked gives the lock back with a relaxed store",
+  "file": "examples/storage/critical.omni",
+  "old": "let rel u32 = atomic.store32(lock, 0u32, 2u32)",
+  "new": "let rel u32 = atomic.store32(lock, 0u32, 0u32)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L8 locked gives the lock back before the body",
+  "file": "examples/storage/critical.omni",
+  "old": "let r u32 = Section.run<S>(arg)\n  let rel u32 = atomic.store32(lock, 0u32, 2u32)",
+  "new": "let rel u32 = atomic.store32(lock, 0u32, 2u32)\n  let r u32 = Section.run<S>(arg)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L9 locked answers success when the lock was not taken",
+  "file": "examples/storage/critical.omni",
+  "old": "return Err<u32,u32>(17u32)",
+  "new": "return Ok<u32,u32>(17u32)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L10 locked answers another code",
+  "file": "examples/storage/critical.omni",
+  "old": "return Err<u32,u32>(17u32)",
+  "new": "return Err<u32,u32>(18u32)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L11 locked does not restore interrupts when the lock was not taken",
+  "file": "examples/storage/critical.omni",
+  "old": "if got == false {\n    if bit.and(flags, 512u64) != 0u64 {\n      let on u32 = cpu.sti()\n    }\n    return Err<u32,u32>(17u32)",
+  "new": "if got == false {\n    return Err<u32,u32>(17u32)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L12 locked loses the result of the body",
+  "file": "examples/storage/critical.omni",
+  "old": "return Ok<u32,u32>(r)",
+  "new": "return Ok<u32,u32>(0u32)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L13 locked enables interrupts that were disabled",
+  "file": "examples/storage/critical.omni",
+  "old": "let rel u32 = atomic.store32(lock, 0u32, 2u32)\n  if bit.and(flags, 512u64) != 0u64 {",
+  "new": "let rel u32 = atomic.store32(lock, 0u32, 2u32)\n  if bit.and(flags, 512u64) != 99u64 {",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L14 locked never restores interrupts after the body",
+  "file": "examples/storage/critical.omni",
+  "old": "let rel u32 = atomic.store32(lock, 0u32, 2u32)\n  if bit.and(flags, 512u64) != 0u64 {",
+  "new": "let rel u32 = atomic.store32(lock, 0u32, 2u32)\n  if bit.and(flags, 512u64) == 99u64 {",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "L15 locked keeps trying after it has the lock",
+  "file": "examples/storage/critical.omni",
+  "old": "      got = true\n      break\n",
+  "new": "      got = true\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ],
+  "equivalent": "after the lock is taken the loop would try again, but the compare-and-swap of a lock that is held (1) fails, so the extra iterations change nothing but the time"
+ },
+ {
+  "name": "L16 locked reads the flags after disabling interrupts",
+  "file": "examples/storage/critical.omni",
+  "old": "let flags u64 = cpu.read_flags()\n  let off u32 = cpu.cli()\n  var got bool",
+  "new": "let off u32 = cpu.cli()\n  let flags u64 = cpu.read_flags()\n  var got bool",
+  "tests": [
+   "tests/cp14_sections.py",
+   "SectionContractTests",
+   "SectionRuntimeTests",
+   "InterruptSectionTests"
+  ]
+ },
+ {
+  "name": "W1 the grace period scans only the first reader",
+  "file": "tests/x64/epoch.omni",
+  "old": "for k in 0u32..count {\n    let w u32 = wait(first + u64(k) * stride, target, attempts)",
+  "new": "for k in 0u32..1u32 {\n    let w u32 = wait(first + u64(k) * stride, target, attempts)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "Quiescence3Tests",
+   "CallbackRetirementTests"
+  ]
+ },
+ {
+  "name": "W2 the grace period scans one reader less",
+  "file": "tests/x64/epoch.omni",
+  "old": "for k in 0u32..count {\n    let w u32 = wait(first + u64(k) * stride, target, attempts)",
+  "new": "for k in 0u32..(count - 1u32) {\n    let w u32 = wait(first + u64(k) * stride, target, attempts)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "Quiescence3Tests",
+   "CallbackRetirementTests"
+  ]
+ },
+ {
+  "name": "W3 the grace period scans the same slot count times",
+  "file": "tests/x64/epoch.omni",
+  "old": "let w u32 = wait(first + u64(k) * stride, target, attempts)\n  }\n  return 1u32",
+  "new": "let w u32 = wait(first, target, attempts)\n  }\n  return 1u32",
+  "tests": [
+   "tests/cp14_sections.py",
+   "Quiescence3Tests",
+   "CallbackRetirementTests"
+  ]
+ },
+ {
+  "name": "W4 the slots are scanned at the wrong distance",
+  "file": "tests/x64/epoch.omni",
+  "old": "let w u32 = wait(first + u64(k) * stride, target, attempts)\n  }\n  return 1u32",
+  "new": "let w u32 = wait(first + u64(k), target, attempts)\n  }\n  return 1u32",
+  "tests": [
+   "tests/cp14_sections.py",
+   "Quiescence3Tests",
+   "CallbackRetirementTests"
+  ]
+ },
+ {
+  "name": "W5 the grace period waits for an older epoch",
+  "file": "tests/x64/epoch.omni",
+  "old": "let w u32 = wait(first + u64(k) * stride, target, attempts)\n  }\n  return 1u32",
+  "new": "let w u32 = wait(first + u64(k) * stride, 0u32, attempts)\n  }\n  return 1u32",
+  "tests": [
+   "tests/cp14_sections.py",
+   "Quiescence3Tests",
+   "CallbackRetirementTests"
+  ]
+ },
+ {
+  "name": "Q1 retire_all does not wait for the readers",
+  "file": "tests/x64/cbreg.omni",
+  "old": "let w u32 = epoch.wait_all(first, count, stride, e, attempts)\n",
+  "new": "",
+  "tests": [
+   "tests/cp14_sections.py",
+   "Quiescence3Tests",
+   "CallbackRetirementTests"
+  ]
+ },
+ {
+  "name": "Q2 retire_all waits for one reader",
+  "file": "tests/x64/cbreg.omni",
+  "old": "epoch.wait_all(first, count, stride, e, attempts)",
+  "new": "epoch.wait(first, e, attempts)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "Quiescence3Tests",
+   "CallbackRetirementTests"
+  ]
+ },
+ {
+  "name": "Q3 retire_all does not advance the epoch",
+  "file": "tests/x64/cbreg.omni",
+  "old": "let e u32 = epoch.advance(gen)\n  let w u32 = epoch.wait_all(first, count, stride, e, attempts)",
+  "new": "let e u32 = atomic.load32(gen, 4u32)\n  let w u32 = epoch.wait_all(first, count, stride, e, attempts)",
+  "tests": [
+   "tests/cp14_sections.py",
+   "Quiescence3Tests",
+   "CallbackRetirementTests"
+  ]
+ },
+ {
+  "name": "Q4 retire_all keeps the slot live",
+  "file": "tests/x64/cbreg.omni",
+  "old": "let off u32 = atomic.store32(slot, 0u32, 2u32)\n  let e u32 = epoch.advance(gen)\n  let w u32 = epoch.wait_all",
+  "new": "let off u32 = 0u32\n  let e u32 = epoch.advance(gen)\n  let w u32 = epoch.wait_all",
+  "tests": [
+   "tests/cp14_sections.py",
+   "Quiescence3Tests",
+   "CallbackRetirementTests"
+  ]
+ },
+ {
+  "name": "Q5 retire_all disposes before it waits",
+  "file": "tests/x64/cbreg.omni",
+  "old": "let e u32 = epoch.advance(gen)\n  let w u32 = epoch.wait_all(first, count, stride, e, attempts)\n  let env H = raw.read<H>(slot + 40u64)\n  let closed u32 = Handler.dispose<H>(env)\n  for i in 0u32..u32(layout.size<H>()) {\n    let p u32 = raw.store8(slot + 40u64 + u64(i), 221u32)\n  }\n  return closed\n}\n",
+  "new": "let env H = raw.read<H>(slot + 40u64)\n  let closed u32 = Handler.dispose<H>(env)\n  let e u32 = epoch.advance(gen)\n  let w u32 = epoch.wait_all(first, count, stride, e, attempts)\n  for i in 0u32..u32(layout.size<H>()) {\n    let p u32 = raw.store8(slot + 40u64 + u64(i), 221u32)\n  }\n  return closed\n}\n",
+  "tests": [
+   "tests/cp14_sections.py",
+   "Quiescence3Tests",
+   "CallbackRetirementTests"
+  ]
+ }
+]

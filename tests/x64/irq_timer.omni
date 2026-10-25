@@ -1,0 +1,41 @@
+module t
+import rt "rt.omni"
+import idt "idt.omni"
+
+// Asynchronous interrupts (spec/TARGET_BAREMETAL_PROFILE_CANDIDATE.md K2: cpu.sti / cpu.cli, --isr-count, resumable tail). A periodic
+// local-APIC timer (vector 32) interrupts a pure computation running with interrupts enabled. The handler is ordinary Omni code that counts
+// and acknowledges (EOI); the resumable tail restores the interrupted context, so the sum must come out exact. The computation is the
+// oracle for "state preserved across asynchronous entry"; the count only has to be non-zero (the timer rate is the emulator's).
+//
+// Local APIC (0xFEE00000): SVR 4276093168, EOI 4276093104, LVT timer 4276093728, initial count 4276093824, divide 4276093952.
+// Log: interrupt count at 0x520000 (5373952).
+
+func on_exception(frame u64) u32 !{memory.raw,port.io,cpu.control} {
+  if raw.load64(frame) == 32u64 {
+    let c u64 = raw.load64(5373952u64)
+    let a u32 = raw.store64(5373952u64, c + 1u64)
+    return raw.store32(4276093104u64, 0u32)
+  }
+  return rt.finish(100u32 + u32(raw.load64(frame)))
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let installed u32 = idt.install_count(33u32)
+  // The BIOS leaves the legacy 8259 PICs enabled with IRQ0 (PIT) at vector 8; mask them so only the local APIC interrupts.
+  let pic1 u32 = port.out8(33u32, 255u32)
+  let pic2 u32 = port.out8(161u32, 255u32)
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let div u32 = raw.store32(4276093952u64, 11u32)
+  let lvt u32 = raw.store32(4276093728u64, 131104u32)
+  let init u32 = raw.store32(4276093824u64, 100000u32)
+  let on u32 = cpu.sti()
+  var acc u64 = 0u64
+  for i in 0u32..3000000u32 {
+    acc = acc + u64(i)
+  }
+  let off u32 = cpu.cli()
+  let mask u32 = raw.store32(4276093728u64, 65568u32)
+  print(acc)
+  print(raw.load64(5373952u64))
+  return rt.finish(0u32)
+}

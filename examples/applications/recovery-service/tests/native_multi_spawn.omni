@@ -1,0 +1,19 @@
+module language_usable_native_multi_spawn_regression
+
+func main() u32 {
+    task_scope {
+        spawn left = 20u32 + 2u32;
+        spawn right = 10u32 + 10u32;
+        let left_result = join(left)
+        match left_result {
+            Err(code) { return code }
+            Ok(left_value) {
+                let right_result = join(right)
+                match right_result {
+                    Err(code) { return code }
+                    Ok(right_value) { return left_value + right_value }
+                }
+            }
+        }
+    }
+}

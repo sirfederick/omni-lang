@@ -1,0 +1,20 @@
+module ranges
+
+func main() u32 !{io.print} {
+  let exclusive Range<u32> = 1u32..5u32
+  let inclusive Range<u32> = 5u32..=7u32
+
+  var sum u32 = 0u32
+
+  for x in exclusive {
+    sum = sum + x
+  }
+
+  for x in inclusive {
+    if x==6u32 { continue }
+    sum = sum + x
+  }
+
+  print(sum)
+  return sum
+}

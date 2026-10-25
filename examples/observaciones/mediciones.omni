@@ -1,0 +1,25 @@
+module mediciones
+
+// Datos de laboratorio; no representan un controlador fisico certificado.
+pub struct Observacion {
+    miligrados_c u32
+    observado_ms u32
+    sensor u32
+}
+
+pub struct Kelvin {
+    milikelvin u32
+    observado_ms u32
+    sensor u32
+}
+
+pub func convertir(origen Observacion) Result<Kelvin,u32> !pure {
+    if origen.miligrados_c > 200000 {
+        return Err<Kelvin,u32>(7)
+    }
+    return Ok<Kelvin,u32>(Kelvin {
+        milikelvin: origen.miligrados_c + 273150,
+        observado_ms: origen.observado_ms,
+        sensor: origen.sensor
+    })
+}

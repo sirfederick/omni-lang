@@ -1,0 +1,110 @@
+module arena
+
+// CP-04 (spec/DYNAMIC_STORAGE_CANDIDATE.md): a bump allocator written in Omni over one owned Buffer. The caller owns the Resource<Buffer>;
+// the allocator state is a plain value threaded through the calls, so a failing call can never leave it half updated.
+//   * blocks have a runtime size and a power-of-two alignment of 1..16, measured from the buffer base (the host base is 16-aligned)
+//   * the backing grows on demand with buffer.grow; a block is an offset, never an address, so growth cannot invalidate a block
+//   * typed accessors check the epoch (stale after reset), the block bounds and the element alignment, and return a typed error
+//   * memory past `top` is always zero: growth zero-fills and reset zeroes what was used, so reuse never exposes old data
+// Outcome codes (a failing call changes neither the arena state nor the buffer):
+//   1 does not fit in the 1 MiB buffer limit   2 budget exhausted   3 host out of memory   4 stale block (epoch)   5 bad alignment (not a power of two in 1..16)
+//   6 size/offset arithmetic would overflow    7 index out of the block   8 block not aligned for the element type   9 epoch counter exhausted
+pub struct State { top u32, epoch u32 }
+pub struct Block { off u32, size u32, epoch u32 }
+pub struct Grant { state State, block Block }
+
+pub func limit() u32 { return 1048576u32 }
+
+pub func new_state() State { return State { top: 0u32, epoch: 1u32 } }
+
+pub func used(s State) u32 { return s.top }
+
+pub func alloc(b BorrowMut<Buffer>, s State, size u32, align u32) Result<Grant,u32> !{memory.read,memory.write} {
+  if align == 0u32 { return Err<Grant,u32>(5u32) }
+  if bit.and(align, align - 1u32) != 0u32 { return Err<Grant,u32>(5u32) }
+  if align > 16u32 { return Err<Grant,u32>(5u32) }
+  if s.top > 1048576u32 { return Err<Grant,u32>(6u32) }
+  let rem u32 = bit.and(s.top, align - 1u32)
+  var pad u32 = 0u32
+  if rem != 0u32 { pad = align - rem }
+  if size > 4294967295u32 - s.top - pad { return Err<Grant,u32>(6u32) }
+  let start u32 = s.top + pad
+  let end u32 = start + size
+  if end > 1048576u32 { return Err<Grant,u32>(1u32) }
+  let have u32 = buffer.len(b)
+  if end > have {
+    var want u32 = have * 2u32
+    if want < 64u32 { want = 64u32 }
+    if want < end { want = end }
+    if want > 1048576u32 { want = 1048576u32 }
+    let grown = buffer.grow(b, want)
+    match grown {
+      Ok(n) { }
+      Err(code) { return Err<Grant,u32>(code) }
+    }
+  }
+  return Ok<Grant,u32>(Grant { state: State { top: end, epoch: s.epoch }, block: Block { off: start, size: size, epoch: s.epoch } })
+}
+
+pub func valid(s State, blk Block) bool {
+  return blk.epoch == s.epoch && blk.off <= s.top && blk.size <= s.top - blk.off
+}
+
+func check(s State, blk Block, index u32, width u32) u32 {
+  if blk.epoch != s.epoch { return 4u32 }
+  if blk.off > s.top { return 4u32 }
+  if blk.size > s.top - blk.off { return 4u32 }
+  if bit.and(blk.off, width - 1u32) != 0u32 { return 8u32 }
+  if index >= blk.size / width { return 7u32 }
+  return 0u32
+}
+
+pub func read_u32(b Borrow<Buffer>, s State, blk Block, index u32) Result<u32,u32> !{memory.read} {
+  let c u32 = check(s, blk, index, 4u32)
+  if c != 0u32 { return Err<u32,u32>(c) }
+  let r = buffer.read_u32le(b, blk.off + index * 4u32)
+  match r {
+    Ok(x) { return Ok<u32,u32>(x) }
+    Err(code) { return Err<u32,u32>(code) }
+  }
+}
+
+pub func write_u32(b BorrowMut<Buffer>, s State, blk Block, index u32, x u32) Result<u32,u32> !{memory.write} {
+  let c u32 = check(s, blk, index, 4u32)
+  if c != 0u32 { return Err<u32,u32>(c) }
+  let w = buffer.write_u32le(b, blk.off + index * 4u32, x)
+  match w {
+    Ok(done) { return Ok<u32,u32>(done) }
+    Err(code) { return Err<u32,u32>(code) }
+  }
+}
+
+pub func read_u64(b Borrow<Buffer>, s State, blk Block, index u32) Result<u64,u32> !{memory.read} {
+  let c u32 = check(s, blk, index, 8u32)
+  if c != 0u32 { return Err<u64,u32>(c) }
+  let r = buffer.read_u64le(b, blk.off + index * 8u32)
+  match r {
+    Ok(x) { return Ok<u64,u32>(x) }
+    Err(code) { return Err<u64,u32>(code) }
+  }
+}
+
+pub func write_u64(b BorrowMut<Buffer>, s State, blk Block, index u32, x u64) Result<u32,u32> !{memory.write} {
+  let c u32 = check(s, blk, index, 8u32)
+  if c != 0u32 { return Err<u32,u32>(c) }
+  let w = buffer.write_u64le(b, blk.off + index * 8u32, x)
+  match w {
+    Ok(done) { return Ok<u32,u32>(done) }
+    Err(code) { return Err<u32,u32>(code) }
+  }
+}
+
+// Region reclamation: zeroes everything that was handed out and starts a new epoch, so every earlier block is stale.
+pub func reset(b BorrowMut<Buffer>, s State) Result<State,u32> !{memory.write} {
+  if s.epoch == 4294967295u32 { return Err<State,u32>(9u32) }
+  let z = buffer.zero(b, 0u32, s.top)
+  match z {
+    Ok(done) { return Ok<State,u32>(State { top: 0u32, epoch: s.epoch + 1u32 }) }
+    Err(code) { return Err<State,u32>(code) }
+  }
+}

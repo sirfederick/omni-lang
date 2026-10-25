@@ -1,0 +1,84 @@
+module window
+
+// CP-02 (spec/WINDOWS_CANDIDATE.md): dynamic windows over the bytes of a buffer, with bounds that are checked on EVERY use.
+// A window is plain data (an offset and a length); it grants nothing by itself. What it is used on is a buffer the caller holds, lent with Borrow (to read) or BorrowMut
+// (to write), so a window can only ever reach bytes of a buffer the caller is already entitled to, and a growth of that buffer (BorrowMut) cannot happen while a
+// borrowed read is in progress. A window that does not fit the buffer it is used on (forged, or made for a larger buffer) is refused with a typed code and no byte is
+// touched. `split` and `sub` make windows by arithmetic that cannot overflow; `copy` checks that two windows are disjoint instead of assuming it.
+// Outcome codes: 1 the window does not fit the buffer   2 index outside the window   3 the windows overlap   4 the windows differ in length   5 the cut is outside the window
+pub struct Window { off u32, len u32 }
+pub struct Pair { left Window, right Window }
+
+// The window of the whole buffer.
+pub func whole(b Borrow<Buffer>) Window !{memory.read} { return Window { off: 0u32, len: buffer.len(b) } }
+
+// Does the window fit the buffer? The subtraction form never overflows.
+pub func fits(b Borrow<Buffer>, w Window) bool !{memory.read} {
+  let n u32 = buffer.len(b)
+  return w.off <= n && w.len <= n - w.off
+}
+
+// A window inside a window: `off` and `n` are relative to `w`.
+pub func sub(w Window, off u32, n u32) Result<Window,u32> {
+  if off > w.len { return Err<Window,u32>(5u32) }
+  if n > w.len - off { return Err<Window,u32>(5u32) }
+  return Ok<Window,u32>(Window { off: w.off + off, len: n })
+}
+
+// Two windows that do not share a byte and together are exactly `w`: [0, at) and [at, len).
+pub func split(w Window, at u32) Result<Pair,u32> {
+  if at > w.len { return Err<Pair,u32>(5u32) }
+  return Ok<Pair,u32>(Pair { left: Window { off: w.off, len: at }, right: Window { off: w.off + at, len: w.len - at } })
+}
+
+pub func get(b Borrow<Buffer>, w Window, i u32) Result<u32,u32> !{memory.read} {
+  if !fits(b, w) { return Err<u32,u32>(1u32) }
+  if i >= w.len { return Err<u32,u32>(2u32) }
+  return buffer.read_u8(b, w.off + i)
+}
+
+pub func put(b BorrowMut<Buffer>, w Window, i u32, v u32) Result<u32,u32> !{memory.read,memory.write} {
+  if !fits(borrow(b), w) { return Err<u32,u32>(1u32) }
+  if i >= w.len { return Err<u32,u32>(2u32) }
+  return buffer.write_u8(b, w.off + i, v)
+}
+
+// Writes `v` (0..255) in every byte of the window.
+pub func fill(b BorrowMut<Buffer>, w Window, v u32) Result<u32,u32> !{memory.read,memory.write} {
+  if !fits(borrow(b), w) { return Err<u32,u32>(1u32) }
+  var i u32 = 0u32
+  for i < w.len {
+    let r = buffer.write_u8(b, w.off + i, v)
+    match r { Ok(d) { } Err(code) { return Err<u32,u32>(code) } }
+    i = i + 1u32
+  }
+  return Ok<u32,u32>(w.len)
+}
+
+pub func overlap(a Window, b Window) bool {
+  if a.len == 0u32 { return false }
+  if b.len == 0u32 { return false }
+  if a.off >= b.off { return a.off - b.off < b.len }
+  return b.off - a.off < a.len
+}
+
+// Copies the bytes of `src` over `dst`. The windows must have the same length and must not overlap (the check is made here, not assumed).
+pub func copy(b BorrowMut<Buffer>, src Window, dst Window) Result<u32,u32> !{memory.read,memory.write} {
+  if !fits(borrow(b), src) { return Err<u32,u32>(1u32) }
+  if !fits(borrow(b), dst) { return Err<u32,u32>(1u32) }
+  if src.len != dst.len { return Err<u32,u32>(4u32) }
+  if overlap(src, dst) { return Err<u32,u32>(3u32) }
+  var i u32 = 0u32
+  for i < src.len {
+    let r = buffer.read_u8(borrow(b), src.off + i)
+    match r {
+      Ok(v) {
+        let w = buffer.write_u8(b, dst.off + i, v)
+        match w { Ok(d) { } Err(code) { return Err<u32,u32>(code) } }
+      }
+      Err(code) { return Err<u32,u32>(code) }
+    }
+    i = i + 1u32
+  }
+  return Ok<u32,u32>(src.len)
+}

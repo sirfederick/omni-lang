@@ -1,0 +1,27 @@
+module t
+import rt "rt.omni"
+import irq "irq.omni"
+
+// An interrupt guard restores the state it found (CP-14). RFLAGS.IF is bit 9 (512). The 8259 PICs are masked and no local-APIC timer is
+// armed, so enabling interrupts here cannot deliver one: the program observes the flag, not an interrupt.
+func main() u32 !{io.print,port.io,cpu.control} {
+  let pic1 u32 = port.out8(33u32, 255u32)
+  let pic2 u32 = port.out8(161u32, 255u32)
+  let on u32 = cpu.sti()
+  let g = irq.save()
+  print(bit.and(cpu.read_flags(), 512u64))
+  let r1 u32 = irq.restore(move(g))
+  print(bit.and(cpu.read_flags(), 512u64))
+  let off u32 = cpu.cli()
+  let h = irq.save()
+  let r2 u32 = irq.restore(move(h))
+  print(bit.and(cpu.read_flags(), 512u64))
+  let on2 u32 = cpu.sti()
+  let outer = irq.save()
+  let inner = irq.save()
+  let r3 u32 = irq.restore(move(inner))
+  print(bit.and(cpu.read_flags(), 512u64))
+  let r4 u32 = irq.restore(move(outer))
+  print(bit.and(cpu.read_flags(), 512u64))
+  return rt.finish(0u32)
+}

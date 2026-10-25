@@ -1,0 +1,5 @@
+ONME2
+Rsha256:15712765ac7675b1ae4a9532a0916161e04b7d9cddc5c48966e6eb85156ce746
+Psha256:15712765ac7675b1ae4a9532a0916161e04b7d9cddc5c48966e6eb85156ce746
+Csha256:c6fd1a0397b445a43bf4254f1a40b00dab3b6f134284ec85fd33e90f18f03bd7
+(!WA2:18(!EA10:optiondemo)(!MA10:optiondemo(!I)(!FA6:buscar(!V!p)(!A(A4:flag!t))(!RA11:Option<u32>)(!X!0)(!B(!i(!fA4:flag)(!B(!r(A4:someA11:Option<u32>(!3A2:42))))(!B))(!r(A4:noneA11:Option<u32>))))(!FA4:main(!V!p)(!A)(!R!3)(!XA7:fs.readA8:fs.writeA8:io.print)(!B(!lA1:aA5:infer(!cA6:buscar(!tA4:true)))(A12:match-option(!fA1:a)(A4:someA5:valor(!B(A5:print(!fA5:valor))))(A4:none(!B(A5:print(!3A1:0)))))(!lA1:bA5:infer(!cA6:buscar(!tA5:false)))(A12:match-option(!fA1:b)(A4:someA5:valor(!B(A5:print(!fA5:valor))))(A4:none(!B(A5:print(!3A2:99)))))(!r(!3A1:0))))))

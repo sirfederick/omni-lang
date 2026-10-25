@@ -1,0 +1,17 @@
+module sumatoria
+
+func sumar_hasta(limite u32) u32 !pure {
+    var total u32 = 0
+    var i = 0
+    for i <= limite {
+        total = total + i
+        i = i + 1
+    }
+    return total
+}
+
+func main() u32 !io {
+    let resultado = sumar_hasta(10)
+    print(resultado)
+    return 0
+}

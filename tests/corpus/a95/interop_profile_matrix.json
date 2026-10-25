@@ -1,0 +1,17 @@
+{
+  "schema": "omni.a95-interop-profile-matrix/1",
+  "version": "0.9.5",
+  "seed": 950095,
+  "scenarios": [
+    {"id":"A95-I01","layer":"L2","boundary":"AUTHORITY_CONTRACT","evidence_class":"CONTRACT","claim":"ordinary source cannot mint host authority","oracle":"HostAuthority source construction and missing capability fail closed"},
+    {"id":"A95-I02","layer":"L4","boundary":"PYTHON_PROCESS","evidence_class":"REAL_PROCESS","claim":"bounded Python process protocol","oracle":"denied without OHP1 and evaluator/native parity when admitted"},
+    {"id":"A95-I03","layer":"L4","boundary":"NODE_PROCESS","evidence_class":"REAL_PROCESS","claim":"bounded Node process protocol","oracle":"real Node child returns the bound protocol response without skip"},
+    {"id":"A95-I04","layer":"L4","boundary":"LOCAL_TCP","evidence_class":"REAL_SOCKET","claim":"bounded local socket exchange","oracle":"evaluator/native parity and terminal server cleanup"},
+    {"id":"A95-I05","layer":"L4","boundary":"LOCAL_TCP_FAILURES","evidence_class":"REAL_SOCKET_FAULT","claim":"refusal timeout and overflow remain distinct","oracle":"typed results with no authority widening"},
+    {"id":"A95-I06","layer":"L4","boundary":"C_FFI","evidence_class":"REAL_SHARED_LIBRARY","claim":"fixed copy-only ABI","oracle":"real compiled library is dual-gated with evaluator/native parity"},
+    {"id":"A95-I07","layer":"L4","boundary":"C_FFI_FAILURES","evidence_class":"REAL_SHARED_LIBRARY_FAULT","claim":"malformed foreign results fail closed","oracle":"overflow status exception crash and missing symbol are typed failures"},
+    {"id":"A95-I08","layer":"L3","boundary":"PROVIDER_NEUTRAL","evidence_class":"LOOPBACK_AND_OFFLINE","claim":"provider-neutral envelope and provider-independent Core","oracle":"loopback stays advisory and unavailable adapter cannot stop local execution"},
+    {"id":"A95-I09","layer":"L3","boundary":"OUTCOME_RECONCILIATION","evidence_class":"FAULT_INJECTION","claim":"uncertain effect is not retried","oracle":"UNKNOWN_OUTCOME requires reconciliation and invocation count remains one"},
+    {"id":"A95-I10","layer":"L2","boundary":"EVIDENCE_TAXONOMY","evidence_class":"CONTRACT","claim":"evidence class cannot be upgraded","oracle":"no loopback or mock scenario asserts a live-provider claim"}
+  ]
+}

@@ -1,0 +1,292 @@
+[
+ {
+  "name": "D1 the stamp is not compared",
+  "file": "tools/omni_dev.py",
+  "old": "if meta.get('binary_sha256') != sha256_file(binary) or meta.get('inputs') != inputs_hash():",
+  "new": "if False:",
+  "tests": [
+   "tests/dev_tool.py",
+   "FreshnessAndEnvironmentTests"
+  ]
+ },
+ {
+  "name": "D2 the sources are not part of the stamp",
+  "file": "tools/omni_dev.py",
+  "old": "files = sorted(p for p in (ROOT / "compiler/src").rglob('*') if p.is_file()) + [ROOT / 'tools/core_sources.txt', ROOT / 'tools/build_compiler.py']",
+  "new": "files = [ROOT / 'tools/core_sources.txt', ROOT / 'tools/build_compiler.py']",
+  "tests": [
+   "tests/dev_tool.py",
+   "FreshnessAndEnvironmentTests"
+  ]
+ },
+ {
+  "name": "D3 sanitized objects go to the normal cache",
+  "file": "tools/omni_dev.py",
+  "old": "return STATE / 'objects' / kind ",
+  "new": "return STATE / 'objects' / 'normal' ",
+  "tests": [
+   "tests/dev_tool.py",
+   "FreshnessAndEnvironmentTests"
+  ]
+ },
+ {
+  "name": "D4 a cold build writes the developer stamp",
+  "file": "tools/omni_dev.py",
+  "old": "    if not args.cold:\n        stamp_path(kind).write_text",
+  "new": "    if True:\n        stamp_path(kind).write_text",
+  "tests": [
+   "tests/dev_tool.py",
+   "FreshnessAndEnvironmentTests"
+  ]
+ },
+ {
+  "name": "D5 a cold build reads the cache",
+  "file": "tools/omni_dev.py",
+  "old": "    if args.cold:\n        stamp_path(kind).unlink(missing_ok=True)",
+  "new": "    if False:\n        stamp_path(kind).unlink(missing_ok=True)",
+  "tests": [
+   "tests/dev_tool.py",
+   "FreshnessAndEnvironmentTests"
+  ]
+ },
+ {
+  "name": "D6 tests are not given OMNI_HOME",
+  "file": "tools/omni_dev.py",
+  "old": "'OMNI_HOME': str(ROOT)",
+  "new": "'OMNI_HOME': '/nonexistent'",
+  "tests": [
+   "tests/dev_tool.py",
+   "FreshnessAndEnvironmentTests"
+  ]
+ },
+ {
+  "name": "D7 an inherited baseline reaches the tests",
+  "file": "tools/omni_dev.py",
+  "old": "        env.pop('OMNI_BASELINE_BIN', None)\n    groups",
+  "new": "        pass\n    groups",
+  "tests": [
+   "tests/dev_tool.py",
+   "FreshnessAndEnvironmentTests"
+  ]
+ },
+ {
+  "name": "D8 an unknown target is run as a file",
+  "file": "tools/omni_dev.py",
+  "old": "if not path.is_file():\n                die(EXIT_ENV, f'UNKNOWN_TARGET",
+  "new": "if False:\n                die(EXIT_ENV, f'UNKNOWN_TARGET",
+  "tests": [
+   "tests/dev_tool.py",
+   "FreshnessAndEnvironmentTests"
+  ]
+ },
+ {
+  "name": "D9 a stale lock still blocks",
+  "file": "tools/omni_dev.py",
+  "old": "return meta if pid_alive(meta['pid']) else None",
+  "new": "return meta",
+  "tests": [
+   "tests/dev_tool.py",
+   "CommitGuardTests"
+  ]
+ },
+ {
+  "name": "D10 the guard never blocks",
+  "file": "tools/omni_dev.py",
+  "old": "    meta = live_lock(repo_root())\n    if meta:",
+  "new": "    meta = live_lock(repo_root())\n    if False:",
+  "tests": [
+   "tests/dev_tool.py",
+   "CommitGuardTests"
+  ]
+ },
+ {
+  "name": "D11 setup does not configure the hook path",
+  "file": "tools/omni_dev.py",
+  "old": "git('config', 'core.hooksPath', '.githooks', cwd=top)",
+  "new": "pass",
+  "tests": [
+   "tests/dev_tool.py",
+   "CommitGuardTests"
+  ]
+ },
+ {
+  "name": "D12 a dirty tree is accepted",
+  "file": "tools/omni_dev.py",
+  "old": "if dirty and not args.allow_dirty:",
+  "new": "if False:",
+  "tests": [
+   "tests/dev_tool.py",
+   "GateLauncherTests"
+  ]
+ },
+ {
+  "name": "D13 a second live gate is allowed",
+  "file": "tools/omni_dev.py",
+  "old": "    if live_lock(repo):\n        die(EXIT_LOCKED",
+  "new": "    if False:\n        die(EXIT_LOCKED",
+  "tests": [
+   "tests/dev_tool.py",
+   "GateLauncherTests"
+  ]
+ },
+ {
+  "name": "D14 a missing baseline is accepted",
+  "file": "tools/omni_dev.py",
+  "old": "elif not args.no_baseline:",
+  "new": "elif False:",
+  "tests": [
+   "tests/dev_tool.py",
+   "GateLauncherTests"
+  ]
+ },
+ {
+  "name": "D15 an existing run is overwritten",
+  "file": "tools/omni_dev.py",
+  "old": "if files['work'].exists() or files['report'].exists():",
+  "new": "if False:",
+  "tests": [
+   "tests/dev_tool.py",
+   "GateLauncherTests"
+  ]
+ },
+ {
+  "name": "D16 the verdict ignores the SHA",
+  "file": "tools/omni_dev.py",
+  "old": "return 0 if report.get('status') == 'PASS' and verdict_matches else 1",
+  "new": "return 0 if report.get('status') == 'PASS' else 1",
+  "tests": [
+   "tests/dev_tool.py",
+   "GateLauncherTests"
+  ]
+ },
+ {
+  "name": "D17 the verdict ignores the status",
+  "file": "tools/omni_dev.py",
+  "old": "return 0 if report.get('status') == 'PASS' and verdict_matches else 1",
+  "new": "return 0 if verdict_matches else 1",
+  "tests": [
+   "tests/dev_tool.py",
+   "GateLauncherTests"
+  ]
+ },
+ {
+  "name": "D18 the lock is never released",
+  "file": "tools/omni_dev.py",
+  "old": "        if path.exists():\n            path.unlink()",
+  "new": "        if False:\n            path.unlink()",
+  "tests": [
+   "tests/dev_tool.py",
+   "GateLauncherTests"
+  ]
+ },
+ {
+  "name": "D19 preservation overwrites",
+  "file": "tools/omni_dev.py",
+  "old": "if out.exists() and any(out.iterdir()):",
+  "new": "if False:",
+  "tests": [
+   "tests/dev_tool.py",
+   "PreserveTests"
+  ]
+ },
+ {
+  "name": "D20 untracked files are not archived",
+  "file": "tools/omni_dev.py",
+  "old": "for name in untracked:\n            archive.add",
+  "new": "for name in []:\n            archive.add",
+  "tests": [
+   "tests/dev_tool.py",
+   "PreserveTests"
+  ]
+ },
+ {
+  "name": "D21 local changes are not preserved",
+  "file": "tools/omni_dev.py",
+  "old": "['git', 'diff', '--binary', 'HEAD']",
+  "new": "['git', 'diff', '--binary', 'HEAD', '--', 'nothing']",
+  "tests": [
+   "tests/dev_tool.py",
+   "PreserveTests"
+  ]
+ },
+ {
+  "name": "D22 missing evidence is ignored",
+  "file": "tools/omni_dev.py",
+  "old": "die(1, f'EVIDENCE_MISSING: {source}')",
+  "new": "pass",
+  "tests": [
+   "tests/dev_tool.py",
+   "PreserveTests"
+  ]
+ },
+ {
+  "name": "D23 the ledger drops the tests phase",
+  "file": "tools/omni_dev.py",
+  "old": "record('sanitizers' if args.sanitizers else 'tests', time.monotonic() - started, done.returncode, target=target)",
+  "new": "pass",
+  "tests": [
+   "tests/dev_tool.py",
+   "FreshnessAndEnvironmentTests"
+  ]
+ },
+ {
+  "name": "G1 a damaged cached baseline is reused",
+  "file": "tools/omni_gate.py",
+  "old": "    if sha256_file(compiler) != recorded.read_text(encoding='utf-8').strip():\n        compiler.unlink()",
+  "new": "    if False:\n        compiler.unlink()",
+  "tests": [
+   "tests/gate_tools.py",
+   "GateRunnerTests"
+  ]
+ },
+ {
+  "name": "G2 --no-baseline-cache is ignored",
+  "file": "tools/omni_gate.py",
+  "old": "if not args.no_baseline_cache and reuse_cached_baseline(",
+  "new": "if reuse_cached_baseline(",
+  "tests": [
+   "tests/gate_tools.py",
+   "GateRunnerTests"
+  ]
+ },
+ {
+  "name": "G3 the key ignores the C++ compiler",
+  "file": "tools/omni_gate.py",
+  "old": "cxx = fingerprint().get('c++') or 'no c++'",
+  "new": "cxx = ''",
+  "tests": [
+   "tests/gate_tools.py",
+   "GateRunnerTests"
+  ]
+ },
+ {
+  "name": "G4 the key ignores the build script",
+  "file": "tools/omni_gate.py",
+  "old": "sha256_file(core / 'tools/build_compiler.py'), cxx])",
+  "new": "'', cxx])",
+  "tests": [
+   "tests/gate_tools.py",
+   "GateRunnerTests"
+  ]
+ },
+ {
+  "name": "G5 the key ignores the source",
+  "file": "tools/omni_gate.py",
+  "old": "material = '\\n'.join([facts['source_sha'], facts['core_tree'],",
+  "new": "material = '\\n'.join(['', '',",
+  "tests": [
+   "tests/gate_tools.py",
+   "GateRunnerTests"
+  ]
+ },
+ {
+  "name": "G6 a rebuilt baseline is not stored",
+  "file": "tools/omni_gate.py",
+  "old": "    store_baseline(entry, compiler, row['log_sha256'])\n",
+  "new": "",
+  "tests": [
+   "tests/gate_tools.py",
+   "GateRunnerTests"
+  ]
+ }
+]

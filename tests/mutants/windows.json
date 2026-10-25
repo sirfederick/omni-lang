@@ -1,0 +1,164 @@
+[
+ {
+  "name": "W1 a window may be one byte longer than what is left",
+  "file": "examples/storage/window.omni",
+  "old": "return w.off <= n && w.len <= n - w.off",
+  "new": "return w.off <= n && w.len <= n - w.off + 1u32",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W2 a window may start at any offset",
+  "file": "examples/storage/window.omni",
+  "old": "return w.off <= n && w.len <= n - w.off",
+  "new": "return w.len <= n",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W3 get does not check the window against the buffer",
+  "file": "examples/storage/window.omni",
+  "old": "pub func get(b Borrow<Buffer>, w Window, i u32) Result<u32,u32> !{memory.read} {\n  if !fits(b, w) { return Err<u32,u32>(1u32) }\n",
+  "new": "pub func get(b Borrow<Buffer>, w Window, i u32) Result<u32,u32> !{memory.read} {\n",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W4 get allows the index one past the window",
+  "file": "examples/storage/window.omni",
+  "old": "  if i >= w.len { return Err<u32,u32>(2u32) }\n  return buffer.read_u8(b, w.off + i)",
+  "new": "  if i > w.len { return Err<u32,u32>(2u32) }\n  return buffer.read_u8(b, w.off + i)",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W5 put does not check the window against the buffer",
+  "file": "examples/storage/window.omni",
+  "old": "  if !fits(borrow(b), w) { return Err<u32,u32>(1u32) }\n  if i >= w.len { return Err<u32,u32>(2u32) }\n  return buffer.write_u8(b, w.off + i, v)",
+  "new": "  if i >= w.len { return Err<u32,u32>(2u32) }\n  return buffer.write_u8(b, w.off + i, v)",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W6 put allows the index one past the window",
+  "file": "examples/storage/window.omni",
+  "old": "  if i >= w.len { return Err<u32,u32>(2u32) }\n  return buffer.write_u8(b, w.off + i, v)",
+  "new": "  if i > w.len { return Err<u32,u32>(2u32) }\n  return buffer.write_u8(b, w.off + i, v)",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W7 fill does not check the window against the buffer",
+  "file": "examples/storage/window.omni",
+  "old": "pub func fill(b BorrowMut<Buffer>, w Window, v u32) Result<u32,u32> !{memory.read,memory.write} {\n  if !fits(borrow(b), w) { return Err<u32,u32>(1u32) }\n",
+  "new": "pub func fill(b BorrowMut<Buffer>, w Window, v u32) Result<u32,u32> !{memory.read,memory.write} {\n",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W8 the right half of a split starts one byte early",
+  "file": "examples/storage/window.omni",
+  "old": "right: Window { off: w.off + at, len: w.len - at }",
+  "new": "right: Window { off: w.off + at - 1u32, len: w.len - at }",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W9 the right half of a split keeps the whole length",
+  "file": "examples/storage/window.omni",
+  "old": "right: Window { off: w.off + at, len: w.len - at } })",
+  "new": "right: Window { off: w.off + at, len: w.len } })",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W10 a cut past the end is accepted",
+  "file": "examples/storage/window.omni",
+  "old": "  if at > w.len { return Err<Pair,u32>(5u32) }",
+  "new": "  if at > w.len + 1u32 { return Err<Pair,u32>(5u32) }",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W11 a sub window may start past the end of its window",
+  "file": "examples/storage/window.omni",
+  "old": "  if off > w.len { return Err<Window,u32>(5u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W12 a sub window may be longer than what is left",
+  "file": "examples/storage/window.omni",
+  "old": "  if n > w.len - off { return Err<Window,u32>(5u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W13 a sub window is placed from the start of the buffer",
+  "file": "examples/storage/window.omni",
+  "old": "return Ok<Window,u32>(Window { off: w.off + off, len: n })",
+  "new": "return Ok<Window,u32>(Window { off: off, len: n })",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W14 overlap is reported for windows that only touch",
+  "file": "examples/storage/window.omni",
+  "old": "  return b.off - a.off < a.len\n",
+  "new": "  return b.off - a.off <= a.len\n",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W15 copy does not look for overlap",
+  "file": "examples/storage/window.omni",
+  "old": "  if overlap(src, dst) { return Err<u32,u32>(3u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W16 copy accepts windows of different lengths",
+  "file": "examples/storage/window.omni",
+  "old": "  if src.len != dst.len { return Err<u32,u32>(4u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W17 copy does not check the destination against the buffer",
+  "file": "examples/storage/window.omni",
+  "old": "  if !fits(borrow(b), dst) { return Err<u32,u32>(1u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ },
+ {
+  "name": "W18 an empty window is said to overlap",
+  "file": "examples/storage/window.omni",
+  "old": "  if a.len == 0u32 { return false }\n",
+  "new": "",
+  "tests": [
+   "tests/cp02_windows.py"
+  ]
+ }
+]

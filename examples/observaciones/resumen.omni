@@ -1,0 +1,9 @@
+module resumen
+
+// La division es recuperable: no se ejecuta / con divisor cero.
+pub func promedio(total u32, cantidad u32) Result<u32,u32> !pure {
+    if cantidad == 0 {
+        return Err<u32,u32>(100)
+    }
+    return Ok<u32,u32>(total / cantidad)
+}

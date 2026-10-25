@@ -1,0 +1,257 @@
+[
+ {
+  "name": "C1 the generation of a cell is always 1",
+  "file": "runtime/omni_runtime.c",
+  "old": "return s->cellgen[i];}",
+  "new": "return 1u;}",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "C2 a take does not raise the generation",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(s->cellgen[i]<slot_gen_max())s->cellgen[i]++; *out=v; return 0;",
+  "new": "*out=v; return 0;",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "C3 a cell at the horizon is not reported exhausted",
+  "file": "runtime/omni_runtime.c",
+  "old": "return s->cellgen[i]>=slot_gen_max()?4u:0u;",
+  "new": "return 0u;",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "C4 the horizon is one generation too far",
+  "file": "runtime/omni_runtime.c",
+  "old": "return s->cellgen[i]>=slot_gen_max()?4u:0u;",
+  "new": "return s->cellgen[i]>slot_gen_max()?4u:0u;",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "C5 a take raises the generation past the horizon",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(s->cellgen[i]<slot_gen_max())s->cellgen[i]++;",
+  "new": "if(s->cellgen[i]<=slot_gen_max())s->cellgen[i]++;",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ],
+  "equivalent": "A generation above the horizon changes nothing that can be observed: an empty cell with generation >= the horizon is already state 4 and takes no put, and slots.gen of a cell that can never be occupied again is never part of a token."
+ },
+ {
+  "name": "C6 the cells created by growth start at generation 0",
+  "file": "runtime/omni_runtime.c",
+  "old": "for(uint32_t k=old;k<cells;++k)g[k]=1u;",
+  "new": "for(uint32_t k=old;k<cells;++k)g[k]=0u;",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "C7 the cells of a new buffer start at generation 0",
+  "file": "runtime/omni_runtime.c",
+  "old": "for(uint32_t k=0;k<cells;++k)cg[k]=1u;",
+  "new": "for(uint32_t k=0;k<cells;++k)cg[k]=0u;",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "C8 a malformed horizon is read as its numeric prefix",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(e&&*e==0&&x>=2&&x<=UINT32_MAX)v=x;",
+  "new": "if(e&&x>=2&&x<=UINT32_MAX)v=x;",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "C9 a horizon of 1 is accepted",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(e&&*e==0&&x>=2&&x<=UINT32_MAX)v=x;",
+  "new": "if(e&&*e==0&&x>=1&&x<=UINT32_MAX)v=x;",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "C10 the generation array is not accounted",
+  "file": "runtime/omni_runtime.c",
+  "old": "#define OMNI_SLOT_META 5u",
+  "new": "#define OMNI_SLOT_META 1u",
+  "tests": [
+   "tests/cp06_callable_registry.py",
+   "tests/cp01_owned_slots.py"
+  ]
+ },
+ {
+  "name": "V1 the evaluator reports generation 1 for every cell",
+  "file": "compiler/src/check.cpp",
+  "old": "return Value(Type::U32,m->second.gen[static_cast<size_t>(a[1].bits)]);",
+  "new": "return Value(Type::U32,1);",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "V2 the evaluator does not raise the generation on a take",
+  "file": "compiler/src/check.cpp",
+  "old": "if(g<genMax)++g; }",
+  "new": "(void)g; }",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "V3 the evaluator does not report an exhausted cell",
+  "file": "compiler/src/check.cpp",
+  "old": "return m->second.gen[static_cast<size_t>(i)]>=genMax?4u:0u;",
+  "new": "return 0u;",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "V4 the evaluator horizon is one generation too far",
+  "file": "compiler/src/check.cpp",
+  "old": "return m->second.gen[static_cast<size_t>(i)]>=genMax?4u:0u;",
+  "new": "return m->second.gen[static_cast<size_t>(i)]>genMax?4u:0u;",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "V5 a malformed horizon is read as its numeric prefix in the evaluator",
+  "file": "compiler/src/check.cpp",
+  "old": "if(end&&*end==0&&*g!=0&&v>=2&&v<=UINT32_MAX)genMax=static_cast<uint32_t>(v);",
+  "new": "if(end&&*g!=0&&v>=2&&v<=UINT32_MAX)genMax=static_cast<uint32_t>(v);",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "V6 a horizon of 1 is accepted by the evaluator",
+  "file": "compiler/src/check.cpp",
+  "old": "if(end&&*end==0&&*g!=0&&v>=2&&v<=UINT32_MAX)genMax=static_cast<uint32_t>(v);",
+  "new": "if(end&&*end==0&&*g!=0&&v>=1&&v<=UINT32_MAX)genMax=static_cast<uint32_t>(v);",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "V7 the cells created by growth start at generation 0 in the evaluator",
+  "file": "compiler/src/check.cpp",
+  "old": "m->second.gen.resize(static_cast<size_t>(cells),1u);",
+  "new": "m->second.gen.resize(static_cast<size_t>(cells),0u);",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "V8 the cells of a new buffer start at generation 0 in the evaluator",
+  "file": "compiler/src/check.cpp",
+  "old": "m.gen.assign(static_cast<size_t>(cells),1u);",
+  "new": "m.gen.assign(static_cast<size_t>(cells),0u);",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "V9 the evaluator accounts 9 bytes per cell",
+  "file": "compiler/src/check.cpp",
+  "old": "bufferBytes+cells*13u>16u*1024u*1024u",
+  "new": "bufferBytes+cells*9u>16u*1024u*1024u",
+  "tests": [
+   "tests/cp06_callable_registry.py",
+   "tests/cp01_owned_slots.py"
+  ]
+ },
+ {
+  "name": "L1 a freed cell is never reused",
+  "file": "examples/storage/registry.omni",
+  "old": "if slots.state<H>(resource.inner(r), i) == 0u32 { return i }",
+  "new": "if slots.state<H>(resource.inner(r), i) == 7u32 { return i }",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "L2 a token is not compared with the generation",
+  "file": "examples/storage/registry.omni",
+  "old": "  if slots.gen<H>(resource.inner(r), t.slot) != t.gen { return 2u32 }\n",
+  "new": "",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "L3 a token is not compared with the state of the cell",
+  "file": "examples/storage/registry.omni",
+  "old": "  if slots.state<H>(resource.inner(r), t.slot) != 1u32 { return 1u32 }\n",
+  "new": "",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "L4 retire hides the result of the dispose",
+  "file": "examples/storage/registry.omni",
+  "old": "Ok(env) { return Ok<u32,u32>(Handler.dispose<H>(move(env))) }",
+  "new": "Ok(env) { let z u32 = Handler.dispose<H>(move(env))\n      return Ok<u32,u32>(0u32) }",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "L5 destroy does not add what the disposes report",
+  "file": "examples/storage/registry.omni",
+  "old": "Ok(x) { total = total + Handler.dispose<H>(move(x)) }",
+  "new": "Ok(x) { let z u32 = Handler.dispose<H>(move(x)) }",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "L6 the registry grows one cell at a time",
+  "file": "examples/storage/registry.omni",
+  "old": "var want u32 = cap * 2u32",
+  "new": "var want u32 = cap + 1u32",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "L7 fire does not check the token",
+  "file": "examples/storage/registry.omni",
+  "old": "  let c u32 = check<H>(borrow(r), t)\n  if c != 0u32 { return Err<u32,u32>(c) }\n  let v u32 = Handler.call",
+  "new": "  let v u32 = Handler.call",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "L8 the token carries a constant generation",
+  "file": "examples/storage/registry.omni",
+  "old": "gen: slots.gen<H>(resource.inner(borrow(r)), i) }",
+  "new": "gen: 1u32 }",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ },
+ {
+  "name": "L9 destroy leaves the environment of the first cell",
+  "file": "examples/storage/registry.omni",
+  "old": "    if slots.state<H>(borrow(inner.buf), i) == 1u32 {\n      let t = slots.take<H>",
+  "new": "    if slots.state<H>(borrow(inner.buf), i) == 1u32 && i > 0u32 {\n      let t = slots.take<H>",
+  "tests": [
+   "tests/cp06_callable_registry.py"
+  ]
+ }
+]

@@ -1,0 +1,84 @@
+module t
+import rt "rt.omni"
+
+// Per-thread blocks (spec/TLS_AND_PERCPU_CANDIDATE.md): tls.load32/64 and tls.store32/64 address memory relative to the FS base. A block has a
+// 16-byte header (magic "OMNITLS1" at +0, size at +8); data starts at +16. Two Omni threads use the SAME offsets (16 and 24) and must see
+// different values; a new thread's block is initialised from a template (the memory is poisoned first, so the template is what the thread
+// reads, not leftovers); the scheduler (this main) installs the FS base for the thread it switches to.
+//
+// IA32_FS_BASE = 0xC0000100 (3221225728). Blocks: thread 1 at 0x580000 (5767168), thread 2 at 0x581000 (5771264), template 0x582000 (5775360).
+// Context areas as in ctx_switch.omni (main 0x540000, thread n at +64*n; stacks 0x3C0000 / 0x3B0000; current-thread cell 0x540100).
+// Results at 0x541800 (5511168): thread n at +32*(n-1): [first value][64-bit initial ok][correct reads].
+
+func set_fs(base u64) u32 !{cpu.control} {
+  return cpu.wrmsr(3221225728u32, u32(bit.and(base, 4294967295u64)), u32(bit.shr(base, 32u32)))
+}
+
+func fill_template() u32 !{memory.raw} {
+  let a u32 = raw.store64(5775360u64, 3554268455816285519u64)
+  let b u32 = raw.store64(5775368u64, 256u64)
+  let c u32 = raw.store32(5775376u64, 7u32)
+  return raw.store64(5775384u64, 1234605616436508552u64)
+}
+
+func init_block(dst u64) u32 !{memory.raw} {
+  for i in 0u32..32u32 {
+    let poison u32 = raw.store64(dst + u64(i) * 8u64, 12297829382473034410u64)
+  }
+  for j in 0u32..32u32 {
+    let copy u32 = raw.store64(dst + u64(j) * 8u64, raw.load64(5775360u64 + u64(j) * 8u64))
+  }
+  return 0u32
+}
+
+func worker() u32 !{memory.tls,memory.raw,cpu.control,port.io} {
+  let me u32 = raw.load32(5505280u64)
+  let own u64 = 5505024u64 + u64(me) * 64u64
+  let res u64 = 5511168u64 + u64(me - 1u32) * 32u64
+  let first u32 = tls.load32(16u64)
+  let r0 u32 = raw.store32(res, first)
+  var bigok u32 = 0u32
+  if tls.load64(24u64) == 1234605616436508552u64 { bigok = 1u32 }
+  let r1 u32 = raw.store32(res + 8u64, bigok)
+  var ok u32 = 0u32
+  for i in 0u32..1000u32 {
+    let want u32 = me * 1000u32 + i
+    let w u32 = tls.store32(16u64, want)
+    let y u64 = cpu.switch_context(own, 5505024u64)
+    if tls.load32(16u64) == want { ok = ok + 1u32 }
+  }
+  let w2 u32 = tls.store64(24u64, 3735879680u64 + u64(me))
+  let r2 u32 = raw.store32(res + 16u64, ok)
+  let last u64 = cpu.switch_context(own, 5505024u64)
+  return rt.finish(77u32)
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let tpl u32 = fill_template()
+  let i1 u32 = init_block(5767168u64)
+  let i2 u32 = init_block(5771264u64)
+  let tr u64 = cpu.thread_trampoline()
+  let a1 u32 = raw.store64(3932144u64, tr)
+  let a2 u32 = raw.store64(5505088u64 + 48u64, 3932144u64)
+  let b1 u32 = raw.store64(3866608u64, tr)
+  let b2 u32 = raw.store64(5505152u64 + 48u64, 3866608u64)
+  for r in 0u32..1001u32 {
+    let k1 u32 = raw.store32(5505280u64, 1u32)
+    let f1 u32 = set_fs(5767168u64)
+    let s1 u64 = cpu.switch_context(5505024u64, 5505088u64)
+    let k2 u32 = raw.store32(5505280u64, 2u32)
+    let f2 u32 = set_fs(5771264u64)
+    let s2 u64 = cpu.switch_context(5505024u64, 5505152u64)
+  }
+  print(raw.load32(5511168u64))
+  print(raw.load32(5511200u64))
+  print(raw.load32(5511176u64))
+  print(raw.load32(5511208u64))
+  print(raw.load32(5511184u64))
+  print(raw.load32(5511216u64))
+  print(raw.load32(5767168u64 + 16u64))
+  print(raw.load32(5771264u64 + 16u64))
+  print(raw.load64(5767168u64 + 24u64))
+  print(raw.load64(5771264u64 + 24u64))
+  return rt.finish(0u32)
+}

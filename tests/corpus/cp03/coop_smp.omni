@@ -1,0 +1,229 @@
+module t
+import rt "rt.omni"
+import heap "heap.omni"
+import coop "coop.omni"
+import lease "lease.omni"
+import taskbody "taskbody.omni"
+
+// CP-03 row 3.4 on two vCPUs (spec/CANCELLATION_CANDIDATE.md): the task runs on the APPLICATION processor (its scheduler is ap_main) while its owner, on the bootstrap processor, cancels it. VARIANT
+// (replaced by the test):
+//   1  cancel while running: the task counts its progress and checkpoints; the owner waits for progress, requests the end, waits for the acknowledgement, and only then destroys
+//   2  a task that does not cooperate: it spins without a checkpoint; the owner's wait times out (that says nothing about the task), the outcome is PENDING and never "not applied",
+//      destroy ABANDONS (frees nothing); when the task is let go it reaches a checkpoint, sees the request, closes its leases and ends correctly on the memory it still had
+//   4  the acknowledgement is not the quiescence: the owner waits for the end (the task's own DONE), THEN for the retirement (the scheduler has left the task), and only then destroys; the test
+//      makes the scheduler slow to leave (a pause after the task switched back), so a destroy at the acknowledgement would free the stack and the control block under the scheduler's last access
+//   5  the owner destroys at the acknowledgement without waiting for the retirement: the library refuses to free (24), the scheduler finishes on memory that is still there
+//   3  cancel during a critical section: the task is inside critical.locked (interrupts off, a spin lock) doing 20000 read-modify-writes when the request arrives; the section completes, the
+//      lock is free, the request is seen at the next checkpoint
+// Cells: lease table 0x6F0000, current task 0x6F1000, its scheduler cell 0x6F1008, AP scheduler save area 0x6F4000 (7290880), AP task cell 0x6F3200 (7287296), AP done 0x6F3240 (7287360),
+// AP last state 0x6F3280 (7287424); body cells as in taskbody.omni (release 7286784, progress 7286848, inside 7286912, lock 7286976, counter 7287040). AP flags as in smp_counter.omni.
+
+func variant() u32 { return 1u32 }
+
+func tbl() u64 { return 7274496u64 }
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func wait_over(a u64, n u32) u32 !{memory.atomic} {
+  for i in 0u32..100000000u32 {
+    if atomic.load32(a, 1u32) > n { return 1u32 }
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func worker() u32 !{memory.raw,memory.atomic,cpu.control,port.io} {
+  let ctrl u64 = raw.load64(7278592u64)
+  let s u64 = raw.load64(7278600u64)
+  let r u32 = taskbody.work(ctrl, s)
+  return coop.finish(ctrl, r, s)
+}
+
+// the scheduler of the task, on the application processor
+func ap_main() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  let who u32 = raw.store32(5308800u64, id + 100u32)
+  let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+  let go u32 = wait_flag(5308928u64)
+  let got u32 = wait_flag(7287296u64)
+  let ctrl u64 = atomic.load64(7287296u64, 1u32)
+  var st u32 = 2u32
+  for i in 0u32..4000000000u32 {
+    st = coop.run(ctrl, 7290880u64)
+    if st != 2u32 { break }
+  }
+  let last u32 = atomic.store32(7287424u64, st, 2u32)
+  let done u32 = atomic.store32(7287360u64, 1u32, 2u32)
+  return 0u32
+}
+
+func leases() u32 !{io.print,memory.raw,memory.atomic} {
+  print(atomic.load32(tbl(), 4u32))
+  print(atomic.load32(tbl() + 4u64, 4u32))
+  print(atomic.load32(tbl() + 8u64, 4u32))
+  print(atomic.load32(tbl() + 12u64, 4u32))
+  return 0u32
+}
+
+func rs(r Result<u32,u32>) u32 {
+  match r {
+    Ok(n) { return n }
+    Err(e) { return 1000u32 + e }
+  }
+}
+
+func flag(b bool) u32 {
+  if b { return 1u32 }
+  return 0u32
+}
+
+func ctrl_of(hp Borrow<heap.Heap>, t Borrow<coop.Task>) u64 !{memory.raw} {
+  let c = coop.ctrl_addr(hp, t)
+  match c {
+    Ok(a) { return a }
+    Err(e) { return 0u64 }
+  }
+}
+
+func drive1(hp BorrowMut<heap.Heap>, t Resource<coop.Task>, ctrl u64) u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  print(flag(wait_over(7286848u64, 100u32) == 1u32))
+  print(rs(coop.request_cancel(borrow(hp), borrow(t))))
+  print(rs(coop.await_end(borrow(hp), borrow(t), 100000000u32)))
+  print(rs(coop.outcome(borrow(hp), borrow(t))))
+  let d u32 = wait_flag(7287360u64)
+  print(atomic.load32(7287424u64, 1u32))
+  let l u32 = leases()
+  print(coop.destroy(hp, move(t)))
+  print(heap.live(borrow(hp)))
+  return 0u32
+}
+
+func drive2(hp BorrowMut<heap.Heap>, t Resource<coop.Task>, ctrl u64) u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let started u32 = wait_flag(7286912u64)
+  print(rs(coop.request_cancel(borrow(hp), borrow(t))))
+  print(rs(coop.await_end(borrow(hp), borrow(t), 20000u32)))
+  print(rs(coop.outcome(borrow(hp), borrow(t))))
+  print(rs(coop.state(borrow(hp), borrow(t))))
+  print(coop.destroy(hp, move(t)))
+  print(heap.live(borrow(hp)))
+  let rel u32 = atomic.store32(7286784u64, 1u32, 2u32)
+  let d u32 = wait_flag(7287360u64)
+  print(atomic.load32(7287424u64, 1u32))
+  print(raw.load32(ctrl + 8u64))
+  print(raw.load32(ctrl + 4u64))
+  let l u32 = leases()
+  return 0u32
+}
+
+func drive3(hp BorrowMut<heap.Heap>, t Resource<coop.Task>, ctrl u64) u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let started u32 = wait_flag(7286912u64)
+  print(rs(coop.request_cancel(borrow(hp), borrow(t))))
+  print(rs(coop.await_end(borrow(hp), borrow(t), 100000000u32)))
+  print(rs(coop.outcome(borrow(hp), borrow(t))))
+  let d u32 = wait_flag(7287360u64)
+  print(atomic.load32(7287424u64, 1u32))
+  print(atomic.load32(7287040u64, 4u32))
+  print(atomic.load32(7286976u64, 4u32))
+  print(atomic.load32(7287552u64, 4u32))
+  let l u32 = leases()
+  print(coop.destroy(hp, move(t)))
+  print(heap.live(borrow(hp)))
+  return 0u32
+}
+
+func drive4(hp BorrowMut<heap.Heap>, t Resource<coop.Task>, ctrl u64) u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  print(flag(wait_over(7286848u64, 100u32) == 1u32))
+  print(rs(coop.request_cancel(borrow(hp), borrow(t))))
+  print(rs(coop.await_end(borrow(hp), borrow(t), 100000000u32)))
+  print(rs(coop.await_retired(borrow(hp), borrow(t), 100000000u32)))
+  print(rs(coop.outcome(borrow(hp), borrow(t))))
+  print(coop.destroy(hp, move(t)))
+  print(heap.live(borrow(hp)))
+  let d u32 = wait_flag(7287360u64)
+  print(atomic.load32(7287424u64, 1u32))
+  let l u32 = leases()
+  return 0u32
+}
+
+func drive5(hp BorrowMut<heap.Heap>, t Resource<coop.Task>, ctrl u64) u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  print(flag(wait_over(7286848u64, 100u32) == 1u32))
+  print(rs(coop.request_cancel(borrow(hp), borrow(t))))
+  print(rs(coop.await_end(borrow(hp), borrow(t), 100000000u32)))
+  print(coop.destroy(hp, move(t)))
+  print(heap.live(borrow(hp)))
+  let d u32 = wait_flag(7287360u64)
+  print(atomic.load32(7287424u64, 1u32))
+  let l u32 = leases()
+  return 0u32
+}
+
+func drive(hp BorrowMut<heap.Heap>, t Resource<coop.Task>, ctrl u64) u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  if variant() == 1u32 { return drive1(hp, move(t), ctrl) }
+  if variant() == 4u32 { return drive4(hp, move(t), ctrl) }
+  if variant() == 5u32 { return drive5(hp, move(t), ctrl) }
+  if variant() == 2u32 { return drive2(hp, move(t), ctrl) }
+  return drive3(hp, move(t), ctrl)
+}
+
+func kind() u64 {
+  if variant() == 2u32 { return 5u64 }
+  if variant() == 3u32 { return 6u64 }
+  return 7u64
+}
+
+func serve(hp BorrowMut<heap.Heap>, t Resource<coop.Task>, ctrl u64) u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let a u32 = raw.store64(7278592u64, ctrl)
+  let b u32 = raw.store64(7278600u64, 7290880u64)
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+  let init u32 = raw.store32(4276093696u64, 17664u32)
+  let w1 u32 = delay()
+  let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+  let w2 u32 = delay()
+  let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+  let up u32 = wait_flag(5308864u64)
+  if up == 0u32 {
+    print(999u32)
+    let z u32 = coop.destroy(hp, move(t))
+    return 1u32
+  }
+  let go u32 = atomic.store32(5308928u64, 1u32, 2u32)
+  let start u32 = atomic.store64(7287296u64, ctrl, 2u32)
+  return drive(hp, move(t), ctrl)
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let c = heap.create(7340032u64, 65536u64)
+  match c {
+    Err(e) { print(3000u32 + e) }
+    Ok(hp) {
+      for i in 0u32..32u32 {
+        let z u32 = raw.store32(tbl() + u64(i) * 4u64, 0u32)
+      }
+      let cap u32 = raw.store32(tbl() + 16u64, 8u32)
+      let n = coop.create(borrow_mut(hp), 128u64, kind())
+      match n {
+        Err(e) { print(1000u32 + e) }
+        Ok(t) {
+          let ctrl u64 = ctrl_of(borrow(hp), borrow(t))
+          let r u32 = serve(borrow_mut(hp), move(t), ctrl)
+        }
+      }
+      print(heap.destroy(move(hp)))
+    }
+  }
+  return rt.finish(0u32)
+}

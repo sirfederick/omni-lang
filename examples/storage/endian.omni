@@ -1,0 +1,77 @@
+module endian
+
+// CP-07 / MN-12 (spec/ENDIAN_UNALIGNED_CANDIDATE.md): byte order is explicit. Pure integer functions (no capability, so they run hosted, in the evaluator and in a freestanding image alike):
+//   swapN        reverse the bytes of an N-bit unsigned integer
+//   to_beN/from_beN   between the program's integer and the big-endian value (the wire/network/most firmware formats); on a little-endian target this is a swap
+//   to_leN/from_leN   between the program's integer and the little-endian value; on a little-endian target this is the identity
+// "On a little-endian target" is `target.little_endian()`, folded to a literal while the program is checked: the dead branch is not in the checked program. to_X and from_X are the same
+// operation (a byte swap is its own inverse); both names exist so that the direction a reader sees is the direction the code means.
+// Unaligned and byte-exact memory access (loads and stores that never assume an aligned address) is endian_mem.omni.
+
+pub func swap16(x u16) u16 {
+  return bit.or(bit.shl(x, 8u32), bit.shr(x, 8u32))
+}
+
+pub func swap32(x u32) u32 {
+  let b0 u32 = bit.shl(bit.and(x, 255u32), 24u32)
+  let b1 u32 = bit.shl(bit.and(bit.shr(x, 8u32), 255u32), 16u32)
+  let b2 u32 = bit.shl(bit.and(bit.shr(x, 16u32), 255u32), 8u32)
+  let b3 u32 = bit.shr(x, 24u32)
+  return bit.or(bit.or(b0, b1), bit.or(b2, b3))
+}
+
+pub func swap64(x u64) u64 {
+  let low u32 = u32(bit.and(x, 4294967295u64))
+  let high u32 = u32(bit.shr(x, 32u32))
+  return bit.or(bit.shl(u64(swap32(low)), 32u32), u64(swap32(high)))
+}
+
+pub func to_be16(x u16) u16 {
+  if target.little_endian() { return swap16(x) }
+  return x
+}
+pub func from_be16(x u16) u16 {
+  if target.little_endian() { return swap16(x) }
+  return x
+}
+pub func to_be32(x u32) u32 {
+  if target.little_endian() { return swap32(x) }
+  return x
+}
+pub func from_be32(x u32) u32 {
+  if target.little_endian() { return swap32(x) }
+  return x
+}
+pub func to_be64(x u64) u64 {
+  if target.little_endian() { return swap64(x) }
+  return x
+}
+pub func from_be64(x u64) u64 {
+  if target.little_endian() { return swap64(x) }
+  return x
+}
+
+pub func to_le16(x u16) u16 {
+  if target.little_endian() { return x }
+  return swap16(x)
+}
+pub func from_le16(x u16) u16 {
+  if target.little_endian() { return x }
+  return swap16(x)
+}
+pub func to_le32(x u32) u32 {
+  if target.little_endian() { return x }
+  return swap32(x)
+}
+pub func from_le32(x u32) u32 {
+  if target.little_endian() { return x }
+  return swap32(x)
+}
+pub func to_le64(x u64) u64 {
+  if target.little_endian() { return x }
+  return swap64(x)
+}
+pub func from_le64(x u64) u64 {
+  if target.little_endian() { return x }
+  return swap64(x)
+}

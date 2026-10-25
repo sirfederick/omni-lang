@@ -1,0 +1,59 @@
+module critical
+
+// CP-14 rows 14.4 and 14.5 (spec/GUARDS_AND_LOCKS_CANDIDATE.md, section 4): a critical section whose restrictions are a property of its TYPE, not of a convention. The body of a section is an
+// impl of `Section`, and the trait declares the only capabilities that body may use. The checker enforces that declaration at the impl (E_TRAIT_EFFECT) and, because an effect set
+// includes the effects of everything a function calls, through every call the body makes: direct calls, calls into imported modules, generic functions, other traits' impls and registered
+// callables all have to fit inside it (E_CAPABILITY otherwise). Nothing here is a mark that grants anything: a capability that the trait does not list simply cannot be named below the section.
+//   allowed inside a section : memory.raw, memory.atomic   (plain cells and atomics of the CPU, so a section can do the work a lock exists for)
+//   not expressible inside   : memory.read / memory.write (the allocator of the host and every buffer), memory.tls, memory.pcpu, port.io (device waits), cpu.control (halt, interrupt
+//                              enable, context switch, anything that can leave the CPU), cpu.syscall, io.print, fs.*, data.*, net.*, process.spawn, ffi.call, external.egress, secret.use
+// What the runner itself does is written in the runner and cannot be reached from the body:
+//   irq_off : saves RFLAGS, disables interrupts, runs the body, then re-enables them ONLY if they were enabled on entry (so sections nest at the call level and compose)
+//   locked  : irq_off plus a spinlock on a 32-bit cell (an acq_rel compare-and-swap to take it, a release store to give it back); a lock not taken within `attempts` tries answers Err(17)
+//             with the interrupt state restored, never an endless spin
+// The runners have no guard to forget: release is the code after the body, on the only path out, so "balance" is structural. The body cannot leave early (it returns a value to the runner).
+// Because the body cannot name cpu.control, it cannot yield, switch context, halt or re-enable interrupts: while interrupts are off on this CPU nothing preempts the section and, with no
+// context switch available inside, the context cannot migrate. That is the profile's guarantee against preemption and migration; it is NOT a proof for code that holds memory.raw and
+// writes the scheduler's own state.
+// Not expressible, and therefore not claimed: a body that spins forever on atomics (the effect system does not tell a bounded loop from an endless one), priority inheritance, fairness,
+// a no-migration capability distinct from "no context switch" (tests/x64/pin.omni still detects a migration), real hardware.
+// Outcome codes: 17 the lock was not taken within `attempts` tries.
+pub trait Section {
+  func run(arg u64) u32 !{memory.raw,memory.atomic}
+}
+
+// Runs S.run(arg) with interrupts off on this CPU. Returns what the body returns.
+pub func irq_off<S: Section>(arg u64) u32 !{memory.raw,memory.atomic,cpu.control} {
+  let flags u64 = cpu.read_flags()
+  let off u32 = cpu.cli()
+  let r u32 = Section.run<S>(arg)
+  if bit.and(flags, 512u64) != 0u64 {
+    let on u32 = cpu.sti()
+  }
+  return r
+}
+
+// Runs S.run(arg) with interrupts off and the lock at `lock` (a naturally aligned 32-bit cell, 0 free) held.
+pub func locked<S: Section>(lock u64, arg u64, attempts u32) Result<u32,u32> !{memory.raw,memory.atomic,cpu.control} {
+  let flags u64 = cpu.read_flags()
+  let off u32 = cpu.cli()
+  var got bool = false
+  for i in 0u32..attempts {
+    if atomic.cas32(lock, 0u32, 1u32, 3u32, 1u32) == 0u32 {
+      got = true
+      break
+    }
+  }
+  if got == false {
+    if bit.and(flags, 512u64) != 0u64 {
+      let on u32 = cpu.sti()
+    }
+    return Err<u32,u32>(17u32)
+  }
+  let r u32 = Section.run<S>(arg)
+  let rel u32 = atomic.store32(lock, 0u32, 2u32)
+  if bit.and(flags, 512u64) != 0u64 {
+    let on u32 = cpu.sti()
+  }
+  return Ok<u32,u32>(r)
+}

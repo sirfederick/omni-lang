@@ -1,0 +1,20 @@
+(omni-wave 9
+  (entry product)
+  (module product
+    (imports)
+    (func rotate (visibility private)
+      (params (a Array<u32,4>)) (result Array<u32,4>) (effects pure)
+      (block
+        (let b Array<u32,4> (call array.with (ref a) (u32 0) (call array.get (ref a) (u32 3))))
+        (return (ref b))))
+    (func main (visibility private)
+      (params) (result u32) (effects io.print)
+      (block
+        (let meta Tuple<u32,bool,u8> (call tuple (u32 42) (bool true) (u8 7)))
+        (let data Array<u32,4> (call array (u32 10) (u32 20) (u32 30) (u32 40)))
+        (let next Array<u32,4> (call rotate (ref data)))
+        (print (call tuple.get (ref meta) (u32 0)))
+        (print (call array.len (ref next)))
+        (print (call array.get (ref data) (u32 0)))
+        (print (call array.get (ref next) (u32 0)))
+        (return (u32 0))))))

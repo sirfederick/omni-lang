@@ -1,0 +1,47 @@
+module vec_growth
+import vec "vec_u32.omni"
+
+// 300 pushes cross many geometric growths; every element must survive each regrowth; pop zeroes its slot; the leak oracle repeats the cycle
+// 1200 times (above the runtime's 1024 buffer slots), so a buffer that is not released exhausts the table.
+func sum_of(r Result<u32,u32>) u32 { match r { Ok(n) { return n } Err(e) { return 1000000u32 + e } } }
+
+func cycle(count u32) u32 !{memory.read,memory.write} {
+  let a = vec.new_buffer(0u32)
+  match a { Ok(b) {
+    var len u32 = 0u32
+    var i u32 = 0u32
+    for i < count {
+      let r = vec.push(borrow_mut(b), len, i * 3u32 + 1u32)
+      match r { Ok(n) { len = n } Err(e) { let rel = buffer.release(move(b)); return 5000u32 + e } }
+      i = i + 1u32
+    }
+    // geometric growth: 4 elements of minimum capacity, then doubling (300 elements -> 512)
+    if count == 300u32 { if vec.capacity(borrow(b)) != 512u32 { let rel = buffer.release(move(b)); return 6500u32 } }
+    if count == 3u32 { if vec.capacity(borrow(b)) != 4u32 { let rel = buffer.release(move(b)); return 6501u32 } }
+    var total u32 = 0u32
+    var k u32 = 0u32
+    for k < len {
+      let g = vec.get(borrow(b), len, k)
+      match g { Ok(x) { if x != k * 3u32 + 1u32 { let rel = buffer.release(move(b)); return 6000u32 } total = total + 1u32 } Err(e) { let rel = buffer.release(move(b)); return 7000u32 + e } }
+      k = k + 1u32
+    }
+    let beyond = vec.get(borrow(b), len, len)
+    match beyond { Ok(x) { let rel = buffer.release(move(b)); return 8000u32 } Err(e) { if e != 10u32 { let rel = buffer.release(move(b)); return 8001u32 } } }
+    let p = vec.pop(borrow_mut(b), len)
+    match p { Ok(x) { if x != (count - 1u32) * 3u32 + 1u32 { let rel = buffer.release(move(b)); return 9000u32 } } Err(e) { let rel = buffer.release(move(b)); return 9001u32 } }
+    let slot = buffer.read_u32le(borrow(b), (len - 1u32) * 4u32)
+    match slot { Ok(x) { if x != 0u32 { let rel = buffer.release(move(b)); return 9002u32 } } Err(e) { let rel = buffer.release(move(b)); return 9003u32 } }
+    let rel = buffer.release(move(b))
+    return total
+  } Err(e) { return 4000u32 + e } }
+}
+
+func main() u32 !{memory.read,memory.write} {
+  if cycle(300u32) != 300u32 { return 1u32 }
+  var i u32 = 0u32
+  for i < 1200u32 {
+    if cycle(3u32) != 3u32 { return 2u32 }
+    i = i + 1u32
+  }
+  return 42u32
+}

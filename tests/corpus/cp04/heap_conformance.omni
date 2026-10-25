@@ -1,0 +1,605 @@
+module t
+import rt "rt.omni"
+import heap "heap.omni"
+
+// CP-04c / row 4.9: the typed heap with individual release over raw memory (examples/storage/heap.omni), one scenario per line of output. The same program runs in
+// the evaluator and, with the Core-owned minimal provider, as a freestanding x86-64 image under QEMU; the two transcripts must be identical.
+//   base 0x800000, range 1024 bytes: header 64 bytes, first block head at 64, first payload at 80; offsets are printed relative to base
+struct S8 { v u64 }
+struct W24 { a u64, b u64, c u64 }
+struct B8 { v u8 }
+struct W32 { v u32 }
+
+func made(r Result<Resource<heap.Heap>,u32>) u64 !{memory.raw} {
+  match r {
+    Ok(g) { let d u64 = heap.destroy(move(g)); return 99u64 }
+    Err(e) { return u64(e) }
+  }
+}
+func off<T>(r Result<heap.Block<T>,u32>, base u64) u64 {
+  match r {
+    Ok(s) { return s.addr - base }
+    Err(e) { return 1000u64 + u64(e) }
+  }
+}
+func status(r Result<u32,u32>) u64 {
+  match r {
+    Ok(n) { return 0u64 }
+    Err(e) { return u64(e) }
+  }
+}
+func status64(r Result<u64,u32>) u64 {
+  match r {
+    Ok(n) { return 0u64 }
+    Err(e) { return u64(e) }
+  }
+}
+func none<T>() heap.Block<T> { return heap.Block<T> { addr: 0u64, count: 0u64, serial: 0u64 } }
+func take<T>(r Result<heap.Block<T>,u32>) heap.Block<T> {
+  match r {
+    Ok(s) { return s }
+    Err(e) { return none<T>() }
+  }
+}
+
+func flag(b bool) u64 {
+  if b { return 1u64 }
+  return 0u64
+}
+func tag(serial u64) u64 { return bit.xor(serial, 6840399175121563661u64) }
+
+// M: a descriptor can be rebuilt from the address of a live block and from nothing else; copies of a descriptor are all revoked together
+func scenario_descriptors(base u64) u32 !{io.print,memory.raw} {
+  let c = heap.create(base, 1024u64)
+  match c { Ok(hp) {
+    let x1 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let x2 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let ad = take<S8>(heap.descriptor_at<S8>(borrow(hp), x2.addr, 1u64))
+    print(ad.serial)
+    print(ad.addr - base)
+    print(off<S8>(heap.descriptor_at<S8>(borrow(hp), x2.addr + 8u64, 1u64), base))
+    print(off<S8>(heap.descriptor_at<S8>(borrow(hp), 0u64, 1u64), base))
+    print(off<S8>(heap.descriptor_at<S8>(borrow(hp), base + 2000u64, 1u64), base))
+    print(off<S8>(heap.descriptor_at<S8>(borrow(hp), x2.addr, 3u64), base))
+    print(off<S8>(heap.descriptor_at<S8>(borrow(hp), x2.addr, 4611686018427387905u64), base))
+    print(status(heap.free<S8>(borrow_mut(hp), x1)))
+    print(off<S8>(heap.descriptor_at<S8>(borrow(hp), x1.addr, 1u64), base))
+    let x3 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(x3.addr - base)
+    print(x3.serial)
+    let again = take<S8>(heap.descriptor_at<S8>(borrow(hp), x3.addr, 1u64))
+    print(again.serial)
+    let twin = x3
+    print(status(heap.free<S8>(borrow_mut(hp), again)))
+    print(status(heap.store<S8>(borrow(hp), twin, S8 { v: 1u64 })))
+    print(status(heap.store<S8>(borrow(hp), x3, S8 { v: 1u64 })))
+    print(status(heap.free<S8>(borrow_mut(hp), twin)))
+    let d u64 = heap.destroy(move(hp))
+  } Err(e) { print(3000u64) } }
+  return 0u32
+}
+
+// N: a stale handle whose block was absorbed by a merge is still stale when a live block now holds the small number that was its serial
+func scenario_tags(base u64) u32 !{io.print,memory.raw} {
+  let c = heap.create(base, 1024u64)
+  match c { Ok(hp) {
+    let x = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let y = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let w = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(status(heap.free<S8>(borrow_mut(hp), x)))
+    print(status(heap.free<S8>(borrow_mut(hp), y)))
+    let big = take<S8>(heap.alloc_array<S8>(borrow_mut(hp), 5u64))
+    print(big.addr - base)
+    print(status(heap.store_at<S8>(borrow(hp), big, 3u64, S8 { v: y.serial })))
+    print(status(heap.store<S8>(borrow(hp), y, S8 { v: 1u64 })))
+    print(status(heap.free<S8>(borrow_mut(hp), y)))
+    let d u64 = heap.destroy(move(hp))
+  } Err(e) { print(3000u64) } }
+  return 0u32
+}
+
+// N2: the free list stays in order across a split, in front of and behind the block that is split
+func scenario_lists(base u64) u32 !{io.print,memory.raw} {
+  let c = heap.create(base, 1024u64)
+  match c { Ok(hp) {
+    let p1 = take<S8>(heap.alloc_array<S8>(borrow_mut(hp), 5u64))
+    let g1 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let p2 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let g2 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(status(heap.free<S8>(borrow_mut(hp), p1)))
+    print(status(heap.free<S8>(borrow_mut(hp), p2)))
+    print(heap.free_blocks(borrow(hp)))
+    print(raw.load64(base + 80u64))
+    let t1 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(t1.addr - base)
+    print(raw.load64(base + 80u64))
+    print(heap.free_blocks(borrow(hp)))
+    print(heap.free_bytes(borrow(hp)))
+    print(raw.load64(base + 112u64))
+    // a small free block in front of a large one: the large one is split and the small one points to what is left
+    let t2 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let t3 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(t2.addr - base)
+    print(t3.addr - base)
+    let big = take<S8>(heap.alloc_array<S8>(borrow_mut(hp), 8u64))
+    print(big.addr - base)
+    let tail = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(status(heap.free<S8>(borrow_mut(hp), t1)))
+    print(status(heap.free<S8>(borrow_mut(hp), big)))
+    print(heap.free_blocks(borrow(hp)))
+    let cut = take<S8>(heap.alloc_array<S8>(borrow_mut(hp), 4u64))
+    print(cut.addr - base)
+    print(heap.free_blocks(borrow(hp)))
+    print(heap.free_bytes(borrow(hp)))
+    let d u64 = heap.destroy(move(hp))
+  } Err(e) { print(3000u64) } }
+  return 0u32
+}
+
+// N3: a block that merges with its predecessor and touches the end of the carved area also takes the predecessor out of the list
+func scenario_top(base u64) u32 !{io.print,memory.raw} {
+  let c = heap.create(base, 1024u64)
+  match c { Ok(hp) {
+    let p1 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let l1 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let p2 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let b = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(status(heap.free<S8>(borrow_mut(hp), p1)))
+    print(status(heap.free<S8>(borrow_mut(hp), p2)))
+    print(heap.free_blocks(borrow(hp)))
+    print(status(heap.free<S8>(borrow_mut(hp), b)))
+    print(heap.free_blocks(borrow(hp)))
+    print(heap.carved(borrow(hp)))
+    print(raw.load64(base + 80u64))
+    print(raw.load64(base + 144u64))
+    print(raw.load64(base + 176u64))
+    let d u64 = heap.destroy(move(hp))
+  } Err(e) { print(3000u64) } }
+  return 0u32
+}
+
+// P: the serial counter ends in a typed error before a tag could be zero; a request whose rounded size would wrap is refused
+func scenario_serial(base u64) u32 !{io.print,memory.raw} {
+  let c = heap.create(base, 1024u64)
+  match c { Ok(hp) {
+    let a = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(off<W32>(heap.alloc_array<W32>(borrow_mut(hp), 4611686018427387900u64), base))
+    print(off<S8>(heap.alloc_array<S8>(borrow_mut(hp), 2305843009213693951u64), base))
+    let near u32 = raw.store64(base + 24u64, 6840399175121563659u64)
+    let last = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(last.serial)
+    print(off<S8>(heap.alloc<S8>(borrow_mut(hp)), base))
+    print(status(heap.free<S8>(borrow_mut(hp), last)))
+    print(off<S8>(heap.alloc<S8>(borrow_mut(hp)), base))
+    let d u64 = heap.destroy(move(hp))
+  } Err(e) { print(3000u64) } }
+  return 0u32
+}
+
+// K2: damage to the free list and to block heads is reported, never followed, and each repair restores service
+func scenario_damage(base u64) u32 !{io.print,memory.raw} {
+  let c = heap.create(base, 1024u64)
+  match c { Ok(hp) {
+    let x = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let y = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let z = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let w = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(status(heap.free<S8>(borrow_mut(hp), x)))
+    print(status(heap.free<S8>(borrow_mut(hp), z)))
+    print(heap.free_blocks(borrow(hp)))
+    print(heap.free_bytes(borrow(hp)))
+    // a link to itself, a link backwards, a link outside the carved area, a link to the header
+    let l1 u32 = raw.store64(base + 144u64, base + 144u64)
+    print(heap.free_blocks(borrow(hp)))
+    let l2 u32 = raw.store64(base + 144u64, base + 80u64)
+    print(heap.free_blocks(borrow(hp)))
+    print(heap.free_bytes(borrow(hp)))
+    let l3 u32 = raw.store64(base + 144u64, 0u64)
+    let l4 u32 = raw.store64(base + 80u64, base + 64u64)
+    print(heap.free_blocks(borrow(hp)))
+    print(heap.free_bytes(borrow(hp)))
+    let l4b u32 = raw.store64(base + 80u64, base + 120u64)
+    print(heap.free_blocks(borrow(hp)))
+    let l4c u32 = raw.store64(base + 80u64, base + 512u64)
+    print(heap.free_blocks(borrow(hp)))
+    let l5 u32 = raw.store64(base + 80u64, base + 144u64)
+    print(heap.free_blocks(borrow(hp)))
+    let first u64 = raw.load64(base + 32u64)
+    let l6 u32 = raw.store64(base + 32u64, base + 48u64)
+    print(heap.free_blocks(borrow(hp)))
+    let l7 u32 = raw.store64(base + 32u64, first)
+    // a free block whose size is odd, then one that reaches beyond the carved area
+    let s1 u32 = raw.store64(base + 64u64, 17u64)
+    print(off<S8>(heap.alloc<S8>(borrow_mut(hp)), base))
+    print(status(heap.free<S8>(borrow_mut(hp), w)))
+    let s2 u32 = raw.store64(base + 64u64, 100000u64)
+    print(heap.free_bytes(borrow(hp)))
+    print(off<S8>(heap.alloc<S8>(borrow_mut(hp)), base))
+    let s3 u32 = raw.store64(base + 64u64, 16u64)
+    // the head of a live block, and the counter of live blocks
+    let h1 u32 = raw.store64(base + 96u64, 100000u64)
+    print(status(heap.store<S8>(borrow(hp), y, S8 { v: 1u64 })))
+    let h2 u32 = raw.store64(base + 96u64, 16u64)
+    print(status(heap.store<S8>(borrow(hp), y, S8 { v: 1u64 })))
+    let live u64 = raw.load64(base + 40u64)
+    let c1 u32 = raw.store64(base + 40u64, 0u64)
+    print(status(heap.free<S8>(borrow_mut(hp), y)))
+    let c2 u32 = raw.store64(base + 40u64, live)
+    // a handle whose address is the end of the carved area
+    let brk u64 = raw.load64(base + 8u64)
+    let f1 u32 = raw.store64(brk - 16u64, 0u64)
+    let f2 u32 = raw.store64(brk - 8u64, tag(77u64))
+    print(status(heap.store_at<S8>(borrow(hp), heap.Block<S8> { addr: brk, count: 0u64, serial: 77u64 }, 0u64, S8 { v: 1u64 })))
+    let f3 u32 = raw.store64(brk - 8u64, tag(2u64))
+    print(off<S8>(heap.descriptor_at<S8>(borrow(hp), brk, 0u64), base))
+    print(status(heap.store<S8>(borrow(hp), heap.Block<S8> { addr: y.addr + 8u64, count: 1u64, serial: y.serial }, S8 { v: 1u64 })))
+    let d u64 = heap.destroy(move(hp))
+  } Err(e) { print(3000u64) } }
+  return 0u32
+}
+
+// N4: a block that merges with its successor takes over what the successor pointed to
+func scenario_chain(base u64) u32 !{io.print,memory.raw} {
+  let c = heap.create(base, 1024u64)
+  match c { Ok(hp) {
+    let f = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let n1 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let l1 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let n2 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let l2 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(status(heap.free<S8>(borrow_mut(hp), n1)))
+    print(status(heap.free<S8>(borrow_mut(hp), n2)))
+    print(heap.free_blocks(borrow(hp)))
+    print(status(heap.free<S8>(borrow_mut(hp), f)))
+    print(heap.free_blocks(borrow(hp)))
+    print(heap.free_bytes(borrow(hp)))
+    print(raw.load64(base + 80u64) - base)
+    print(raw.load64(base + 96u64))
+    print(raw.load64(base + 112u64))
+    let d u64 = heap.destroy(move(hp))
+  } Err(e) { print(3000u64) } }
+  return 0u32
+}
+
+// Q: the range grows but never shrinks, and growing keeps the free list and the serial counter
+func scenario_extend(base u64) u32 !{io.print,memory.raw} {
+  let c = heap.create(base, 1024u64)
+  match c { Ok(hp) {
+    let a = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let b = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let k = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(status(heap.free<S8>(borrow_mut(hp), a)))
+    print(status64(heap.extend(borrow_mut(hp), base + 1000u64)))
+    print(status64(heap.extend(borrow_mut(hp), base + 1024u64)))
+    print(status64(heap.extend(borrow_mut(hp), base + 2048u64)))
+    print(heap.remaining(borrow(hp)))
+    print(heap.free_blocks(borrow(hp)))
+    let d = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(d.addr - base)
+    print(d.serial)
+    let big = take<W32>(heap.alloc_array<W32>(borrow_mut(hp), 400u64))
+    print(big.addr - base)
+    print(heap.remaining(borrow(hp)))
+    print(off<W32>(heap.alloc_array<W32>(borrow_mut(hp), 100u64), base))
+    let e u64 = heap.destroy(move(hp))
+  } Err(e) { print(3000u64) } }
+  return 0u32
+}
+
+// R: a descriptor of another heap is a typed error in both directions, even at the same offset and with the same serial
+func scenario_foreign(a u64, b u64) u32 !{io.print,memory.raw} {
+  let ca = heap.create(a, 1024u64)
+  match ca { Ok(ha) {
+    let cb = heap.create(b, 1024u64)
+    match cb { Ok(hb) {
+      let xa = take<S8>(heap.alloc<S8>(borrow_mut(ha)))
+      let xb = take<S8>(heap.alloc<S8>(borrow_mut(hb)))
+      print(flag(xa.serial == xb.serial))
+      print(flag(xa.addr - a == xb.addr - b))
+      print(status(heap.store<S8>(borrow(hb), xa, S8 { v: 1u64 })))
+      print(status(heap.store<S8>(borrow(ha), xb, S8 { v: 1u64 })))
+      print(status(heap.free<S8>(borrow_mut(hb), xa)))
+      print(status(heap.free<S8>(borrow_mut(ha), xb)))
+      print(off<S8>(heap.descriptor_at<S8>(borrow(hb), xa.addr, 1u64), b))
+      print(status(heap.store<S8>(borrow(ha), xa, S8 { v: 1u64 })))
+      print(status(heap.store<S8>(borrow(hb), xb, S8 { v: 1u64 })))
+      print(heap.live(borrow(ha)))
+      print(heap.live(borrow(hb)))
+      let d2 u64 = heap.destroy(move(hb))
+    } Err(e) { print(3000u64) } }
+    let d1 u64 = heap.destroy(move(ha))
+  } Err(e) { print(3000u64) } }
+  return 0u32
+}
+
+// S: serial numbers continue across the incarnations of a range, a retired range whose serials ran out is refused, and anything else starts again
+func scenario_incarnation(base u64) u32 !{io.print,memory.raw} {
+  let c1 = heap.create(base, 1024u64)
+  var x heap.Block<S8> = none<S8>()
+  var y heap.Block<S8> = none<S8>()
+  match c1 { Ok(h1) {
+    x = take<S8>(heap.alloc<S8>(borrow_mut(h1)))
+    y = take<S8>(heap.alloc<S8>(borrow_mut(h1)))
+    print(heap.destroy(move(h1)))
+  } Err(e) { print(3000u64) } }
+  print(raw.load64(base))
+  print(raw.load64(base + 24u64))
+  print(raw.load64(base + 8u64))
+  print(raw.load64(base + 16u64))
+  print(raw.load64(base + 32u64))
+  print(raw.load64(base + 40u64))
+  let c2 = heap.create(base, 1024u64)
+  match c2 { Ok(h2) {
+    let z = take<S8>(heap.alloc<S8>(borrow_mut(h2)))
+    print(z.addr - base)
+    print(z.serial)
+    print(status(heap.store<S8>(borrow(h2), x, S8 { v: 1u64 })))
+    print(status(heap.store<S8>(borrow(h2), y, S8 { v: 1u64 })))
+    print(status(heap.store<S8>(borrow(h2), z, S8 { v: 1u64 })))
+    print(heap.destroy(move(h2)))
+  } Err(e) { print(3000u64) } }
+  let spent u32 = raw.store64(base + 24u64, 6840399175121563660u64)
+  print(made(heap.create(base, 1024u64)))
+  let last u32 = raw.store64(base + 24u64, 6840399175121563659u64)
+  let c3 = heap.create(base, 1024u64)
+  match c3 { Ok(h3) {
+    let w = take<S8>(heap.alloc<S8>(borrow_mut(h3)))
+    print(w.serial)
+    let d3 u64 = heap.destroy(move(h3))
+  } Err(e) { print(u64(e)) } }
+  let junk u32 = raw.store64(base, 12345u64)
+  let c4 = heap.create(base, 1024u64)
+  match c4 { Ok(h4) {
+    let w = take<S8>(heap.alloc<S8>(borrow_mut(h4)))
+    print(w.serial)
+    let d4 u64 = heap.destroy(move(h4))
+  } Err(e) { print(u64(e)) } }
+  return 0u32
+}
+
+func canaries(base u64) u64 !{memory.raw} {
+  let p u64 = 14106333703424951235u64
+  if raw.load64(base - 16u64) != p { return 0u64 }
+  if raw.load64(base - 8u64) != p { return 0u64 }
+  if raw.load64(base + 1024u64) != p { return 0u64 }
+  if raw.load64(base + 1032u64) != p { return 0u64 }
+  return 1u64
+}
+
+// T: the range is dirty, with non-zero words on both sides of it; blocks come zeroed, every element can be written without touching a neighbour or a head, and the words around the range survive
+func scenario_sentinels(base u64) u32 !{io.print,memory.raw} {
+  var p u64 = base - 16u64
+  for p < base + 1040u64 {
+    let w u32 = raw.store64(p, 14106333703424951235u64)
+    p = p + 8u64
+  }
+  let c = heap.create(base, 1024u64)
+  match c { Ok(hp) {
+    let a = take<B8>(heap.alloc_array<B8>(borrow_mut(hp), 5u64))
+    let b = take<S8>(heap.alloc_array<S8>(borrow_mut(hp), 3u64))
+    print(raw.load64(a.addr))
+    print(raw.load64(a.addr + 8u64))
+    print(raw.load64(b.addr))
+    print(raw.load64(b.addr + 16u64))
+    var i u64 = 0u64
+    for i < 5u64 {
+      let w u64 = status(heap.store_at<B8>(borrow(hp), a, i, B8 { v: 255u8 }))
+      i = i + 1u64
+    }
+    i = 0u64
+    for i < 3u64 {
+      let w u64 = status(heap.store_at<S8>(borrow(hp), b, i, S8 { v: 18446744073709551615u64 }))
+      i = i + 1u64
+    }
+    print(raw.load64(a.addr))
+    print(raw.load64(a.addr + 8u64))
+    print(raw.load64(b.addr - 16u64))
+    print(flag(raw.load64(b.addr - 8u64) != 0u64))
+    print(raw.load64(b.addr + 24u64))
+    print(status(heap.free<B8>(borrow_mut(hp), a)))
+    print(raw.load64(a.addr))
+    print(raw.load64(b.addr + 16u64))
+    let g = take<S8>(heap.realloc_array<S8>(borrow_mut(hp), b, 6u64))
+    print(g.addr - base)
+    print(raw.load64(g.addr + 16u64))
+    print(raw.load64(g.addr + 24u64))
+    print(raw.load64(b.addr + 16u64))
+    print(heap.destroy(move(hp)))
+  } Err(e) { print(3000u64) } }
+  print(canaries(base))
+  return 0u32
+}
+
+// U: a heap whose header is damaged can still be given back; it reports no leak and leaves nothing that a later heap could mistake for a retired range
+func scenario_scrap(base u64) u32 !{io.print,memory.raw} {
+  let c = heap.create(base, 1024u64)
+  match c { Ok(hp) {
+    let x = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let dmg u32 = raw.store64(base, 0u64)
+    print(heap.destroy(move(hp)))
+    print(raw.load64(base))
+    print(raw.load64(base + 24u64))
+    print(raw.load64(base + 8u64))
+  } Err(e) { print(3000u64) } }
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let base u64 = 8388608u64
+  // A: bad ranges are typed errors and leave nothing behind; the smallest range is accepted
+  print(made(heap.create(0u64, 1024u64)))
+  print(made(heap.create(base + 8u64, 1024u64)))
+  print(made(heap.create(base, 127u64)))
+  print(made(heap.create(18446744073709551600u64, 1024u64)))
+  print(made(heap.create(base, 128u64)))
+  let c = heap.create(base, 1024u64)
+  match c { Ok(hp) {
+    // B: size and alignment come from the element type; every payload is 16-aligned and a block takes at least 16 bytes
+    let a1 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let a2 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    let a3 = take<W24>(heap.alloc<W24>(borrow_mut(hp)))
+    let a4 = take<B8>(heap.alloc_array<B8>(borrow_mut(hp), 5u64))
+    print(a1.addr - base)
+    print(a2.addr - base)
+    print(a3.addr - base)
+    print(a4.addr - base)
+    print(heap.carved(borrow(hp)))
+    print(heap.live(borrow(hp)))
+    print(heap.remaining(borrow(hp)))
+    print(raw.load64(base + 64u64))
+    print(raw.load64(base + 128u64))
+    // C: typed round trip at the layout offsets, and the index law
+    print(status(heap.store<W24>(borrow(hp), a3, W24 { a: 1u64, b: 2u64, c: 3u64 })))
+    let back = heap.load<W24>(borrow(hp), a3)
+    match back { Ok(v) { print(v.a); print(v.b); print(v.c) } Err(e) { print(1000u64 + u64(e)) } }
+    print(raw.load64(base + 152u64))
+    print(status(heap.store_at<B8>(borrow(hp), a4, 4u64, B8 { v: 9u8 })))
+    let last = heap.load_at<B8>(borrow(hp), a4, 4u64)
+    match last { Ok(v) { print(u64(v.v)) } Err(e) { print(1000u64 + u64(e)) } }
+    let past = heap.load_at<B8>(borrow(hp), a4, 5u64)
+    match past { Ok(v) { print(1u64) } Err(e) { print(u64(e)) } }
+    // D: a released block is zero, marks itself free, and the next request of its size takes it back
+    print(status(heap.free<S8>(borrow_mut(hp), a2)))
+    print(heap.free_blocks(borrow(hp)))
+    print(heap.free_bytes(borrow(hp)))
+    print(raw.load64(base + 104u64))
+    print(raw.load64(base + 112u64))
+    let a2b = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(a2b.addr - base)
+    print(heap.free_blocks(borrow(hp)))
+    // E: neighbours merge; a block is split only when what remains can still be a block
+    print(status(heap.free<S8>(borrow_mut(hp), a1)))
+    print(status(heap.free<S8>(borrow_mut(hp), a2b)))
+    print(heap.free_blocks(borrow(hp)))
+    print(heap.free_bytes(borrow(hp)))
+    print(raw.load64(base + 96u64))
+    print(raw.load64(base + 104u64))
+    let t3 = take<S8>(heap.alloc_array<S8>(borrow_mut(hp), 3u64))
+    print(t3.addr - base)
+    print(raw.load64(base + 64u64))
+    print(heap.free_blocks(borrow(hp)))
+    print(status(heap.free<S8>(borrow_mut(hp), t3)))
+    let s1 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(s1.addr - base)
+    print(raw.load64(base + 96u64))
+    print(heap.free_blocks(borrow(hp)))
+    print(heap.free_bytes(borrow(hp)))
+    let s2 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(s2.addr - base)
+    print(heap.free_blocks(borrow(hp)))
+    // F: a block that touches the end of the carved area goes back to the untouched range, and the same address is handed out again with a new serial
+    print(status(heap.free<B8>(borrow_mut(hp), a4)))
+    print(heap.carved(borrow(hp)))
+    print(heap.remaining(borrow(hp)))
+    print(raw.load64(base + 176u64))
+    print(raw.load64(base + 184u64))
+    let a5 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(a5.addr - base)
+    let old4 = heap.load_at<B8>(borrow(hp), a4, 0u64)
+    match old4 { Ok(v) { print(1u64) } Err(e) { print(u64(e)) } }
+    // G: a free block merges with its successor, then with its predecessor, and the merged block retreats the end of the carved area
+    print(status(heap.free<W24>(borrow_mut(hp), a3)))
+    print(heap.free_blocks(borrow(hp)))
+    print(status(heap.free<S8>(borrow_mut(hp), s2)))
+    print(heap.free_blocks(borrow(hp)))
+    print(heap.free_bytes(borrow(hp)))
+    print(raw.load64(base + 128u64))
+    print(raw.load64(base + 136u64))
+    print(raw.load64(base + 144u64))
+    print(raw.load64(base + 152u64))
+    print(raw.load64(base + 160u64))
+    print(status(heap.free<S8>(borrow_mut(hp), a5)))
+    print(heap.free_blocks(borrow(hp)))
+    print(heap.carved(borrow(hp)))
+    print(heap.live(borrow(hp)))
+    // H: a double free, a use after free and a handle of a reused block are typed errors; forged handles never reach memory
+    print(status(heap.free<W24>(borrow_mut(hp), a3)))
+    let gone = heap.load<W24>(borrow(hp), a3)
+    match gone { Ok(v) { print(1u64) } Err(e) { print(u64(e)) } }
+    print(status(heap.free<S8>(borrow_mut(hp), s1)))
+    print(heap.carved(borrow(hp)))
+    let s3 = take<S8>(heap.alloc<S8>(borrow_mut(hp)))
+    print(s3.addr - base)
+    print(status(heap.store<S8>(borrow(hp), s1, S8 { v: 5u64 })))
+    print(status(heap.free<S8>(borrow_mut(hp), s1)))
+    print(status(heap.store<S8>(borrow(hp), heap.Block<S8> { addr: s3.addr + 1u64, count: 1u64, serial: s3.serial }, S8 { v: 5u64 })))
+    print(status(heap.store<S8>(borrow(hp), heap.Block<S8> { addr: base + 16u64, count: 1u64, serial: s3.serial }, S8 { v: 5u64 })))
+    print(status(heap.store<S8>(borrow(hp), heap.Block<S8> { addr: base + 2000u64, count: 1u64, serial: s3.serial }, S8 { v: 5u64 })))
+    print(status(heap.store<S8>(borrow(hp), heap.Block<S8> { addr: s3.addr, count: 3u64, serial: s3.serial }, S8 { v: 5u64 })))
+    print(status(heap.store<S8>(borrow(hp), heap.Block<S8> { addr: s3.addr, count: 4611686018427387905u64, serial: s3.serial }, S8 { v: 5u64 })))
+    print(status(heap.store<S8>(borrow(hp), heap.Block<S8> { addr: s3.addr, count: 1u64, serial: 0u64 }, S8 { v: 5u64 })))
+    print(status(heap.store<B8>(borrow(hp), heap.Block<B8> { addr: s3.addr, count: 17u64, serial: s3.serial }, B8 { v: 1u8 })))
+    print(status(heap.store<B8>(borrow(hp), heap.Block<B8> { addr: s3.addr, count: 16u64, serial: s3.serial }, B8 { v: 1u8 })))
+    print(status(heap.store<S8>(borrow(hp), s3, S8 { v: 5u64 })))
+    // I: exhaustion is a typed error that changes nothing; an exact fit uses the last byte of the range
+    print(off<W32>(heap.alloc_array<W32>(borrow_mut(hp), 10000u64), base))
+    print(off<W32>(heap.alloc_array<W32>(borrow_mut(hp), 4611686018427387905u64), base))
+    print(off<W32>(heap.alloc_array<W32>(borrow_mut(hp), 4611686018427387903u64), base))
+    print(heap.remaining(borrow(hp)))
+    let big = take<W32>(heap.alloc_array<W32>(borrow_mut(hp), 228u64))
+    print(big.addr - base)
+    print(heap.remaining(borrow(hp)))
+    print(off<S8>(heap.alloc<S8>(borrow_mut(hp)), base))
+    print(status(heap.free<W32>(borrow_mut(hp), big)))
+    print(heap.remaining(borrow(hp)))
+    // J: realloc keeps the elements, reuses the block when it has room, and a failing call leaves the old block as it was
+    let g = take<W32>(heap.alloc_array<W32>(borrow_mut(hp), 3u64))
+    print(g.addr - base)
+    print(status(heap.store_at<W32>(borrow(hp), g, 0u64, W32 { v: 1u32 })))
+    print(status(heap.store_at<W32>(borrow(hp), g, 1u64, W32 { v: 2u32 })))
+    print(status(heap.store_at<W32>(borrow(hp), g, 2u64, W32 { v: 3u32 })))
+    let g4 = take<W32>(heap.realloc_array<W32>(borrow_mut(hp), g, 4u64))
+    print(g4.addr - base)
+    print(g4.count)
+    let tail = heap.load_at<W32>(borrow(hp), g4, 3u64)
+    match tail { Ok(v) { print(u64(v.v)) } Err(e) { print(1000u64 + u64(e)) } }
+    let g5 = take<W32>(heap.realloc_array<W32>(borrow_mut(hp), g4, 5u64))
+    print(g5.addr - base)
+    print(g5.count)
+    let moved = heap.load_at<W32>(borrow(hp), g5, 2u64)
+    match moved { Ok(v) { print(u64(v.v)) } Err(e) { print(1000u64 + u64(e)) } }
+    let fresh = heap.load_at<W32>(borrow(hp), g5, 4u64)
+    match fresh { Ok(v) { print(u64(v.v)) } Err(e) { print(1000u64 + u64(e)) } }
+    let was = heap.load_at<W32>(borrow(hp), g4, 0u64)
+    match was { Ok(v) { print(1u64) } Err(e) { print(u64(e)) } }
+    print(heap.free_blocks(borrow(hp)))
+    print(off<W32>(heap.realloc_array<W32>(borrow_mut(hp), g5, 5u64), base))
+    print(off<W32>(heap.realloc_array<W32>(borrow_mut(hp), g5, 4u64), base))
+    print(off<W32>(heap.realloc_array<W32>(borrow_mut(hp), g5, 100000u64), base))
+    print(off<W32>(heap.realloc_array<W32>(borrow_mut(hp), g, 5u64), base))
+    let kept = heap.load_at<W32>(borrow(hp), g5, 0u64)
+    match kept { Ok(v) { print(u64(v.v)) } Err(e) { print(1000u64 + u64(e)) } }
+    // K: damage is detected and never followed; restoring it restores service
+    let saved u64 = raw.load64(base)
+    let hit u32 = raw.store64(base, 0u64)
+    print(off<S8>(heap.alloc<S8>(borrow_mut(hp)), base))
+    print(status(heap.free<W32>(borrow_mut(hp), g5)))
+    print(status64(heap.extend(borrow_mut(hp), base + 2048u64)))
+    let fix u32 = raw.store64(base, saved)
+    let link u64 = raw.load64(base + 112u64)
+    let cut u32 = raw.store64(base + 112u64, base + 5000u64)
+    print(heap.free_blocks(borrow(hp)))
+    print(off<W24>(heap.alloc<W24>(borrow_mut(hp)), base))
+    let heal u32 = raw.store64(base + 112u64, link)
+    print(off<S8>(heap.alloc<S8>(borrow_mut(hp)), base))
+    // L: teardown zeroes the carved area and the header and reports the blocks that were never released
+    print(heap.live(borrow(hp)))
+    print(heap.destroy(move(hp)))
+    print(raw.load64(base))
+    print(raw.load64(base + 144u64))
+    print(raw.load64(base + 152u64))
+  } Err(e) { print(3000u64) } }
+  let m1 u32 = scenario_descriptors(9437184u64)
+  let m2 u32 = scenario_tags(9441280u64)
+  let m3 u32 = scenario_lists(9445376u64)
+  let m4 u32 = scenario_top(9449472u64)
+  let m5 u32 = scenario_serial(9453568u64)
+  let m6 u32 = scenario_damage(9457664u64)
+  let m7 u32 = scenario_chain(9461760u64)
+  let m8 u32 = scenario_extend(9465856u64)
+  let m9 u32 = scenario_foreign(9469952u64, 9474048u64)
+  let m10 u32 = scenario_incarnation(9478144u64)
+  let m11 u32 = scenario_sentinels(9482240u64)
+  let m12 u32 = scenario_scrap(9486336u64)
+  return rt.finish(0u32)
+}

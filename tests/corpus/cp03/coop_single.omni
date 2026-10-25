@@ -1,0 +1,281 @@
+module t
+import rt "rt.omni"
+import heap "heap.omni"
+import coop "coop.omni"
+import lease "lease.omni"
+import taskbody "taskbody.omni"
+
+// CP-03 row 3.4, one CPU (spec/CANCELLATION_CANDIDATE.md): REAL cooperative tasks, each with its own stack and context, owning two leases (a resource whose close can fail, tests/x64/lease.omni),
+// run by this program's main as the scheduler. The body is taskbody.work, called by `worker` (the --thread-entry of the image); the owner holds a Resource<coop.Task> that owns the task's control block and stack in a
+// freestanding heap. One scenario per block of output; the lease table is the oracle for leaks (live), unbalanced acquisitions (acquired against closed ok + closed with a failure) and double closes.
+//   states: 1 NEW, 2 RUNNING, 3 DONE, 4 CANCELLED_UNSTARTED     outcome: 0 completed, 1 cancelled with nothing dispatched, 2 cancelled with an effect dispatched and not confirmed (UNKNOWN),
+//   3 failed, 4 pending, 5 cancelled after the effect was confirmed
+// Cells: lease table 0x6F0000 (7274496), current task 0x6F1000 (7278592), scheduler save-area cell 0x6F1008 (7278600), scheduler save area 0x6F2000 (7282688). Heap: 0x700000 (7340032), 64 KiB.
+
+func tbl() u64 { return 7274496u64 }
+func cur() u64 { return 7278592u64 }
+func sched() u64 { return 7282688u64 }
+
+func worker() u32 !{memory.raw,memory.atomic,cpu.control,port.io} {
+  let ctrl u64 = raw.load64(cur())
+  let s u64 = raw.load64(cur() + 8u64)
+  let r u32 = taskbody.work(ctrl, s)
+  return coop.finish(ctrl, r, s)
+}
+
+// ---- the owner and the scheduler (this is the part a kernel would write) ----------------------------------------------------------------------------------------------------------------
+
+func reset(capacity u32, inject u32) u32 !{memory.raw} {
+  for i in 0u32..32u32 {
+    let z u32 = raw.store32(tbl() + u64(i) * 4u64, 0u32)
+  }
+  let c u32 = raw.store32(tbl() + 16u64, capacity)
+  return raw.store32(tbl() + 20u64, inject)
+}
+
+func leases() u32 !{io.print,memory.raw} {
+  print(raw.load32(tbl()))
+  print(raw.load32(tbl() + 4u64))
+  print(raw.load32(tbl() + 8u64))
+  print(raw.load32(tbl() + 12u64))
+  return 0u32
+}
+
+func rs(r Result<u32,u32>) u32 {
+  match r {
+    Ok(n) { return n }
+    Err(e) { return 1000u32 + e }
+  }
+}
+
+func ctrl_of(hp Borrow<heap.Heap>, t Borrow<coop.Task>) u64 !{memory.raw} {
+  let c = coop.ctrl_addr(hp, t)
+  match c {
+    Ok(a) { return a }
+    Err(e) { return 0u64 }
+  }
+}
+
+func prepare(ctrl u64) u32 !{memory.raw} {
+  let a u32 = raw.store64(cur(), ctrl)
+  return raw.store64(cur() + 8u64, sched())
+}
+
+// a task with the scenario number `kind`, prepared to run; the closure `body` of each scenario is the match that follows in the caller
+func report(hp BorrowMut<heap.Heap>, t Borrow<coop.Task>) u32 !{io.print,memory.raw,memory.atomic} {
+  print(rs(coop.state(borrow(hp), t)))
+  print(rs(coop.await_end(borrow(hp), t, 10u32)))
+  print(rs(coop.outcome(borrow(hp), t)))
+  return leases()
+}
+
+func scen_normal(hp BorrowMut<heap.Heap>) u32 !{io.print,memory.raw,memory.atomic,cpu.control} {
+  let z u32 = reset(8u32, 0u32)
+  let n = coop.create(hp, 128u64, 1u64)
+  match n {
+    Err(e) { print(1000u32 + e) }
+    Ok(t) {
+      let ctrl u64 = ctrl_of(borrow(hp), borrow(t))
+      let p u32 = prepare(ctrl)
+      print(coop.run(ctrl, sched()))
+      print(coop.run(ctrl, sched()))
+      print(coop.run(ctrl, sched()))
+      print(coop.run(ctrl, sched()))
+      let r u32 = report(hp, borrow(t))
+      print(coop.destroy(hp, move(t)))
+      print(heap.live(borrow(hp)))
+    }
+  }
+  return 0u32
+}
+
+func scen_before_start(hp BorrowMut<heap.Heap>) u32 !{io.print,memory.raw,memory.atomic,cpu.control} {
+  let z u32 = reset(8u32, 0u32)
+  let n = coop.create(hp, 128u64, 1u64)
+  match n {
+    Err(e) { print(1000u32 + e) }
+    Ok(t) {
+      let ctrl u64 = ctrl_of(borrow(hp), borrow(t))
+      let p u32 = prepare(ctrl)
+      print(rs(coop.request_cancel(borrow(hp), borrow(t))))
+      print(coop.run(ctrl, sched()))
+      print(coop.run(ctrl, sched()))
+      let r u32 = report(hp, borrow(t))
+      print(coop.destroy(hp, move(t)))
+      print(heap.live(borrow(hp)))
+    }
+  }
+  return 0u32
+}
+
+func scen_cancel_running(hp BorrowMut<heap.Heap>) u32 !{io.print,memory.raw,memory.atomic,cpu.control} {
+  let z u32 = reset(8u32, 0u32)
+  let n = coop.create(hp, 128u64, 1u64)
+  match n {
+    Err(e) { print(1000u32 + e) }
+    Ok(t) {
+      let ctrl u64 = ctrl_of(borrow(hp), borrow(t))
+      let p u32 = prepare(ctrl)
+      print(coop.run(ctrl, sched()))
+      print(raw.load32(tbl()))
+      print(rs(coop.request_cancel(borrow(hp), borrow(t))))
+      print(coop.run(ctrl, sched()))
+      let r u32 = report(hp, borrow(t))
+      print(coop.destroy(hp, move(t)))
+      print(heap.live(borrow(hp)))
+    }
+  }
+  return 0u32
+}
+
+func scen_failures(hp BorrowMut<heap.Heap>, capacity u32, inject u32) u32 !{io.print,memory.raw,memory.atomic,cpu.control} {
+  let z u32 = reset(capacity, inject)
+  let n = coop.create(hp, 128u64, 1u64)
+  match n {
+    Err(e) { print(1000u32 + e) }
+    Ok(t) {
+      let ctrl u64 = ctrl_of(borrow(hp), borrow(t))
+      let p u32 = prepare(ctrl)
+      var states u32 = 0u32
+      for i in 0u32..6u32 {
+        if states != 3u32 { states = coop.run(ctrl, sched()) }
+      }
+      print(states)
+      print(raw.load32(ctrl + 8u64))
+      let r u32 = report(hp, borrow(t))
+      print(coop.destroy(hp, move(t)))
+      print(heap.live(borrow(hp)))
+    }
+  }
+  return 0u32
+}
+
+// the effect scenario: `runs_before_cancel` resumptions, then the request, then the rest
+func scen_effect(hp BorrowMut<heap.Heap>, runs u32, cancel_now u32) u32 !{io.print,memory.raw,memory.atomic,cpu.control} {
+  let z u32 = reset(8u32, 0u32)
+  let n = coop.create(hp, 128u64, 4u64)
+  match n {
+    Err(e) { print(1000u32 + e) }
+    Ok(t) {
+      let ctrl u64 = ctrl_of(borrow(hp), borrow(t))
+      let p u32 = prepare(ctrl)
+      for i in 0u32..runs { let s u32 = coop.run(ctrl, sched()) }
+      print(raw.load32(ctrl + 12u64))
+      if cancel_now == 1u32 {
+        print(rs(coop.request_cancel(borrow(hp), borrow(t))))
+      }
+      var states u32 = 2u32
+      for i in 0u32..6u32 {
+        if states != 3u32 { states = coop.run(ctrl, sched()) }
+      }
+      print(states)
+      let r u32 = report(hp, borrow(t))
+      print(coop.destroy(hp, move(t)))
+    }
+  }
+  return 0u32
+}
+
+// the owner gives the task back while it may still run: nothing is freed, the task finishes correctly on the memory it still has
+func scen_abandon(hp BorrowMut<heap.Heap>) u32 !{io.print,memory.raw,memory.atomic,cpu.control} {
+  let z u32 = reset(8u32, 0u32)
+  let n = coop.create(hp, 128u64, 1u64)
+  match n {
+    Err(e) { print(1000u32 + e) }
+    Ok(t) {
+      let ctrl u64 = ctrl_of(borrow(hp), borrow(t))
+      let p u32 = prepare(ctrl)
+      print(coop.run(ctrl, sched()))
+      print(coop.destroy(hp, move(t)))
+      print(heap.live(borrow(hp)))
+      var states u32 = 2u32
+      for i in 0u32..6u32 {
+        if states != 3u32 { states = coop.run(ctrl, sched()) }
+      }
+      print(states)
+      print(raw.load32(ctrl + 8u64))
+      print(raw.load32(ctrl + 4u64))
+      let l u32 = leases()
+    }
+  }
+  return 0u32
+}
+
+// a task that uses most of a small stack: the words below the stack block (its head) must still be there when it ends, and the stack must have been used beyond its half
+func scen_depth(hp BorrowMut<heap.Heap>) u32 !{io.print,memory.raw,memory.atomic,cpu.control} {
+  let z u32 = reset(8u32, 0u32)
+  let n = coop.create(hp, 128u64, 8u64)
+  match n {
+    Err(e) { print(1000u32 + e) }
+    Ok(t) {
+      let ctrl u64 = ctrl_of(borrow(hp), borrow(t))
+      let p u32 = prepare(ctrl)
+      let stack u64 = raw.load64(ctrl + 24u64)
+      print(raw.load64(stack - 16u64))
+      var states u32 = 2u32
+      for i in 0u32..6u32 {
+        if states != 3u32 { states = coop.run(ctrl, sched()) }
+      }
+      print(states)
+      var low u64 = stack
+      for i in 0u32..128u32 {
+        if raw.load64(low) == 0u64 { low = low + 8u64 }
+      }
+      let used u64 = stack + 1024u64 - low
+      if used > 512u64 { if used < 1024u64 { print(1u32) } }
+      print(raw.load64(stack - 16u64))
+      let r u32 = report(hp, borrow(t))
+      print(coop.destroy(hp, move(t)))
+      print(heap.live(borrow(hp)))
+    }
+  }
+  return 0u32
+}
+
+// what the two waits answer in each state they can see. The owner of the test sets the state itself: with one CPU `run` already publishes RETIRED, so DONE (the acknowledgement alone) is never seen between two calls.
+// NEW: the retirement wait times out (23). DONE with result 7 and journal 2: the end wait answers the RESULT (7), the retirement wait still times out. Never started: the retirement wait is satisfied.
+func scen_waits(hp BorrowMut<heap.Heap>) u32 !{io.print,memory.raw,memory.atomic,cpu.control} {
+  let z u32 = reset(8u32, 0u32)
+  let n = coop.create(hp, 128u64, 1u64)
+  match n {
+    Err(e) { print(1000u32 + e) }
+    Ok(t) {
+      let ctrl u64 = ctrl_of(borrow(hp), borrow(t))
+      print(rs(coop.await_retired(borrow(hp), borrow(t), 3u32)))
+      let r u32 = raw.store32(ctrl + 8u64, 7u32)
+      let j u32 = raw.store32(ctrl + 12u64, 2u32)
+      let d u32 = raw.store32(ctrl, 3u32)
+      print(rs(coop.await_end(borrow(hp), borrow(t), 3u32)))
+      print(rs(coop.await_retired(borrow(hp), borrow(t), 3u32)))
+      let u u32 = raw.store32(ctrl, 4u32)
+      print(rs(coop.await_retired(borrow(hp), borrow(t), 3u32)))
+      print(coop.destroy(hp, move(t)))
+      print(heap.live(borrow(hp)))
+    }
+  }
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let c = heap.create(7340032u64, 65536u64)
+  match c {
+    Ok(hp) {
+      let a u32 = scen_normal(borrow_mut(hp))
+      let b u32 = scen_before_start(borrow_mut(hp))
+      let d u32 = scen_cancel_running(borrow_mut(hp))
+      let e u32 = scen_failures(borrow_mut(hp), 1u32, 0u32)
+      let f u32 = scen_failures(borrow_mut(hp), 8u32, 1u32)
+      let g1 u32 = scen_effect(borrow_mut(hp), 1u32, 1u32)
+      let g2 u32 = scen_effect(borrow_mut(hp), 2u32, 1u32)
+      let g3 u32 = scen_effect(borrow_mut(hp), 3u32, 1u32)
+      let g4 u32 = scen_effect(borrow_mut(hp), 3u32, 0u32)
+      let h u32 = scen_abandon(borrow_mut(hp))
+      let k u32 = scen_depth(borrow_mut(hp))
+      let w u32 = scen_waits(borrow_mut(hp))
+      print(heap.live(borrow(hp)))
+      print(heap.destroy(move(hp)))
+    }
+    Err(e) { print(3000u32 + e) }
+  }
+  return rt.finish(0u32)
+}

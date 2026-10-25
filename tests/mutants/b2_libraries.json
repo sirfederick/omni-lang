@@ -1,0 +1,158 @@
+[
+ {
+  "name": "S1 the FXSR bit is the SSE2 one",
+  "file": "examples/storage/cpustate.omni",
+  "old": "cpu.cpuid(1u32, 3u32), 16777216u32)",
+  "new": "cpu.cpuid(1u32, 3u32), 33554432u32)",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "S2 the SSE2 bit is the FXSR one",
+  "file": "examples/storage/cpustate.omni",
+  "old": "cpu.cpuid(1u32, 3u32), 67108864u32)",
+  "new": "cpu.cpuid(1u32, 3u32), 16777216u32)",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "S3 XSAVE is read from edx",
+  "file": "examples/storage/cpustate.omni",
+  "old": "cpu.cpuid(1u32, 2u32), 67108864u32)",
+  "new": "cpu.cpuid(1u32, 3u32), 67108864u32)",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "S4 AVX is read from the XSAVE bit",
+  "file": "examples/storage/cpustate.omni",
+  "old": "cpu.cpuid(1u32, 2u32), 268435456u32)",
+  "new": "cpu.cpuid(1u32, 2u32), 67108864u32)",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "S5 the leaf is considered present only above 0xD",
+  "file": "examples/storage/cpustate.omni",
+  "old": "  if max_leaf() < 13u32 { return 0u64 }",
+  "new": "  if max_leaf() <= 13u32 { return 0u64 }",
+  "tests": [
+   "tests/cp10_state.py"
+  ],
+  "equivalent": "QEMU `max` reports a maximum basic leaf above 0xD, so `<` and `<=` agree on every CPU the suite runs; the boundary (a CPU whose maximum leaf is exactly 0xD) is not available under TCG"
+ },
+ {
+  "name": "S6 the enabled size is read from ecx",
+  "file": "examples/storage/cpustate.omni",
+  "old": "  return cpu.cpuid_sub(13u32, 0u32, 1u32)\n}",
+  "new": "  return cpu.cpuid_sub(13u32, 0u32, 2u32)\n}",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "S7 the maximum size is read from ebx",
+  "file": "examples/storage/cpustate.omni",
+  "old": "  return cpu.cpuid_sub(13u32, 0u32, 2u32)\n}",
+  "new": "  return cpu.cpuid_sub(13u32, 0u32, 1u32)\n}",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "S8 the XSAVE mask drops its high half",
+  "file": "examples/storage/cpustate.omni",
+  "old": "return bit.or(u64(low), bit.shl(u64(high), 32u32))",
+  "new": "return u64(low)",
+  "tests": [
+   "tests/cp10_state.py"
+  ],
+  "equivalent": "the supported-state mask of QEMU `max` has no bit above 31, so edx is 0 and the high half contributes nothing observable under TCG; the code path is checked by the architecture (edx:eax)"
+ },
+ {
+  "name": "S9 a component below 2 has a size",
+  "file": "examples/storage/cpustate.omni",
+  "old": "  if n < 2u32 { return 0u32 }\n  if !has_xsave() { return 0u32 }\n  if max_leaf() < 13u32 { return 0u32 }\n  return cpu.cpuid_sub(13u32, n, 0u32)",
+  "new": "  if n < 1u32 { return 0u32 }\n  if !has_xsave() { return 0u32 }\n  if max_leaf() < 13u32 { return 0u32 }\n  return cpu.cpuid_sub(13u32, n, 0u32)",
+  "tests": [
+   "tests/cp10_state.py"
+  ],
+  "equivalent": "components 0 and 1 are the legacy and SSE states whose sizes are fixed by the architecture; the guest asks only for component 2, so the boundary between 1 and 2 is not observable from a query for n >= 2"
+ },
+ {
+  "name": "S10 the component size is read from ebx",
+  "file": "examples/storage/cpustate.omni",
+  "old": "  return cpu.cpuid_sub(13u32, n, 0u32)\n}",
+  "new": "  return cpu.cpuid_sub(13u32, n, 1u32)\n}",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "S11 the component offset is read from eax",
+  "file": "examples/storage/cpustate.omni",
+  "old": "  return cpu.cpuid_sub(13u32, n, 1u32)\n}",
+  "new": "  return cpu.cpuid_sub(13u32, n, 0u32)\n}",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "S12 the default MXCSR mask is the full one",
+  "file": "examples/storage/cpustate.omni",
+  "old": "  if reported == 0u32 { return 65471u32 }",
+  "new": "  if reported == 0u32 { return 65535u32 }",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "S13 a zero report is believed",
+  "file": "examples/storage/cpustate.omni",
+  "old": "  if reported == 0u32 { return 65471u32 }",
+  "new": "  if reported == 1u32 { return 65471u32 }",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "S14 every MXCSR value is legal",
+  "file": "examples/storage/cpustate.omni",
+  "old": "return bit.and(value, bit.not(mask)) == 0u32",
+  "new": "return bit.and(value, mask) == 0u32",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "S15 the ISA is covered without FXSR",
+  "file": "examples/storage/cpustate.omni",
+  "old": "  if !has_fxsr() { return false }\n  return has_sse2()",
+  "new": "  return has_sse2()",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "S16 the FXSAVE area is 256 bytes",
+  "file": "examples/storage/cpustate.omni",
+  "old": "pub func fxsave_size() u32 { return 512u32 }",
+  "new": "pub func fxsave_size() u32 { return 256u32 }",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "S17 the FXSAVE area is 32-aligned",
+  "file": "examples/storage/cpustate.omni",
+  "old": "pub func fxsave_align() u32 { return 16u32 }",
+  "new": "pub func fxsave_align() u32 { return 32u32 }",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ }
+]

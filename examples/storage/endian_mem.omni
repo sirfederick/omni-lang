@@ -1,0 +1,106 @@
+module endian_mem
+import addr "addr.omni"
+
+// CP-07 / MN-12 (spec/ENDIAN_UNALIGNED_CANDIDATE.md): memory access whose byte order is spelled and whose address may be ANY address - never assumed aligned, so it is safe for packed headers,
+// network buffers and firmware tables. Every access is made byte by byte (a byte access cannot fault for alignment, and it is not merged into a wider access the source did not ask for), and the
+// byte order is the one in the name, on every target. Separate from endian.omni for the reason addr_access.omni is separate: raw memory.
+// A load gives the integer the bytes spell; a store writes exactly N bytes and nothing else (the neighbours are untouched). The whole range must be a valid virtual range: an access that would
+// run past the top of the canonical address space is refused with the outcome of addr.virt_add and touches nothing.
+
+func span(a addr.Virt, n u64) Result<u64,u32> {
+  let last = addr.virt_add(a, n - 1u64)
+  match last {
+    Ok(l) { return Ok<u64,u32>(addr.virt_value(a)) }
+    Err(code) { return Err<u64,u32>(code) }
+  }
+}
+
+func gather_le(base u64, n u64) u64 !{memory.raw} {
+  var v u64 = 0u64
+  var i u64 = n
+  for i > 0u64 {
+    i = i - 1u64
+    v = bit.or(bit.shl(v, 8u32), u64(raw.load8(base + i)))
+  }
+  return v
+}
+
+func gather_be(base u64, n u64) u64 !{memory.raw} {
+  var v u64 = 0u64
+  var i u64 = 0u64
+  for i < n {
+    v = bit.or(bit.shl(v, 8u32), u64(raw.load8(base + i)))
+    i = i + 1u64
+  }
+  return v
+}
+
+func scatter_le(base u64, n u64, x u64) u32 !{memory.raw} {
+  var i u64 = 0u64
+  for i < n {
+    let byte u64 = bit.and(bit.shr(x, u32(i * 8u64)), 255u64)
+    let z u32 = raw.store8(base + i, u32(byte))
+    i = i + 1u64
+  }
+  return 0u32
+}
+
+func scatter_be(base u64, n u64, x u64) u32 !{memory.raw} {
+  var i u64 = 0u64
+  for i < n {
+    let byte u64 = bit.and(bit.shr(x, u32((n - 1u64 - i) * 8u64)), 255u64)
+    let z u32 = raw.store8(base + i, u32(byte))
+    i = i + 1u64
+  }
+  return 0u32
+}
+
+pub func load_le16(a addr.Virt) Result<u16,u32> !{memory.raw} {
+  let s = span(a, 2u64)
+  match s { Ok(base) { return Ok<u16,u32>(u16(gather_le(base, 2u64))) } Err(code) { return Err<u16,u32>(code) } }
+}
+pub func load_le32(a addr.Virt) Result<u32,u32> !{memory.raw} {
+  let s = span(a, 4u64)
+  match s { Ok(base) { return Ok<u32,u32>(u32(gather_le(base, 4u64))) } Err(code) { return Err<u32,u32>(code) } }
+}
+pub func load_le64(a addr.Virt) Result<u64,u32> !{memory.raw} {
+  let s = span(a, 8u64)
+  match s { Ok(base) { return Ok<u64,u32>(gather_le(base, 8u64)) } Err(code) { return Err<u64,u32>(code) } }
+}
+pub func load_be16(a addr.Virt) Result<u16,u32> !{memory.raw} {
+  let s = span(a, 2u64)
+  match s { Ok(base) { return Ok<u16,u32>(u16(gather_be(base, 2u64))) } Err(code) { return Err<u16,u32>(code) } }
+}
+pub func load_be32(a addr.Virt) Result<u32,u32> !{memory.raw} {
+  let s = span(a, 4u64)
+  match s { Ok(base) { return Ok<u32,u32>(u32(gather_be(base, 4u64))) } Err(code) { return Err<u32,u32>(code) } }
+}
+pub func load_be64(a addr.Virt) Result<u64,u32> !{memory.raw} {
+  let s = span(a, 8u64)
+  match s { Ok(base) { return Ok<u64,u32>(gather_be(base, 8u64)) } Err(code) { return Err<u64,u32>(code) } }
+}
+
+pub func store_le16(a addr.Virt, x u16) Result<u32,u32> !{memory.raw} {
+  let s = span(a, 2u64)
+  match s { Ok(base) { return Ok<u32,u32>(scatter_le(base, 2u64, u64(x))) } Err(code) { return Err<u32,u32>(code) } }
+}
+pub func store_le32(a addr.Virt, x u32) Result<u32,u32> !{memory.raw} {
+  let s = span(a, 4u64)
+  match s { Ok(base) { return Ok<u32,u32>(scatter_le(base, 4u64, u64(x))) } Err(code) { return Err<u32,u32>(code) } }
+}
+pub func store_le64(a addr.Virt, x u64) Result<u32,u32> !{memory.raw} {
+  let s = span(a, 8u64)
+  match s { Ok(base) { return Ok<u32,u32>(scatter_le(base, 8u64, x)) } Err(code) { return Err<u32,u32>(code) } }
+}
+pub func store_be16(a addr.Virt, x u16) Result<u32,u32> !{memory.raw} {
+  let s = span(a, 2u64)
+  match s { Ok(base) { return Ok<u32,u32>(scatter_be(base, 2u64, u64(x))) } Err(code) { return Err<u32,u32>(code) } }
+}
+pub func store_be32(a addr.Virt, x u32) Result<u32,u32> !{memory.raw} {
+  let s = span(a, 4u64)
+  match s { Ok(base) { return Ok<u32,u32>(scatter_be(base, 4u64, u64(x))) } Err(code) { return Err<u32,u32>(code) } }
+}
+pub func store_be64(a addr.Virt, x u64) Result<u32,u32> !{memory.raw} {
+  let s = span(a, 8u64)
+  match s { Ok(base) { return Ok<u32,u32>(scatter_be(base, 8u64, x)) } Err(code) { return Err<u32,u32>(code) } }
+}

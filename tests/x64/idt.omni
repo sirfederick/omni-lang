@@ -1,0 +1,44 @@
+module idt
+
+// Conformance helper (not a provider service): builds a 32-gate interrupt descriptor table with Omni code and loads it.
+// Gate v points at the exception stub the compiler emits at ISR_BASE + 16 * v (--exception-handler); ISR_BASE is fixed by payload.ld.
+//   ISR table 0x210000 (2162688)   IDT 0x530000 (5439488)   IDTR image 0x520100 (5374208)
+// 64-bit interrupt gate: offset[15:0] | selector 0x08 << 16 | type/attr 0x8E << 40 | offset[31:16] << 48 ; then offset[63:32].
+
+func gate(v u32) u32 !{memory.raw} {
+  let off u64 = 2162688u64 + u64(v) * 16u64
+  let low u64 = bit.or(bit.and(off, 65535u64), bit.shl(8u64, 16u32))
+  let attr u64 = bit.shl(142u64, 40u32)
+  let high u64 = bit.shl(bit.and(bit.shr(off, 16u32), 65535u64), 48u32)
+  let a u32 = raw.store64(5439488u64 + u64(v) * 16u64, bit.or(bit.or(low, attr), high))
+  return raw.store64(5439488u64 + u64(v) * 16u64 + 8u64, bit.shr(off, 32u32))
+}
+
+// Installs the 32 exception gates plus one DPL3 interrupt gate (type/attr 0xEE) for the service vector `v` (>= 32), which points at the
+// extra stub the compiler emits right after the table (--isr-extra-vector v): ISR_BASE + 16 * isr-count (32).
+pub func install_service(v u32) u32 !{memory.raw,cpu.control} {
+  for i in 0u32..32u32 {
+    let g u32 = gate(i)
+  }
+  let off u64 = 2162688u64 + 512u64
+  let low u64 = bit.or(bit.and(off, 65535u64), bit.shl(8u64, 16u32))
+  let attr u64 = bit.shl(238u64, 40u32)
+  let high u64 = bit.shl(bit.and(bit.shr(off, 16u32), 65535u64), 48u32)
+  let a u32 = raw.store64(5439488u64 + u64(v) * 16u64, bit.or(bit.or(low, attr), high))
+  let b u32 = raw.store64(5439488u64 + u64(v) * 16u64 + 8u64, bit.shr(off, 32u32))
+  let limit u32 = raw.store64(5374208u64, (u64(v) + 1u64) * 16u64 - 1u64 + 5439488u64 * 65536u64)
+  return cpu.lidt(5374208u32)
+}
+
+// Installs gates 0..n-1 (n <= 256; the matching stubs exist when the image is emitted with --isr-count >= n).
+pub func install_count(n u32) u32 !{memory.raw,cpu.control} {
+  for v in 0u32..n {
+    let g u32 = gate(v)
+  }
+  let limit u32 = raw.store64(5374208u64, u64(n) * 16u64 - 1u64 + 5439488u64 * 65536u64)
+  return cpu.lidt(5374208u32)
+}
+
+pub func install() u32 !{memory.raw,cpu.control} {
+  return install_count(32u32)
+}

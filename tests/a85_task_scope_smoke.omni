@@ -1,0 +1,12 @@
+module main;
+
+func main() u32 {
+    task_scope {
+        spawn child = 40u32 + 2u32;
+        let outcome = join(child);
+        match outcome {
+            Ok(value) { return value; }
+            Err(code) { return code; }
+        }
+    }
+}

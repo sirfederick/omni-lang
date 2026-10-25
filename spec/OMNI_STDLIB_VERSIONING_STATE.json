@@ -1,0 +1,20 @@
+{
+  "schema": "omni.std-versioning-state/1",
+  "versioning_model": "INDEPENDENT_COMPONENT_VERSIONING",
+  "current": {
+    "name": "omni.std",
+    "version_domain": "PACKAGE_VERSION",
+    "version": "0.8.4-alpha.8",
+    "status": "VALID_PRERELEASE_PACKAGE_IDENTITY",
+    "package_schema": "omni.package/1",
+    "entry": "src/prelude.omni",
+    "manifest_sha256": "150f32809898d51ca28bfe8a5eb318b045475fc8d58607a028c914865c71885e",
+    "legacy_lock_v1_source_sha256": "f13312685abb3153ccc8373b5bb148c882f6b4aa89268bf0a6b2129ce29edb3f",
+    "semantic_source_sha256_v2": "1f5d698dde7bc4002ea9673b56331fd1cb08516a5e6d0c19a4da0ea3b43de209"
+  },
+  "stable_promotion": {
+    "status": "OPEN_NON_BLOCKING",
+    "first_stable_target": "1.0.0",
+    "executed": false
+  }
+}

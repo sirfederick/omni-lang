@@ -1,0 +1,22 @@
+module app
+
+func main() u32 !io {
+    let a Text = "Hola "
+    let b Text = "Omni"
+    let c Text = text.concat(a, b)
+    print(c)
+    print(text.len(c))
+
+    let w = file.write_text("/tmp/omni_dev4_demo.txt", c)
+    match w {
+        Ok(bytes) { print(bytes) }
+        Err(code) { print(code) }
+    }
+
+    let r = file.read_text("/tmp/omni_dev4_demo.txt")
+    match r {
+        Ok(content) { print(content) }
+        Err(code) { print(code) }
+    }
+    return 0
+}

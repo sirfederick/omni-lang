@@ -1,0 +1,42 @@
+module arena_budget
+import arena "arena.omni"
+
+// Typed out-of-memory on growth: 15 MiB plus a holder of 1 MiB - 64 bytes leave exactly 64 bytes of the 16 MiB budget.
+// The arena cannot grow to 100 bytes (code 2) and its state is untouched; a 40-byte block still fits; once the holders are released the same
+// request succeeds. Nothing is lost or double-released on the way.
+func code(r Result<u32,u32>) u32 { match r { Ok(n) { return n } Err(e) { return 1000u32 + e } } }
+
+func hold(depth u32, b BorrowMut<Buffer>, s arena.State) u32 !{memory.read,memory.write} {
+  if depth == 0u32 {
+    let over = arena.alloc(b, s, 100u32, 1u32)
+    match over { Ok(g) { return 100u32 } Err(e) { if e != 2u32 { return 101u32 } } }
+    if buffer.len(b) != 0u32 { return 102u32 }
+    let fits = arena.alloc(b, s, 40u32, 1u32)
+    match fits { Ok(g) { if g.state.top != 40u32 { return 103u32 } } Err(e) { return 104u32 } }
+    if buffer.len(b) != 64u32 { return 105u32 }
+    return 0u32
+  }
+  var size u32 = 1048576u32
+  if depth == 1u32 { size = 1048512u32 }
+  let h = buffer.alloc(size)
+  match h { Ok(holder) {
+    let inner u32 = hold(depth - 1u32, b, s)
+    let rel = buffer.release(move(holder))
+    if inner != 0u32 { return inner }
+    if depth == 1u32 {
+      let again = arena.alloc(b, s, 100u32, 1u32)
+      match again { Ok(g) { if g.state.top != 100u32 { return 106u32 } } Err(e) { return 107u32 } }
+    }
+    return 0u32
+  } Err(e) { return 50u32 + e } }
+}
+
+func main() u32 !{memory.read,memory.write} {
+  let a = buffer.alloc(0u32)
+  match a { Ok(b) {
+    let outcome u32 = hold(16u32, borrow_mut(b), arena.new_state())
+    let rel = buffer.release(move(b))
+    if outcome != 0u32 { return outcome }
+    return 42u32
+  } Err(e) { return 90u32 + e } }
+}

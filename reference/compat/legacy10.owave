@@ -1,0 +1,17 @@
+(omni-wave 10
+  (entry views)
+  (module views
+    (imports)
+    (func first_two (visibility private)
+      (params (v View<u32>)) (result u32) (effects pure)
+      (block
+        (return (binary "+" (call view.get (ref v) (u32 0)) (call view.get (ref v) (u32 1))))))
+    (func main (visibility private)
+      (params) (result u32) (effects io.print)
+      (block
+        (let data Array<u32,4> (call array (u32 10) (u32 20) (u32 30) (u32 40)))
+        (let all View<u32> (call view (ref data)))
+        (let middle View<u32> (call view.sub (ref all) (u32 1) (u32 2)))
+        (print (call view.len (ref middle)))
+        (print (call view.get (ref middle) (u32 0)))
+        (return (call first_two (ref middle)))))))

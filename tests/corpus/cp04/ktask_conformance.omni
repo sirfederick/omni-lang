@@ -1,0 +1,159 @@
+module t
+import rt "rt.omni"
+import heap "heap.omni"
+import ktask "ktask.omni"
+
+// CP-02 row 2.3b: a kernel aggregate of several fields (a task control record in a heap block) lent by API, one scenario per line of output. Evaluator and QEMU image must print the same lines.
+//   heap at 0x800000 with 1024 bytes; the record is 40 bytes, so its block is the first one: payload at offset 80
+struct Raw40 { a u64, b u64, c u64, d u64, e u64 }
+
+func code(r Result<u32,u32>) u64 {
+  match r {
+    Ok(n) { return 1000u64 + u64(n) }
+    Err(e) { return u64(e) }
+  }
+}
+func code64(r Result<u64,u32>) u64 {
+  match r {
+    Ok(n) { return n }
+    Err(e) { return 1000000000000u64 + u64(e) }
+  }
+}
+func code32(r Result<u32,u32>) u64 {
+  match r {
+    Ok(n) { return u64(n) }
+    Err(e) { return 1000u64 + u64(e) }
+  }
+}
+func made(r Result<Resource<ktask.Task>,u32>, hp BorrowMut<heap.Heap>) u64 !{memory.raw} {
+  match r {
+    Ok(t) { let d u32 = ktask.destroy(hp, move(t)); return 99u64 }
+    Err(e) { return u64(e) }
+  }
+}
+
+// lent for reading: the caller keeps the task and nobody else can change it meanwhile
+func describe(hp Borrow<heap.Heap>, t Borrow<ktask.Task>) u64 !{memory.raw} {
+  return code64(ktask.id(hp, t)) * 1000000u64 + code32(ktask.state(hp, t)) * 1000u64 + code32(ktask.prio(hp, t))
+}
+// lent for changing: only the API of the module moves the record
+func run_for(hp Borrow<heap.Heap>, t BorrowMut<ktask.Task>, n u64) u64 !{memory.raw} {
+  let s = ktask.transition(hp, t, 2u32)
+  match s {
+    Err(e) { return 1000u64 + u64(e) }
+    Ok(prev) { return code64(ktask.charge(hp, t, n)) }
+  }
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let base u64 = 8388608u64
+  let c = heap.create(base, 1024u64)
+  match c { Ok(hp) {
+    // A: arguments out of range are typed errors and leave the heap alone
+    print(made(ktask.create(borrow_mut(hp), 1u64, 256u32, 2097152u64, 16384u64), borrow_mut(hp)))
+    print(made(ktask.create(borrow_mut(hp), 1u64, 10u32, 2097152u64, 0u64), borrow_mut(hp)))
+    print(made(ktask.create(borrow_mut(hp), 1u64, 10u32, 2097153u64, 16384u64), borrow_mut(hp)))
+    print(made(ktask.create(borrow_mut(hp), 1u64, 10u32, 18446744073709551600u64, 32u64), borrow_mut(hp)))
+    print(made(ktask.create(borrow_mut(hp), 1u64, 10u32, 2097160u64, 16384u64), borrow_mut(hp)))
+    print(made(ktask.create(borrow_mut(hp), 1u64, 255u32, 2097152u64, 16384u64), borrow_mut(hp)))
+    print(heap.live(borrow(hp)))
+    print(heap.carved(borrow(hp)))
+    let n1 = ktask.create(borrow_mut(hp), 7u64, 10u32, 2097152u64, 16384u64)
+    match n1 { Ok(t) {
+      // B: the fields come back through the API
+      print(code64(ktask.id(borrow(hp), borrow(t))))
+      print(code32(ktask.state(borrow(hp), borrow(t))))
+      print(code32(ktask.prio(borrow(hp), borrow(t))))
+      print(code64(ktask.stack_base(borrow(hp), borrow(t))))
+      print(code64(ktask.stack_top(borrow(hp), borrow(t))))
+      print(raw.load64(base + 80u64))
+      print(raw.load32(base + 88u64))
+      // C: lent for reading to a function of another module, and for changing
+      print(describe(borrow(hp), borrow(t)))
+      // D: the state machine
+      print(code32(ktask.transition(borrow(hp), borrow_mut(t), 2u32)))
+      print(code32(ktask.transition(borrow(hp), borrow_mut(t), 1u32)))
+      print(code32(ktask.transition(borrow(hp), borrow_mut(t), 3u32)))
+      print(run_for(borrow(hp), borrow_mut(t), 5u64))
+      print(code64(ktask.charge(borrow(hp), borrow_mut(t), 7u64)))
+      print(code32(ktask.transition(borrow(hp), borrow_mut(t), 3u32)))
+      print(code64(ktask.charge(borrow(hp), borrow_mut(t), 1u64)))
+      print(code32(ktask.transition(borrow(hp), borrow_mut(t), 1u32)))
+      print(run_for(borrow(hp), borrow_mut(t), 18446744073709551615u64))
+      print(code64(ktask.ticks(borrow(hp), borrow(t))))
+      print(code64(ktask.charge(borrow(hp), borrow_mut(t), 18446744073709551603u64)))
+      print(code64(ktask.charge(borrow(hp), borrow_mut(t), 1u64)))
+      print(code32(ktask.transition(borrow(hp), borrow_mut(t), 1u32)))
+      print(code64(ktask.charge(borrow(hp), borrow_mut(t), 1u64)))
+      print(code32(ktask.transition(borrow(hp), borrow_mut(t), 2u32)))
+      print(code32(ktask.set_prio(borrow(hp), borrow_mut(t), 300u32)))
+      print(code32(ktask.set_prio(borrow(hp), borrow_mut(t), 256u32)))
+      print(code32(ktask.set_prio(borrow(hp), borrow_mut(t), 99u32)))
+      print(code32(ktask.set_prio(borrow(hp), borrow_mut(t), 255u32)))
+      print(code64(ktask.stack_base(borrow(hp), borrow(t))))
+      print(code32(ktask.prio(borrow(hp), borrow(t))))
+      print(code32(ktask.transition(borrow(hp), borrow_mut(t), 4u32)))
+      print(code32(ktask.transition(borrow(hp), borrow_mut(t), 1u32)))
+      print(code32(ktask.transition(borrow(hp), borrow_mut(t), 4u32)))
+      print(code32(ktask.state(borrow(hp), borrow(t))))
+      print(describe(borrow(hp), borrow(t)))
+      // E: the record lives in one heap block and goes back with the task
+      print(heap.live(borrow(hp)))
+      print(ktask.destroy(borrow_mut(hp), move(t)))
+      print(heap.live(borrow(hp)))
+      print(heap.carved(borrow(hp)))
+      print(raw.load64(base + 80u64))
+    } Err(e) { print(2000u64 + u64(e)) } }
+    // F: two tasks do not see each other and go back in any order
+    let a = ktask.create(borrow_mut(hp), 1u64, 1u32, 4096u64, 4096u64)
+    let b = ktask.create(borrow_mut(hp), 2u64, 2u32, 8192u64, 4096u64)
+    match a { Ok(ta) {
+      match b { Ok(tb) {
+        print(code32(ktask.transition(borrow(hp), borrow_mut(ta), 1u32)))
+        print(code32(ktask.state(borrow(hp), borrow(ta))))
+        print(code32(ktask.state(borrow(hp), borrow(tb))))
+        print(describe(borrow(hp), borrow(ta)))
+        print(describe(borrow(hp), borrow(tb)))
+        print(ktask.destroy(borrow_mut(hp), move(ta)))
+        print(code32(ktask.state(borrow(hp), borrow(tb))))
+        print(ktask.destroy(borrow_mut(hp), move(tb)))
+      } Err(e) { print(2000u64 + u64(e)); let x u32 = ktask.destroy(borrow_mut(hp), move(ta)) } }
+    } Err(e) { print(2000u64 + u64(e)); match b { Ok(tb) { let x u32 = ktask.destroy(borrow_mut(hp), move(tb)) } Err(e2) { } } } }
+    print(heap.live(borrow(hp)))
+    print(heap.carved(borrow(hp)))
+    // G: a record released behind the owner's back (only code that forges a descriptor can) leaves typed errors, not accesses
+    let n3 = ktask.create(borrow_mut(hp), 3u64, 3u32, 4096u64, 4096u64)
+    match n3 { Ok(t) {
+      let raw40 = heap.descriptor_at<Raw40>(borrow(hp), base + 80u64, 1u64)
+      match raw40 { Ok(rb) {
+        let fr = heap.free<Raw40>(borrow_mut(hp), rb)
+        match fr { Ok(n) { print(0u64) } Err(e) { print(u64(e)) } }
+      } Err(e) { print(u64(e)) } }
+      print(code32(ktask.state(borrow(hp), borrow(t))))
+      print(code32(ktask.transition(borrow(hp), borrow_mut(t), 1u32)))
+      print(code64(ktask.charge(borrow(hp), borrow_mut(t), 1u64)))
+      print(ktask.destroy(borrow_mut(hp), move(t)))
+      print(heap.live(borrow(hp)))
+    } Err(e) { print(2000u64 + u64(e)) } }
+    // H: the top of the address space is a legal end of a stack, one byte more is not
+    print(made(ktask.create(borrow_mut(hp), 4u64, 1u32, 18446744073709551600u64, 15u64), borrow_mut(hp)))
+    print(made(ktask.create(borrow_mut(hp), 4u64, 1u32, 18446744073709551600u64, 16u64), borrow_mut(hp)))
+    let n4 = ktask.create(borrow_mut(hp), 4u64, 1u32, 18446744073709551600u64, 15u64)
+    match n4 { Ok(t) {
+      print(code64(ktask.stack_top(borrow(hp), borrow(t))))
+      print(ktask.destroy(borrow_mut(hp), move(t)))
+    } Err(e) { print(2000u64 + u64(e)) } }
+    print(heap.destroy(move(hp)))
+  } Err(e) { print(3000u64) } }
+  // I: out of memory is a typed error and changes nothing
+  let c2 = heap.create(9437184u64, 128u64)
+  match c2 { Ok(hs) {
+    let fill = heap.alloc_array<Raw40>(borrow_mut(hs), 1u64)
+    match fill { Ok(f) { print(f.addr - 9437184u64) } Err(e) { print(u64(e)) } }
+    print(made(ktask.create(borrow_mut(hs), 5u64, 1u32, 4096u64, 4096u64), borrow_mut(hs)))
+    print(heap.live(borrow(hs)))
+    print(heap.carved(borrow(hs)))
+    print(heap.destroy(move(hs)))
+  } Err(e) { print(3000u64) } }
+  return rt.finish(0u32)
+}

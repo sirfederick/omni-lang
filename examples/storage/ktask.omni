@@ -1,0 +1,164 @@
+module ktask
+import heap "heap.omni"
+
+// CP-02 row 2.3b (spec/DYNAMIC_STORAGE_CANDIDATE.md, SDK Systems): a kernel aggregate of SEVERAL fields lent by API. The aggregate is a task control record that lives in a block of
+// the freestanding heap (heap.omni); the program holds a `Resource<Task>`, a nominal resource that only this module can build (`resource.seal`) or open (`resource.peek`,
+// `resource.unseal`), so
+//   - the record cannot be reached from another module, nor forged from a number (a `Task` built from an address is a plain value that no borrow, call or teardown accepts),
+//   - it is lent with the ordinary `Borrow<Task>` (reads) and `BorrowMut<Task>` (changes): the law of the checker keeps a change away from a live read, two changes apart, and the
+//     teardown (`destroy`, which takes the resource by move) away from any loan; a loan cannot be stored in a record nor returned unless it comes from a loan parameter,
+//   - every change goes through a function that keeps the invariants of the record (a state machine, a stack range that does not wrap, a priority range, a tick counter that
+//     does not wrap), so the fields are never written one by one by the caller.
+// The record is a heap block, so every access also revalidates the descriptor with the heap (a block released behind the owner's back is a typed error, never an access).
+//   record (40 bytes): id u64, state u32, prio u32, stack_base u64, stack_size u64, ticks u64
+//   states: 0 new, 1 ready, 2 running, 3 blocked, 4 dead
+//   transitions: new -> ready; ready -> running; running -> ready | blocked; blocked -> ready; any state but dead -> dead
+// Outcome codes (a failing call changes neither the record nor the heap): the heap's (1 out of memory, 4 stale, 6 overflow, 10/11/12 damage) plus
+//   20 argument out of range (priority above 255, empty stack, unaligned stack base)   21 transition not allowed   22 the task is not running (ticks are charged to a running task)
+struct Record { id u64, state u32, prio u32, stack_base u64, stack_size u64, ticks u64 }
+
+pub struct Task { m u64 }
+
+func max64() u64 { return 18446744073709551615u64 }
+
+func record_block(hp Borrow<heap.Heap>, t Borrow<Task>) Result<heap.Block<Record>,u32> !{memory.raw} {
+  let r Task = resource.peek(t)
+  return heap.descriptor_at<Record>(hp, r.m, 1u64)
+}
+
+func read(hp Borrow<heap.Heap>, t Borrow<Task>) Result<Record,u32> !{memory.raw} {
+  let b = record_block(hp, t)
+  match b {
+    Err(code) { return Err<Record,u32>(code) }
+    Ok(blk) { return heap.load<Record>(hp, blk) }
+  }
+}
+
+func write(hp Borrow<heap.Heap>, t Borrow<Task>, rec Record) Result<u32,u32> !{memory.raw} {
+  let b = record_block(hp, t)
+  match b {
+    Err(code) { return Err<u32,u32>(code) }
+    Ok(blk) { return heap.store<Record>(hp, blk, rec) }
+  }
+}
+
+// A new task in state 0. The stack range [stack_base, stack_base + stack_size) must not be empty, must not wrap and starts on a 16-byte boundary.
+pub func create(hp BorrowMut<heap.Heap>, id u64, prio u32, stack_base u64, stack_size u64) Result<Resource<Task>,u32> !{memory.raw} {
+  if prio > 255u32 { return Err<Resource<Task>,u32>(20u32) }
+  if stack_size == 0u64 { return Err<Resource<Task>,u32>(20u32) }
+  if bit.and(stack_base, 15u64) != 0u64 { return Err<Resource<Task>,u32>(20u32) }
+  if stack_size > max64() - stack_base { return Err<Resource<Task>,u32>(6u32) }
+  let made = heap.alloc<Record>(hp)
+  match made {
+    Err(code) { return Err<Resource<Task>,u32>(code) }
+    Ok(blk) {
+      let w = heap.store<Record>(borrow(hp), blk, Record { id: id, state: 0u32, prio: prio, stack_base: stack_base, stack_size: stack_size, ticks: 0u64 })
+      match w {
+        Err(code) { return Err<Resource<Task>,u32>(code) }
+        Ok(n) { return Ok<Resource<Task>,u32>(resource.seal(Task { m: blk.addr })) }
+      }
+    }
+  }
+}
+
+pub func id(hp Borrow<heap.Heap>, t Borrow<Task>) Result<u64,u32> !{memory.raw} {
+  let r = read(hp, t)
+  match r { Ok(x) { return Ok<u64,u32>(x.id) } Err(code) { return Err<u64,u32>(code) } }
+}
+
+pub func state(hp Borrow<heap.Heap>, t Borrow<Task>) Result<u32,u32> !{memory.raw} {
+  let r = read(hp, t)
+  match r { Ok(x) { return Ok<u32,u32>(x.state) } Err(code) { return Err<u32,u32>(code) } }
+}
+
+pub func prio(hp Borrow<heap.Heap>, t Borrow<Task>) Result<u32,u32> !{memory.raw} {
+  let r = read(hp, t)
+  match r { Ok(x) { return Ok<u32,u32>(x.prio) } Err(code) { return Err<u32,u32>(code) } }
+}
+
+pub func ticks(hp Borrow<heap.Heap>, t Borrow<Task>) Result<u64,u32> !{memory.raw} {
+  let r = read(hp, t)
+  match r { Ok(x) { return Ok<u64,u32>(x.ticks) } Err(code) { return Err<u64,u32>(code) } }
+}
+
+// The first address above the stack (where a stack that grows down starts).
+pub func stack_top(hp Borrow<heap.Heap>, t Borrow<Task>) Result<u64,u32> !{memory.raw} {
+  let r = read(hp, t)
+  match r { Ok(x) { return Ok<u64,u32>(x.stack_base + x.stack_size) } Err(code) { return Err<u64,u32>(code) } }
+}
+
+pub func stack_base(hp Borrow<heap.Heap>, t Borrow<Task>) Result<u64,u32> !{memory.raw} {
+  let r = read(hp, t)
+  match r { Ok(x) { return Ok<u64,u32>(x.stack_base) } Err(code) { return Err<u64,u32>(code) } }
+}
+
+func allowed(from u32, to u32) bool {
+  if from == 4u32 { return false }
+  if to == 4u32 { return true }
+  if from == 0u32 { return to == 1u32 }
+  if from == 1u32 { return to == 2u32 }
+  if from == 2u32 { return to == 1u32 || to == 3u32 }
+  if from == 3u32 { return to == 1u32 }
+  return false
+}
+
+// Moves the task to state `to` if the machine allows it; returns the state it was in.
+pub func transition(hp Borrow<heap.Heap>, t BorrowMut<Task>, to u32) Result<u32,u32> !{memory.raw} {
+  let r = read(hp, borrow(t))
+  match r {
+    Err(code) { return Err<u32,u32>(code) }
+    Ok(x) {
+      if allowed(x.state, to) == false { return Err<u32,u32>(21u32) }
+      let w = write(hp, borrow(t), Record { id: x.id, state: to, prio: x.prio, stack_base: x.stack_base, stack_size: x.stack_size, ticks: x.ticks })
+      match w {
+        Err(code) { return Err<u32,u32>(code) }
+        Ok(n) { return Ok<u32,u32>(x.state) }
+      }
+    }
+  }
+}
+
+pub func set_prio(hp Borrow<heap.Heap>, t BorrowMut<Task>, p u32) Result<u32,u32> !{memory.raw} {
+  if p > 255u32 { return Err<u32,u32>(20u32) }
+  let r = read(hp, borrow(t))
+  match r {
+    Err(code) { return Err<u32,u32>(code) }
+    Ok(x) {
+      let w = write(hp, borrow(t), Record { id: x.id, state: x.state, prio: p, stack_base: x.stack_base, stack_size: x.stack_size, ticks: x.ticks })
+      match w {
+        Err(code) { return Err<u32,u32>(code) }
+        Ok(n) { return Ok<u32,u32>(x.prio) }
+      }
+    }
+  }
+}
+
+// Charges `n` ticks to a running task and returns the new total.
+pub func charge(hp Borrow<heap.Heap>, t BorrowMut<Task>, n u64) Result<u64,u32> !{memory.raw} {
+  let r = read(hp, borrow(t))
+  match r {
+    Err(code) { return Err<u64,u32>(code) }
+    Ok(x) {
+      if x.state != 2u32 { return Err<u64,u32>(22u32) }
+      if n > max64() - x.ticks { return Err<u64,u32>(6u32) }
+      let w = write(hp, borrow(t), Record { id: x.id, state: x.state, prio: x.prio, stack_base: x.stack_base, stack_size: x.stack_size, ticks: x.ticks + n })
+      match w {
+        Err(code) { return Err<u64,u32>(code) }
+        Ok(k) { return Ok<u64,u32>(x.ticks + n) }
+      }
+    }
+  }
+}
+
+// Gives the record back to the heap and consumes the task. Returns 0, or the heap's code when the block could not be released (damage or a release behind the owner's back).
+pub func destroy(hp BorrowMut<heap.Heap>, t Resource<Task>) u32 !{memory.raw} {
+  let r Task = resource.unseal(move(t))
+  let b = heap.descriptor_at<Record>(borrow(hp), r.m, 1u64)
+  match b {
+    Err(code) { return code }
+    Ok(blk) {
+      let f = heap.free<Record>(hp, blk)
+      match f { Ok(n) { return 0u32 } Err(code) { return code } }
+    }
+  }
+}

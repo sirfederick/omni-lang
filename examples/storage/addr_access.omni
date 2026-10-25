@@ -1,0 +1,25 @@
+module addr_access
+import addr "addr.omni"
+
+// CP-07 (spec/ADDRESS_DOMAINS_CANDIDATE.md): typed access to memory through a virtual address (freestanding targets and the evaluator; a hosted native binary refuses raw memory
+// wherever it is linked, which is why this is a module of its own and the model in addr.omni is not). The record is what raw access works on; the address is the full 64 bits.
+pub struct W32 { v u32 }
+pub struct W64 { v u64 }
+
+pub func read32(a addr.Virt) u32 !{memory.raw} {
+  let w W32 = raw.read<W32>(addr.virt_value(a))
+  return w.v
+}
+
+pub func write32(a addr.Virt, x u32) u32 !{memory.raw} {
+  return raw.write<W32>(addr.virt_value(a), W32 { v: x })
+}
+
+pub func read64(a addr.Virt) u64 !{memory.raw} {
+  let w W64 = raw.read<W64>(addr.virt_value(a))
+  return w.v
+}
+
+pub func write64(a addr.Virt, x u64) u32 !{memory.raw} {
+  return raw.write<W64>(addr.virt_value(a), W64 { v: x })
+}

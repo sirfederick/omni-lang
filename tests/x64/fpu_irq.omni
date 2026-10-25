@@ -1,0 +1,62 @@
+module t
+import rt "rt.omni"
+import idt "idt.omni"
+
+// Floating-point state across an ASYNCHRONOUS entry (spec/FPU_SSE_STATE_CANDIDATE.md section 4). A periodic local-APIC timer interrupts a
+// loop that keeps a floating-point sum live in an XMM register; the interrupt handler is ordinary Omni code that also uses floating
+// point, so it overwrites XMM registers. With `--exception-save-fpu` the resumable tail saves and restores the interrupted x87/SSE state
+// and the sum is exact; without it the handler corrupts the interrupted computation. Same program, same seeds, one compiler option apart.
+//
+// Local APIC (0xFEE00000): SVR 4276093168, EOI 4276093104, LVT timer 4276093728, initial count 4276093824, divide 4276093952.
+// Interrupt count at 0x520000 (5373952), seeds: 1.0 at 0x520008 (5373960), 3.0 at 0x520010 (5373968).
+
+func on_exception(frame u64) u32 !{memory.raw,port.io,cpu.control} {
+  if raw.load64(frame) == 32u64 {
+    let al u32 = raw.store64(5373976u64, bit.and(frame, 15u64))
+    // thrash several XMM registers on purpose: independent live accumulators that must not be optimized into one
+    let x f64 = f64(raw.load32(5373968u64))
+    var p f64 = x
+    var q f64 = x + 1.0f64
+    var r f64 = x * 2.0f64
+    var s f64 = x * 4.0f64
+    for k in 0u32..64u32 {
+      p = p * 1.0009765625f64
+      q = q + p
+      r = r - q * 0.5f64
+      s = s + r
+    }
+    let c u64 = raw.load64(5373952u64)
+    if p > 0.0f64 {
+      let a u32 = raw.store64(5373952u64, c + 1u64)
+    }
+    if s < 0.0f64 {
+      let b u32 = raw.store64(5373952u64, c + 1u64)
+    }
+    return raw.store32(4276093104u64, 0u32)
+  }
+  return rt.finish(100u32 + u32(raw.load64(frame)))
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let seed1 u32 = raw.store32(5373960u64, 1u32)
+  let seed3 u32 = raw.store32(5373968u64, 3u32)
+  let installed u32 = idt.install_count(33u32)
+  let pic1 u32 = port.out8(33u32, 255u32)
+  let pic2 u32 = port.out8(161u32, 255u32)
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let div u32 = raw.store32(4276093952u64, 11u32)
+  let lvt u32 = raw.store32(4276093728u64, 131104u32)
+  let init u32 = raw.store32(4276093824u64, 100000u32)
+  let one f64 = f64(raw.load32(5373960u64))
+  var sum f64 = 0.0f64
+  let on u32 = cpu.sti()
+  for i in 0u32..2000000u32 {
+    sum = sum + one
+  }
+  let off u32 = cpu.cli()
+  let mask u32 = raw.store32(4276093728u64, 65568u32)
+  if sum == 2000000.0f64 { print(1u32) } else { print(0u32) }
+  print(raw.load64(5373952u64))
+  print(raw.load64(5373976u64))
+  return rt.finish(0u32)
+}

@@ -1,0 +1,25 @@
+module alloc
+
+// CP-05 (spec/COLLECTIONS_PROTOCOLS_CANDIDATE.md): the allocator contract of the collections that keep their elements in ONE Resource<Buffer> (Vec, Map, Set).
+// An allocator is a POLICY TYPE: the container names it as a type parameter (`Vec<u32, alloc.Heap>`), the trait methods take no receiver, and the choice is static
+// (monomorphized), so there is no vtable, no hidden global and nothing ambient. The program substitutes one allocator for another by naming another type, and may
+// write its own (`impl alloc.Allocator for MyPolicy`), for instance one that refuses every request to exercise the failure paths of a container.
+//   allocate(bytes)  a new zeroed buffer of exactly `bytes` bytes, or the typed failure of `buffer.alloc` (1 limit, 2 budget, 3 host out of memory)
+//   resize(b, bytes) the SAME buffer grown to `bytes` (never smaller); on failure nothing changed (the typed failure of `buffer.grow`)
+//   release(b)       gives the buffer back; returns 0
+// A container never allocates behind its allocator's back and never releases with another one. The collections of owned resources (Seq, Registry) keep their cells in
+// slot buffers (`slots.*`), which are not a byte buffer: they are not parametrized by this trait (a trait method cannot be generic over the element type).
+pub trait Allocator {
+  func allocate(bytes u32) Result<Resource<Buffer>,u32> !{memory.write}
+  func resize(b BorrowMut<Buffer>, bytes u32) Result<u32,u32> !{memory.write}
+  func release(b Resource<Buffer>) u32 !{memory.write}
+}
+
+// The allocator of the runtime: the budgeted, bounded, typed-failure buffers of the hosted profile.
+pub struct Heap { tag u32 }
+
+impl Allocator for Heap {
+  func allocate(bytes u32) Result<Resource<Buffer>,u32> !{memory.write} { return buffer.alloc(bytes) }
+  func resize(b BorrowMut<Buffer>, bytes u32) Result<u32,u32> !{memory.write} { return buffer.grow(b, bytes) }
+  func release(b Resource<Buffer>) u32 !{memory.write} { return buffer.release(move(b)) }
+}

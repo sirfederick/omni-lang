@@ -1,0 +1,480 @@
+[
+ {
+  "name": "F1 cpuid_sub accepts register 4",
+  "file": "compiler/src/check.cpp",
+  "old": "if(e.args[2].kind!=Expr::Number||e.args[2].value>3u)fail(\"E_TARGET_PROFILE\",\"cpu.cpuid_sub",
+  "new": "if(e.args[2].kind!=Expr::Number||e.args[2].value>4u)fail(\"E_TARGET_PROFILE\",\"cpu.cpuid_sub",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "F2 cpuid_sub needs no capability",
+  "file": "compiler/src/check.cpp",
+  "old": "requireCap(\"cpu.control\",e.loc); if(e.args.size()!=3)fail(\"E_ARITY\",\"cpu.cpuid_sub",
+  "new": "if(e.args.size()!=3)fail(\"E_ARITY\",\"cpu.cpuid_sub",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "F3 cpuid_sub ignores the sub-leaf",
+  "file": "compiler/src/llvm.cpp",
+  "old": "\"={ax},={bx},={cx},={dx},{ax},{cx},~{memory}\\\"(i32 \"+av[0]+\", i32 \"+av[1]+\")\");\n                                auto v=reg(); emit(v+\" = extractvalue { i32, i32, i32, i32 } \"+agg+\", \"+std::to_string(e.args[2].value)); return v;",
+  "new": "\"={ax},={bx},={cx},={dx},{ax},{cx},~{memory}\\\"(i32 \"+av[0]+\", i32 0)\");\n                                auto v=reg(); emit(v+\" = extractvalue { i32, i32, i32, i32 } \"+agg+\", \"+std::to_string(e.args[2].value)); return v;",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "F4 cpuid_sub returns eax whatever register is asked",
+  "file": "compiler/src/llvm.cpp",
+  "old": "\"={ax},={bx},={cx},={dx},{ax},{cx},~{memory}\\\"(i32 \"+av[0]+\", i32 \"+av[1]+\")\");\n                                auto v=reg(); emit(v+\" = extractvalue { i32, i32, i32, i32 } \"+agg+\", \"+std::to_string(e.args[2].value));",
+  "new": "\"={ax},={bx},={cx},={dx},{ax},{cx},~{memory}\\\"(i32 \"+av[0]+\", i32 \"+av[1]+\")\");\n                                auto v=reg(); emit(v+\" = extractvalue { i32, i32, i32, i32 } \"+agg+\", 0\");",
+  "tests": [
+   "tests/cp10_state.py"
+  ]
+ },
+ {
+  "name": "V1 the CS of the frame is not compared",
+  "file": "compiler/src/llvm.cpp",
+  "old": "L(\"cmpq 8(%r9), %rax\")",
+  "new": "L(\"cmpq %rax, %rax\")",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "V2 a non-canonical RIP is accepted",
+  "file": "compiler/src/llvm.cpp",
+  "old": "L(\"jbe 4f\")+L(\"orl $2, %edx\")",
+  "new": "L(\"jmp 4f\")+L(\"orl $2, %edx\")",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "V3 NT is not checked",
+  "file": "compiler/src/llvm.cpp",
+  "old": "L(\"testq $0x4000, %rax\")",
+  "new": "L(\"testq $0x8000, %rax\")",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "V4 IOPL is not compared",
+  "file": "compiler/src/llvm.cpp",
+  "old": "L(\"testq $0x3000, %rcx\")",
+  "new": "L(\"testq $0x1000, %rcx\")",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "V5 the reserved RFLAGS bit is not required",
+  "file": "compiler/src/llvm.cpp",
+  "old": "L(\"testq $2, %rax\")+L(\"jnz 6f\")",
+  "new": "L(\"testq $4, %rax\")+L(\"jnz 6f\")",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "V6 a user stack in the upper half is accepted",
+  "file": "compiler/src/llvm.cpp",
+  "old": "L(\"shrq $47, %rax\")+L(\"jz 8f\")",
+  "new": "L(\"shrq $48, %rax\")+L(\"jz 8f\")",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "V7 the stack is judged by the CS the handler left",
+  "file": "compiler/src/llvm.cpp",
+  "old": "L(\"movl 8(%r9), %ecx\")",
+  "new": "L(\"movl 24(%rsi), %ecx\")",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "V8 a non-canonical kernel stack is accepted",
+  "file": "compiler/src/llvm.cpp",
+  "old": "L(\"7:\")+L(\"movq %rax, %rcx\")+L(\"sarq $47, %rcx\")+L(\"addq $1, %rcx\")+L(\"cmpq $1, %rcx\")+L(\"jbe 8f\")",
+  "new": "L(\"7:\")+L(\"movq %rax, %rcx\")+L(\"sarq $47, %rcx\")+L(\"addq $1, %rcx\")+L(\"cmpq $1, %rcx\")+L(\"jmp 8f\")",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "V9 the refusal vector is 255",
+  "file": "compiler/src/llvm.cpp",
+  "old": "L(\"movq $256, (%rsi)\")",
+  "new": "L(\"movq $255, (%rsi)\")",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "V10 the report is not delivered",
+  "file": "compiler/src/llvm.cpp",
+  "old": "L(\"movq %rdx, 8(%rsi)\")",
+  "new": "L(\"movq $0, 8(%rsi)\")",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "V11 the refusal answered with resume is obeyed",
+  "file": "compiler/src/llvm.cpp",
+  "old": "L(\"call omni.fn.\"+prof->exceptionHandler)+L(\"jmp 2f\")+L(\"9:\");",
+  "new": "L(\"call omni.fn.\"+prof->exceptionHandler)+L(\"9:\");",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "V12 the entry meta is not dropped",
+  "file": "compiler/src/llvm.cpp",
+  "old": "const std::string popRegs=L(\"addq $16, %rsp\")+",
+  "new": "const std::string popRegs=",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "V13 the entry CS is saved from the wrong slot",
+  "file": "compiler/src/llvm.cpp",
+  "old": "L(\"pushq 96(%rsp)\")+L(\"pushq 112(%rsp)\")",
+  "new": "L(\"pushq 104(%rsp)\")+L(\"pushq 112(%rsp)\")",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "V14 the entry RFLAGS is saved from the wrong slot",
+  "file": "compiler/src/llvm.cpp",
+  "old": "L(\"pushq 96(%rsp)\")+L(\"pushq 112(%rsp)\")",
+  "new": "L(\"pushq 96(%rsp)\")+L(\"pushq 104(%rsp)\")",
+  "tests": [
+   "tests/cp12_frames.py"
+  ]
+ },
+ {
+  "name": "D1 a vector is accepted where a mask is needed",
+  "file": "compiler/src/check.cpp",
+  "old": "if(maskOnly.count(base)) { if(!A.mask)fail(",
+  "new": "if(maskOnly.count(base)) { if(false)fail(",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "D2 a mask is accepted where a vector is needed",
+  "file": "compiler/src/check.cpp",
+  "old": "else if(A.mask)fail(\"E_SIMD\",base+\" opera sobre un vector",
+  "new": "else if(false)fail(\"E_SIMD\",base+\" opera sobre un vector",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "D3 the mask may have another lane count",
+  "file": "compiler/src/check.cpp",
+  "old": "if(B.lanes!=A.lanes)fail(\"E_SIMD\"",
+  "new": "if(false)fail(\"E_SIMD\"",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "D4 integers divide",
+  "file": "compiler/src/check.cpp",
+  "old": "if(base==\"simd.div\"&&isInteger(A.lane))fail(",
+  "new": "if(false)fail(",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "D5 floats take bit operations",
+  "file": "compiler/src/check.cpp",
+  "old": "if(!isInteger(A.lane))fail(\"E_SIMD\",base+\" existe solo para carriles enteros\"",
+  "new": "if(false)fail(\"E_SIMD\",base+\" existe solo para carriles enteros\"",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "D6 a record of 3 lanes is a vector",
+  "file": "compiler/src/check.cpp",
+  "old": "if(n!=2&&n!=4&&n!=8&&n!=16){ s.why=",
+  "new": "if(false){ s.why=",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "D7 a vector of any width is a vector",
+  "file": "compiler/src/check.cpp",
+  "old": "if(width*n!=128){ s.why=",
+  "new": "if(false){ s.why=",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "D8 lanes of different types are a vector",
+  "file": "compiler/src/check.cpp",
+  "old": "for(const auto& f:r.fields)if(f.type!=lane){ s.why=",
+  "new": "for(const auto& f:r.fields)if(f.type!=lane&&false){ s.why=",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "D9 loads need no capability",
+  "file": "compiler/src/check.cpp",
+  "old": "if(base==\"simd.load\"||base==\"simd.load_aligned\") { requireCap(\"memory.raw\",e.loc);",
+  "new": "if(base==\"simd.load\"||base==\"simd.load_aligned\") {",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "D10 stores need no capability",
+  "file": "compiler/src/check.cpp",
+  "old": "requireCap(\"memory.raw\",e.loc); argc(2); need(expr(e.args[0],d+1),Type::U64,e.loc); need(expr(e.args[1],d+1),V,e.loc); t=Type::U32; break;   // simd.store",
+  "new": "argc(2); need(expr(e.args[0],d+1),Type::U64,e.loc); need(expr(e.args[1],d+1),V,e.loc); t=Type::U32; break;   // simd.store",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "E1 integer lanes trap on overflow",
+  "file": "compiler/src/check.cpp",
+  "old": "wrappingIntOp(lane,sym+\"%\",lanes(a[0],i),lanes(a[1],i))",
+  "new": "wrappingIntOp(lane,sym,lanes(a[0],i),lanes(a[1],i))",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "E2 signed lanes compare as unsigned",
+  "file": "compiler/src/check.cpp",
+  "old": "} else if(isSignedInteger(lane)) {\n                            const int64_t sx=signedBits(lane,x)",
+  "new": "} else if(false) {\n                            const int64_t sx=signedBits(lane,x)",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "E3 select picks the other operand",
+  "file": "compiler/src/check.cpp",
+  "old": "fs.push_back(a[0].fields.at(i).bits?a[1].fields.at(i):a[2].fields.at(i));",
+  "new": "fs.push_back(a[0].fields.at(i).bits?a[2].fields.at(i):a[1].fields.at(i));",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "E4 the bitmask lists the lanes backwards",
+  "file": "compiler/src/check.cpp",
+  "old": "if(a[0].fields.at(i).bits){ bits|=uint64_t(1)<<i; ++on; }",
+  "new": "if(a[0].fields.at(i).bits){ bits|=uint64_t(1)<<(n-1-i); ++on; }",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "E5 the reduction of integers does not wrap",
+  "file": "compiler/src/check.cpp",
+  "old": "acc=real?floatBinaryBits(lane,\"+\",acc,lanes(a[0],i)):wrappingIntOp(lane,\"+%\",acc,lanes(a[0],i));",
+  "new": "acc=real?floatBinaryBits(lane,\"+\",acc,lanes(a[0],i)):wrappingIntOp(lane,\"+\",acc,lanes(a[0],i));",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "E6 the evaluator loads from address 0",
+  "file": "compiler/src/check.cpp",
+  "old": "if(at==0||(aligned&&(at&15)!=0))fail(\"E_LAYOUT\",\"acceso simd",
+  "new": "if((aligned&&(at&15)!=0))fail(\"E_LAYOUT\",\"acceso simd",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "E7 the evaluator checks 8-byte alignment only",
+  "file": "compiler/src/check.cpp",
+  "old": "if(at==0||(aligned&&(at&15)!=0))fail(\"E_LAYOUT\",\"acceso simd",
+  "new": "if(at==0||(aligned&&(at&7)!=0))fail(\"E_LAYOUT\",\"acceso simd",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "E8 any is true for an empty mask",
+  "file": "compiler/src/check.cpp",
+  "old": "if(op==\"any\")return Value(Type::Bool,on>0?1:0);",
+  "new": "if(op==\"any\")return Value(Type::Bool,1);",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "E9 all is true when one lane is",
+  "file": "compiler/src/check.cpp",
+  "old": "if(op==\"all\")return Value(Type::Bool,on==n?1:0);",
+  "new": "if(op==\"all\")return Value(Type::Bool,on>0?1:0);",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "E10 mask xor is or",
+  "file": "compiler/src/check.cpp",
+  "old": "(op==\"mask_or\"?(x||y):(op==\"mask_xor\"?(x!=y):!x))",
+  "new": "(op==\"mask_or\"?(x||y):(op==\"mask_xor\"?(x||y):!x))",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "E11 a stored vector spills one byte too many",
+  "file": "compiler/src/check.cpp",
+  "old": "for(size_t i=0;i<n;++i)for(size_t b=0;b<w;++b)rawMemory[at+i*w+b]=static_cast<uint8_t>((a[1].fields.at(i).bits>>(8*b))&255u);",
+  "new": "for(size_t i=0;i<n;++i)for(size_t b=0;b<=w;++b)rawMemory[at+i*w+b]=static_cast<uint8_t>((a[1].fields.at(i).bits>>(8*b))&255u);",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "E12 bool equality of the evaluator is inverted",
+  "file": "compiler/src/check.cpp",
+  "old": "return {e.type,(e.text==\"==\")==same?1u:0u};",
+  "new": "return {e.type,(e.text==\"==\")!=same?1u:0u};",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "L1 select picks the other operand",
+  "file": "compiler/src/llvm.cpp",
+  "old": "emit(r+\" = select \"+bty+\" \"+m+\", \"+vty+\" \"+x+\", \"+vty+\" \"+y);",
+  "new": "emit(r+\" = select \"+bty+\" \"+m+\", \"+vty+\" \"+y+\", \"+vty+\" \"+x);",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "L2 signed lanes compare as unsigned",
+  "file": "compiler/src/llvm.cpp",
+  "old": "{\"lt\",sg?\"slt\":\"ult\"}",
+  "new": "{\"lt\",\"ult\"}",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "L3 float inequality is ordered",
+  "file": "compiler/src/llvm.cpp",
+  "old": "{\"ne\",\"une\"},{\"lt\",\"olt\"}",
+  "new": "{\"ne\",\"one\"},{\"lt\",\"olt\"}",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "L4 the bitmask is sign-extended",
+  "file": "compiler/src/llvm.cpp",
+  "old": "emit(z+\" = zext i\"+std::to_string(n)+\" \"+bits+\" to i32\");",
+  "new": "emit(z+\" = sext i\"+std::to_string(n)+\" \"+bits+\" to i32\");",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "L5 all is any",
+  "file": "compiler/src/llvm.cpp",
+  "old": "emit(r+\" = icmp eq i\"+std::to_string(n)+\" \"+bits+\", -1\");",
+  "new": "emit(r+\" = icmp ne i\"+std::to_string(n)+\" \"+bits+\", 0\");",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "L6 mask not is the identity",
+  "file": "compiler/src/llvm.cpp",
+  "old": "ones+=\"i1 true\";",
+  "new": "ones+=\"i1 false\";",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "L7 the aligned forms check 8 bytes",
+  "file": "compiler/src/llvm.cpp",
+  "old": "if(op==\"load_aligned\"||op==\"store_aligned\") { auto low=reg(); emit(low+\" = and i64 \"+av[0]+\", 15\");",
+  "new": "if(op==\"load_aligned\"||op==\"store_aligned\") { auto low=reg(); emit(low+\" = and i64 \"+av[0]+\", 7\");",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "L8 the profile needs no sse2",
+  "file": "compiler/src/llvm.cpp",
+  "old": "if(prof&&(prof->name!=\"baremetal-x86_64\"||prof->isa!=\"sse2\"))fail(\"E_TARGET_PROFILE\",e.text+\" requiere el perfil baremetal-x86_64 con --target-isa sse2",
+  "new": "if(false)fail(\"E_TARGET_PROFILE\",e.text+\" requiere el perfil baremetal-x86_64 con --target-isa sse2",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "L9 the i386 profile takes vectors",
+  "file": "compiler/src/llvm.cpp",
+  "old": "if(prof&&(prof->name!=\"baremetal-x86_64\"||prof->isa!=\"sse2\"))fail(\"E_TARGET_PROFILE\",e.text+\" requiere el perfil baremetal-x86_64 con --target-isa sse2",
+  "new": "if(prof&&(prof->isa!=\"sse2\"))fail(\"E_TARGET_PROFILE\",e.text+\" requiere el perfil baremetal-x86_64 con --target-isa sse2",
+  "tests": [
+   "tests/cp10_simd.py"
+  ],
+  "equivalent": "--target-isa sse2 is refused for any profile but baremetal-x86_64 (main.cpp: \"--target-isa sse2/--exception-save-fpu requieren el perfil baremetal-x86_64\"), so the isa of the i386 boot profile is always \"gpr\" and `prof->isa!=\"sse2\"` refuses it exactly as the full condition does: the two predicates agree on every profile the compiler can be given"
+ },
+ {
+  "name": "L10 the integer difference is an addition",
+  "file": "compiler/src/llvm.cpp",
+  "old": "else { r=reg(); emit(r+\" = \"+op+\" \"+vty+\" \"+x+\", \"+y); }\n                                return fromVec(r,sty,vty,lty);",
+  "new": "else { r=reg(); emit(r+\" = \"+(op==\"sub\"?std::string(\"add\"):op)+\" \"+vty+\" \"+x+\", \"+y); }\n                                return fromVec(r,sty,vty,lty);",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "L11 a vector store is not volatile",
+  "file": "compiler/src/llvm.cpp",
+  "old": "emit(\"store volatile \"+lty+\" \"+fv+\", ptr \"+ptr+\", align 1\"); }\n                            return \"0\";",
+  "new": "emit(\"store \"+lty+\" \"+fv+\", ptr \"+ptr+\", align 1\"); }\n                            return \"0\";",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "L12 the null check of the native load is removed",
+  "file": "compiler/src/llvm.cpp",
+  "old": "auto nul=reg(); emit(nul+\" = icmp eq i64 \"+av[0]+\", 0\"); std::string bad=nul;\n                            if(op==\"load_aligned\"||op==\"store_aligned\")",
+  "new": "auto nul=reg(); emit(nul+\" = icmp eq i64 \"+av[0]+\", 1\"); std::string bad=nul;\n                            if(op==\"load_aligned\"||op==\"store_aligned\")",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ },
+ {
+  "name": "L13 the fence of the machine primitives does not include simd",
+  "file": "compiler/src/formats.cpp",
+  "old": "return n.rfind(\"raw.\",0)==0||n.rfind(\"simd.\",0)==0||",
+  "new": "return n.rfind(\"raw.\",0)==0||",
+  "tests": [
+   "tests/cp10_simd.py"
+  ]
+ }
+]

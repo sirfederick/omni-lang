@@ -1,0 +1,18 @@
+{
+  "schema": "omni.a94-systemic-durability-matrix/1",
+  "seed": 940094,
+  "scenarios": [
+    {"id":"A94-D01","layer":"L3","claim":"OSMC1 exact snapshot binding","oracle":"store/index/commit identity agrees"},
+    {"id":"A94-D02","layer":"L4","claim":"physical indexed locality","oracle":"header bytes only; full store not hashed"},
+    {"id":"A94-D03","layer":"L3","claim":"legacy compatibility","oracle":"missing OSMC1 selects full-store hash path"},
+    {"id":"A94-D04","layer":"L3","claim":"altered index rejection","oracle":"OSMI2/OSMC1 mismatch fails closed"},
+    {"id":"A94-D05","layer":"L3","claim":"altered commit rejection","oracle":"OSMC1 integrity mismatch fails closed"},
+    {"id":"A94-D06","layer":"L4","claim":"transaction recovery","oracle":"all injected publication phases recover exact new set"},
+    {"id":"A94-D07","layer":"L4","claim":"unrecoverable transaction rejection","oracle":"missing/mismatched staged bytes fail closed"},
+    {"id":"A94-D08","layer":"L4","claim":"sidecar path safety","oracle":"symlink commit fails closed"},
+    {"id":"A94-D09","layer":"L3","claim":"pulse gap semantics","oracle":"gap requires resnapshot and has no authoritative delta"},
+    {"id":"A94-D10","layer":"L3","claim":"pulse epoch monotonicity","oracle":"regression/conflicting identity rejected"},
+    {"id":"A94-D11","layer":"L4","claim":"durable override restart","oracle":"every persisted override survives close/reopen"},
+    {"id":"A94-D12","layer":"L2","claim":"logical/durable scale separation","oracle":"report exposes both populations without equivalence"}
+  ]
+}

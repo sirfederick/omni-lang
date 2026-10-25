@@ -1,0 +1,150 @@
+module t
+import rt "rt.omni"
+import epoch "epoch.omni"
+import cbreg "cbreg.omni"
+
+// CP-14 row 14.6 (spec/CALLBACK_REGISTRY_CANDIDATE.md, spec/QUIESCENCE_CANDIDATE.md): retirement of a callable while calls are IN FLIGHT on two reader CPUs, with proof that the oracle looked.
+// A call takes a long time (it dwells, then reads the cell its environment points to); the environment's dispose POISONS that cell, so a call that outlives its retirement reads poison.
+// CPU 0 is the writer: it registers, publishes the token, unpublishes it, SAMPLES whether a reader is inside a call at that moment (coverage), and retires through cbreg.retire_all, which waits for
+// both readers. CPUs 1 and 2 fire whatever token is published, each inside its own epoch read section. MODE (replaced by the test): 0 retire_all (waits for both readers).
+// A call that read poison is counted as bad; a call through a retired token is counted as stale (harmless).
+// Cells: slot 0x5E5000 (6180864), token 0x5E5040 (6180928), epoch 0x5E5080 (6180992), reader epoch slots 0x5E50C0 + 64 * cpu (6181056..), in-call flag 0x5E5200 + 64 * cpu (6181376..),
+// bad 0x5E5400 + 64 * cpu (6181888..), ok 0x5E5600 + 64 * cpu (6182400..), stop 0x5E5800 (6182912), AP count 0x5E5840 (6182976), payload cell 0x5E5880 (6183040), disposed 0x5E58C0 (6183104),
+// covered 0x5E5900 (6183168). Live value 777.
+
+struct Probe { cell u64, closed u64 }
+
+impl cbreg.Handler for Probe {
+  func call(h Probe, x u32) u32 !{memory.raw} {
+    var t u32 = 0u32
+    for i in 0u32..2000u32 {
+      t = t + raw.load32(5308800u64)
+    }
+    return raw.load32(h.cell)
+  }
+  func dispose(h Probe) u32 !{memory.atomic} {
+    let p u32 = atomic.store32(h.cell, 3735928559u32, 4u32)
+    return atomic.fetch_add32(h.closed, 1u32, 4u32)
+  }
+}
+
+func mode() u32 { return 0u32 }
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func wait_count(a u64, n u32) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) >= n { return 1u32 }
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func dwell(n u32) u32 !{memory.raw} {
+  for i in 0u32..n {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+func reader(id u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  var ok u32 = 0u32
+  var bad u32 = 0u32
+  let slot u64 = 6181056u64 + u64(id) * 64u64
+  for i in 0u32..4000000000u32 {
+    if atomic.load32(6182912u64, 1u32) != 0u32 {
+      let b u32 = raw.store32(6181888u64 + u64(id) * 64u64, bad)
+      return raw.store32(6182400u64 + u64(id) * 64u64, ok)
+    }
+    let g = epoch.enter(6180992u64, slot)
+    let token u64 = atomic.load64(6180928u64, 4u32)
+    if token != 0u64 {
+      let mark u32 = atomic.store32(6181376u64 + u64(id) * 64u64, 1u32, 4u32)
+      let r Result<u32,u32> = cbreg.fire<Probe>(6180864u64, token, 7u32)
+      let unmark u32 = atomic.store32(6181376u64 + u64(id) * 64u64, 0u32, 2u32)
+      match r {
+        Ok(v) { if v == 777u32 { ok = ok + 1u32 } else { bad = bad + 1u32 } }
+        Err(code) { }
+      }
+    }
+    let x u32 = epoch.exit(move(g))
+  }
+  return 0u32
+}
+
+func ap_main() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  let who u32 = raw.store32(5308800u64, id + 100u32)
+  let up u32 = atomic.fetch_add32(6182976u64, 1u32, 4u32)
+  let go u32 = wait_flag(5308928u64)
+  let r u32 = reader(id)
+  let done u32 = atomic.fetch_add32(5308992u64, 1u32, 4u32)
+  return 0u32
+}
+
+func writer(rounds u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  var covered u32 = 0u32
+  for k in 0u32..rounds {
+    let rearm u32 = atomic.store32(6183040u64, 777u32, 4u32)
+    let g u32 = cbreg.next_generation(6180864u64)
+    let reg = cbreg.register<Probe>(6180864u64, Probe { cell: 6183040u64, closed: 6183104u64 })
+    let token u64 = cbreg.handle(borrow(reg))
+    let published u32 = atomic.store64(6180928u64, token, 4u32)
+    let d1 u32 = dwell(1500u32)
+    let hidden u32 = atomic.store64(6180928u64, 0u64, 4u32)
+    let in1 u32 = atomic.load32(6181440u64, 4u32)
+    let in2 u32 = atomic.load32(6181504u64, 4u32)
+    if in1 + in2 != 0u32 { covered = covered + 1u32 }
+    let c u32 = cbreg.retire_all<Probe>(move(reg), 6180992u64, 6181056u64, 3u32, 64u64, 100000000u32)
+  }
+  return covered
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let g0 u32 = atomic.store32(6180992u64, 1u32, 4u32)
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+  let init u32 = raw.store32(4276093696u64, 17664u32)
+  let w1 u32 = delay()
+  let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+  let w2 u32 = delay()
+  let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+  let e1 u32 = raw.store32(4276093712u64, 33554432u32)
+  let init2 u32 = raw.store32(4276093696u64, 17664u32)
+  let w3 u32 = delay()
+  let e2 u32 = raw.store32(4276093712u64, 33554432u32)
+  let sipi3 u32 = raw.store32(4276093696u64, 17928u32)
+  let w4 u32 = delay()
+  let e3 u32 = raw.store32(4276093712u64, 33554432u32)
+  let sipi4 u32 = raw.store32(4276093696u64, 17928u32)
+  let up u32 = wait_count(6182976u64, 2u32)
+  if up == 0u32 {
+    print(999u32)
+    return rt.finish(2u32)
+  }
+  let go u32 = atomic.store32(5308928u64, 1u32, 2u32)
+  let covered u32 = writer(1500u32)
+  let stop u32 = atomic.store32(6182912u64, 1u32, 2u32)
+  let done u32 = wait_count(5308992u64, 2u32)
+  print(raw.load32(6181952u64))
+  print(raw.load32(6182016u64))
+  if raw.load32(6182464u64) > 100u32 { print(1u32) } else { print(0u32) }
+  if raw.load32(6182528u64) > 100u32 { print(1u32) } else { print(0u32) }
+  if covered > 100u32 { print(1u32) } else { print(0u32) }
+  print(atomic.load32(6183104u64, 4u32))
+  print(atomic.load32(6180864u64, 4u32))
+  return rt.finish(0u32)
+}

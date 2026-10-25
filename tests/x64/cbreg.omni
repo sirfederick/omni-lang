@@ -1,0 +1,117 @@
+module cbreg
+import rt "rt.omni"
+import epoch "epoch.omni"
+
+// CP-06 (spec/CALLBACK_REGISTRY_CANDIDATE.md): registration, deferred use and safe retirement of a callable with a retained environment, written in Omni.
+// A callable is a plain environment record H plus the code of its Handler impl, selected statically (no function pointers, no vtables). The environment
+// lives in a slot of raw memory so that another CPU can use it later:
+//   slot + 0  state u32 (0 empty, 1 live)      slot + 4  generation u32      slot + 8..39 type digest; slot + 40 the environment (raw.write<H>)
+// A registration is a nominal affine resource: it must be retired exactly once or the program does not compile. Its handle packs the slot address
+// (below 2^40) and the 24-bit generation of that registration, so a call through a retired or reused slot is detected at the mechanism itself.
+//   register : writes the environment, bumps the generation, publishes the slot (release stores)
+//   fire     : checks state and generation, then calls the handler on a copy of the environment; to be used inside an epoch read section
+//   retire   : unpublishes the slot (a stale token is then refused by the state, and after reuse by the generation), waits for every reader slot to quiesce (epoch.advance/wait), THEN disposes the
+//              environment exactly once (Handler.dispose) and poisons its bytes
+pub trait Handler {
+  func call(h Self, x u32) u32 !{memory.raw}
+  func dispose(h Self) u32 !{memory.atomic}
+}
+
+pub struct Reg { h u64 }
+
+// The generation of a registration is 24 bits (1..16777215) and is NEVER reused: a slot whose generations are spent answers 0 and `register` refuses it (exit value 93) instead of wrapping to 1,
+// because a wrapped generation would let a token from the first occupation of the slot (and of the same type) invoke the environment of a later one. The horizon is therefore a visible limit
+// of the slot (16777215 registrations), not a silent loss of the stale-token protection. A token is a plain u64 that can be copied; the Reg resource is the one that cannot.
+pub func next_generation(slot u64) u32 !{memory.atomic} {
+  let cur u32 = atomic.load32(slot + 4u64, 4u32)
+  if cur >= 16777215u32 { return 0u32 }
+  return cur + 1u32
+}
+
+pub func register<H: Handler>(slot u64, env H) Resource<Reg> !{memory.raw,memory.atomic,port.io,cpu.control} {
+  if slot >= 1099511627776u64 {
+    let bad u32 = rt.finish(93u32)
+  }
+  if atomic.load32(slot, 4u32) != 0u32 {
+    let busy u32 = rt.finish(93u32)
+  }
+  let g u32 = next_generation(slot)
+  if g == 0u32 {
+    let spent u32 = rt.finish(93u32)
+  }
+  let type0 u32 = raw.store64(slot + 8u64, layout.identity<H>(0u32))
+  let type1 u32 = raw.store64(slot + 16u64, layout.identity<H>(1u32))
+  let type2 u32 = raw.store64(slot + 24u64, layout.identity<H>(2u32))
+  let type3 u32 = raw.store64(slot + 32u64, layout.identity<H>(3u32))
+  let w u32 = raw.write<H>(slot + 40u64, env)
+  let gs u32 = atomic.store32(slot + 4u64, g, 2u32)
+  let live u32 = atomic.store32(slot, 1u32, 2u32)
+  return resource.seal(Reg { h: bit.or(slot, bit.shl(u64(g), 40u32)) })
+}
+
+pub func handle(r Borrow<Reg>) u64 {
+  let view Reg = resource.peek(r)
+  return view.h
+}
+
+pub func fire<H: Handler>(slot u64, token u64, x u32) Result<u32,u32> !{memory.raw,memory.atomic} {
+  if atomic.load32(slot, 1u32) == 0u32 { return Err<u32,u32>(1u32) }
+  if u64(atomic.load32(slot + 4u64, 1u32)) != bit.shr(token, 40u32) { return Err<u32,u32>(2u32) }
+  if bit.and(token, 1099511627775u64) != slot { return Err<u32,u32>(3u32) }
+  if raw.load64(slot + 8u64) != layout.identity<H>(0u32) { return Err<u32,u32>(4u32) }
+  if raw.load64(slot + 16u64) != layout.identity<H>(1u32) { return Err<u32,u32>(4u32) }
+  if raw.load64(slot + 24u64) != layout.identity<H>(2u32) { return Err<u32,u32>(4u32) }
+  if raw.load64(slot + 32u64) != layout.identity<H>(3u32) { return Err<u32,u32>(4u32) }
+  let env H = raw.read<H>(slot + 40u64)
+  return Ok<u32,u32>(Handler.call<H>(env, x))
+}
+
+pub func retire<H: Handler>(r Resource<Reg>, gen u64, reader_slot u64, attempts u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let s Reg = resource.unseal(move(r))
+  if epoch.can_advance(gen) == 0u32 {
+    let spent u32 = rt.finish(96u32)
+  }
+  let slot u64 = bit.and(s.h, 1099511627775u64)
+  let g u32 = u32(bit.shr(s.h, 40u32))
+  if atomic.load32(slot, 1u32) != 1u32 { let bad u32 = rt.finish(93u32) }
+  if atomic.load32(slot + 4u64, 1u32) != g { let bad u32 = rt.finish(93u32) }
+  if raw.load64(slot + 8u64) != layout.identity<H>(0u32) { let bad0 u32 = rt.finish(93u32) }
+  if raw.load64(slot + 16u64) != layout.identity<H>(1u32) { let bad1 u32 = rt.finish(93u32) }
+  if raw.load64(slot + 24u64) != layout.identity<H>(2u32) { let bad2 u32 = rt.finish(93u32) }
+  if raw.load64(slot + 32u64) != layout.identity<H>(3u32) { let bad3 u32 = rt.finish(93u32) }
+  let off u32 = atomic.store32(slot, 0u32, 2u32)
+  let e u32 = epoch.advance(gen)
+  let w u32 = epoch.wait(reader_slot, e, attempts)
+  let env H = raw.read<H>(slot + 40u64)
+  let closed u32 = Handler.dispose<H>(env)
+  for i in 0u32..u32(layout.size<H>()) {
+    let p u32 = raw.store8(slot + 40u64 + u64(i), 221u32)
+  }
+  return closed
+}
+
+// retire_all: the same retirement for a callable that any of `count` readers may be firing. The readers' epoch slots are `count` cells `stride` bytes apart from `first`; the grace period covers ALL of
+// them (a partial list proves nothing about the others, see epoch.wait_all). Everything else is `retire`.
+pub func retire_all<H: Handler>(r Resource<Reg>, gen u64, first u64, count u32, stride u64, attempts u32) u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let s Reg = resource.unseal(move(r))
+  if epoch.can_advance(gen) == 0u32 {
+    let spent u32 = rt.finish(96u32)
+  }
+  let slot u64 = bit.and(s.h, 1099511627775u64)
+  let g u32 = u32(bit.shr(s.h, 40u32))
+  if atomic.load32(slot, 1u32) != 1u32 { let bad u32 = rt.finish(93u32) }
+  if atomic.load32(slot + 4u64, 1u32) != g { let bad u32 = rt.finish(93u32) }
+  if raw.load64(slot + 8u64) != layout.identity<H>(0u32) { let bad0 u32 = rt.finish(93u32) }
+  if raw.load64(slot + 16u64) != layout.identity<H>(1u32) { let bad1 u32 = rt.finish(93u32) }
+  if raw.load64(slot + 24u64) != layout.identity<H>(2u32) { let bad2 u32 = rt.finish(93u32) }
+  if raw.load64(slot + 32u64) != layout.identity<H>(3u32) { let bad3 u32 = rt.finish(93u32) }
+  let off u32 = atomic.store32(slot, 0u32, 2u32)
+  let e u32 = epoch.advance(gen)
+  let w u32 = epoch.wait_all(first, count, stride, e, attempts)
+  let env H = raw.read<H>(slot + 40u64)
+  let closed u32 = Handler.dispose<H>(env)
+  for i in 0u32..u32(layout.size<H>()) {
+    let p u32 = raw.store8(slot + 40u64 + u64(i), 221u32)
+  }
+  return closed
+}

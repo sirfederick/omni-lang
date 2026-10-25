@@ -1,0 +1,115 @@
+module t
+import rt "rt.omni"
+
+// cpu.enter_ring3_interruptible (spec/ENTER_RING3_INTERRUPTIBLE_CANDIDATE.md). Owned by Omni Core. Ring 0 side; the CPL3 workload lives in the
+// provider module (the harness appends `user_irq` to a copy of rt.omni, because only service-module code runs without accounting hooks that
+// read supervisor-only memory). Same GDT/TSS/IDT/paging layout as ring3.omni; additionally a periodic local-APIC timer (vector 32) whose handler
+// counts interrupts, checks that every one arrived from CPL3 (CS = 0x23) and acknowledges (EOI). Interrupts are never enabled in ring 0.
+//
+// Sessions (mode cell 0x3D0000):  11 = sum 0..3000000 at CPL3, result handed back through the DPL3 service gate (vector 48)
+//                                  12 = read RFLAGS at CPL3 and return its IF/IOPL bits (mask 0x3200)
+//                                  13 = execute `cli` at CPL3 (privileged at IOPL 0 -> #GP)
+// Log cells: 0x520000 timer interrupts | 0x520010 interrupts whose CS was not 0x23 | 0x520018 last exception vector other than 32 and 48.
+// Output lines: sum(interruptible) irqs bad_cs | sum(plain) irqs | rflags(interruptible) | rflags(plain) | cli session | vector | live value
+
+func gdt_install() u32 !{memory.raw,cpu.control} {
+  let n0 u32 = raw.store64(5570560u64, 0u64)
+  let n1 u32 = raw.store64(5570568u64, bit.or(bit.shl(11508224u64, 32u32), 65535u64))
+  let n2 u32 = raw.store64(5570576u64, bit.or(bit.shl(13603328u64, 32u32), 65535u64))
+  let n3 u32 = raw.store64(5570584u64, bit.or(bit.shl(13627904u64, 32u32), 65535u64))
+  let n4 u32 = raw.store64(5570592u64, bit.or(bit.shl(11532800u64, 32u32), 65535u64))
+  let tss_low u64 = bit.or(bit.or(103u64, bit.shl(86u64, 32u32)), bit.shl(137u64, 40u32))
+  let n5 u32 = raw.store64(5570600u64, tss_low)
+  let n6 u32 = raw.store64(5570608u64, 0u64)
+  let rsp0 u32 = raw.store64(5636096u64 + 4u64, 5177344u64)
+  let iopb u32 = raw.store32(5636096u64 + 100u64, 6815744u32)
+  let gdtr u32 = raw.store64(5570816u64, 55u64 + 5570560u64 * 65536u64)
+  let lg u32 = cpu.lgdt(5570816u32)
+  return cpu.ltr(40u32)
+}
+
+// 64-bit interrupt gate for vector v: handler stub at `off`, type/attr `attr` (0x8E interrupt gate DPL0, 0xEE DPL3), selector 0x08.
+func gate(v u32, attr u64, off u64) u32 !{memory.raw} {
+  let low u64 = bit.or(bit.and(off, 65535u64), bit.shl(8u64, 16u32))
+  let high u64 = bit.shl(bit.and(bit.shr(off, 16u32), 65535u64), 48u32)
+  let a u32 = raw.store64(5439488u64 + u64(v) * 16u64, bit.or(bit.or(low, bit.shl(attr, 40u32)), high))
+  return raw.store64(5439488u64 + u64(v) * 16u64 + 8u64, bit.shr(off, 32u32))
+}
+
+// 33 ISR stubs (vectors 0..32) at 0x210000 + 16 * v; the extra DPL3 service stub follows the table (--isr-count 33 --isr-extra-vector 48).
+func idt_install() u32 !{memory.raw,cpu.control} {
+  for v in 0u32..33u32 {
+    let g u32 = gate(v, 142u64, 2162688u64 + u64(v) * 16u64)
+  }
+  let s u32 = gate(48u32, 238u64, 2162688u64 + 33u64 * 16u64)
+  let limit u32 = raw.store64(5374208u64, 49u64 * 16u64 - 1u64 + 5439488u64 * 65536u64)
+  return cpu.lidt(5374208u32)
+}
+
+func on_exception(frame u64) u32 !{memory.raw,port.io,cpu.control} {
+  let v u64 = raw.load64(frame)
+  let cs u64 = raw.load64(frame + 24u64)
+  if v == 32u64 {
+    let c u64 = raw.load64(5373952u64)
+    let a u32 = raw.store64(5373952u64, c + 1u64)
+    if cs != 35u64 {
+      let b u32 = raw.store64(5373968u64, raw.load64(5373968u64) + 1u64)
+    }
+    return raw.store32(4276093104u64, 0u32)
+  }
+  if v == 48u64 {
+    // the user's argument (rdi) sits at frame - 40 (see ring3.omni)
+    let x u64 = cpu.leave_ring3(5505024u64, raw.load64(frame - 40u64))
+    return rt.finish(120u32)
+  }
+  let l u32 = raw.store64(5373976u64, v)
+  if cs == 35u64 {
+    let y u64 = cpu.leave_ring3(5505024u64, 1000u64 + v)
+  }
+  return rt.finish(100u32 + u32(v))
+}
+
+func reset_log() u32 !{memory.raw} {
+  let a u32 = raw.store64(5373952u64, 0u64)
+  let b u32 = raw.store64(5373968u64, 0u64)
+  return raw.store64(5373976u64, 0u64)
+}
+
+func session(mode u32, interruptible u32) u64 !{memory.raw,cpu.control} {
+  let m u32 = raw.store32(3997696u64, mode)
+  if interruptible == 1u32 {
+    return cpu.enter_ring3_interruptible(cpu.thread_trampoline(), 4063232u64, 5505024u64)
+  }
+  return cpu.enter_ring3(cpu.thread_trampoline(), 4063232u64, 5505024u64)
+}
+
+func main() u32 !{io.print,memory.raw,port.io,cpu.control} {
+  let g u32 = gdt_install()
+  let i u32 = idt_install()
+  // the payload's 2 MiB page becomes user-accessible; everything else (notably 0x500000 and the APIC page) stays supervisor-only
+  let pd u32 = raw.store64(1122312u64, 2097287u64)
+  let flush u32 = cpu.write_cr(3u32, 1114112u32)
+  // legacy PICs masked; periodic local-APIC timer on vector 32 (as irq_timer.omni)
+  let pic1 u32 = port.out8(33u32, 255u32)
+  let pic2 u32 = port.out8(161u32, 255u32)
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let div u32 = raw.store32(4276093952u64, 11u32)
+  let lvt u32 = raw.store32(4276093728u64, 131104u32)
+  let init u32 = raw.store32(4276093824u64, 100000u32)
+  // a value held in ring 0 across every session: callee-saved registers come back through cpu.leave_ring3
+  let live u64 = 123456789u64 * 3u64 + 1u64
+  let r0 u32 = reset_log()
+  print(session(11u32, 1u32))
+  print(raw.load64(5373952u64))
+  print(raw.load64(5373968u64))
+  let r1 u32 = reset_log()
+  print(session(11u32, 0u32))
+  print(raw.load64(5373952u64))
+  print(session(12u32, 1u32))
+  print(session(12u32, 0u32))
+  print(session(13u32, 1u32))
+  print(raw.load64(5373976u64))
+  print(live)
+  let mask u32 = raw.store32(4276093728u64, 65568u32)
+  return rt.finish(0u32)
+}

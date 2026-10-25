@@ -1,0 +1,102 @@
+module t
+import rt "rt.omni"
+
+// CP-13 row 13.6, empirical store-buffering litmus on two vCPUs (spec/MEMORY_MODEL_X86_64_CANDIDATE.md section 4). Each round resets x and y, lines the two CPUs up at a barrier, and then
+//   CPU 0: x = 1; r1 = y          CPU 1: y = 1; r2 = x
+// The outcome r1 = r2 = 0 means a load was satisfied before the other CPU's store was visible (the store buffer). VARIANT, replaced by the test:
+//   0 relaxed store, relaxed load       1 relaxed store, seq_cst fence, relaxed load       2 seq_cst store (xchg), seq_cst load
+// The fenced variants must NEVER show (0,0); the relaxed variant is allowed to, and QEMU TCG does not have to exhibit it: the count is reported, not required.
+// Cells: x 0x5D0000 (6094848), y 0x5D0040, arrivals 0x5D0080 (6094976), rounds done by CPU 1 0x5D00C0 (6095040); r1 per round 0x5D1000 (6098944), r2 per round 0x5F0000 (6225920).
+// AP flags as in smp_counter.omni.
+
+func variant() u32 { return 0u32 }
+func rounds() u32 { return 20000u32 }
+
+func wait_flag(a u64) u32 !{memory.atomic} {
+  for i in 0u32..50000000u32 {
+    if atomic.load32(a, 1u32) != 0u32 { return 1u32 }
+  }
+  return 0u32
+}
+
+func delay() u32 !{memory.raw} {
+  for i in 0u32..200000u32 {
+    let t u32 = raw.load32(5308800u64)
+  }
+  return 0u32
+}
+
+// both CPUs arrive (a seq_cst RMW) and leave when the counter shows that both have; bounded, 0 if the peer never came
+func barrier(target u32) u32 !{memory.atomic} {
+  let a u32 = atomic.fetch_add32(6094976u64, 1u32, 4u32)
+  for i in 0u32..100000000u32 {
+    if atomic.load32(6094976u64, 1u32) >= target { return 1u32 }
+  }
+  return 0u32
+}
+
+func side(mine u64, other u64) u32 !{memory.atomic} {
+  if variant() == 0u32 {
+    let s u32 = atomic.store32(mine, 1u32, 0u32)
+    return atomic.load32(other, 0u32)
+  }
+  if variant() == 1u32 {
+    let s u32 = atomic.store32(mine, 1u32, 0u32)
+    let f u32 = atomic.fence(4u32)
+    return atomic.load32(other, 0u32)
+  }
+  let s u32 = atomic.store32(mine, 1u32, 4u32)
+  return atomic.load32(other, 4u32)
+}
+
+func ap_main() u32 !{memory.raw,memory.atomic,port.io,cpu.control} {
+  let id u32 = cpu.cpuid(1u32, 1u32) / 16777216u32
+  let who u32 = raw.store32(5308800u64, id + 100u32)
+  let up u32 = atomic.store32(5308864u64, 1u32, 2u32)
+  var done u32 = 0u32
+  for r in 0u32..rounds() {
+    if barrier(2u32 * (2u32 * r + 1u32)) == 0u32 { return 1u32 }
+    let v u32 = side(6094912u64, 6094848u64)
+    let w u32 = raw.store32(6225920u64 + u64(r) * 4u64, v)
+    if barrier(2u32 * (2u32 * r + 2u32)) == 0u32 { return 2u32 }
+    done = done + 1u32
+  }
+  let d u32 = atomic.store32(6095040u64, done, 2u32)
+  return 0u32
+}
+
+func main() u32 !{io.print,memory.raw,memory.atomic,port.io,cpu.control} {
+  let svr u32 = raw.store32(4276093168u64, 511u32)
+  let d1 u32 = raw.store32(4276093712u64, 16777216u32)
+  let init u32 = raw.store32(4276093696u64, 17664u32)
+  let w1 u32 = delay()
+  let d2 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi1 u32 = raw.store32(4276093696u64, 17928u32)
+  let w2 u32 = delay()
+  let d3 u32 = raw.store32(4276093712u64, 16777216u32)
+  let sipi2 u32 = raw.store32(4276093696u64, 17928u32)
+  let up u32 = wait_flag(5308864u64)
+  if up == 0u32 {
+    print(999u32)
+    return rt.finish(2u32)
+  }
+  var weak u32 = 0u32
+  var finished u32 = 0u32
+  for r in 0u32..rounds() {
+    let z1 u32 = atomic.store32(6094848u64, 0u32, 0u32)
+    let z2 u32 = atomic.store32(6094912u64, 0u32, 0u32)
+    if barrier(2u32 * (2u32 * r + 1u32)) == 0u32 { break }
+    let v u32 = side(6094848u64, 6094912u64)
+    let w u32 = raw.store32(6098944u64 + u64(r) * 4u64, v)
+    if barrier(2u32 * (2u32 * r + 2u32)) == 0u32 { break }
+    finished = finished + 1u32
+    if v == 0u32 {
+      if raw.load32(6225920u64 + u64(r) * 4u64) == 0u32 { weak = weak + 1u32 }
+    }
+  }
+  let peer u32 = wait_flag(6095040u64)
+  print(finished)
+  print(atomic.load32(6095040u64, 1u32))
+  print(weak)
+  return rt.finish(0u32)
+}

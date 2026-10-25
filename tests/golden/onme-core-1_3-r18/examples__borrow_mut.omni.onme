@@ -1,0 +1,5 @@
+ONME2
+Rsha256:63fc2082455d93386caf07e0e23bf18f0777621db1a80709a8e22b696ed6e3eb
+Psha256:63fc2082455d93386caf07e0e23bf18f0777621db1a80709a8e22b696ed6e3eb
+Csha256:6bbf27e7ebb12a878607cd9b0bfdb613ac09d4c1dcd97619c6a8a8426e1d2b03
+(!WA2:18(!EA9:borrowmut)(!MA9:borrowmut(!I)(!FA4:main(!V!p)(!A)(!R!3)(!XA11:memory.readA12:memory.write)(!B(!lA10:allocationA5:infer(!cA12:buffer.alloc(!3A1:8)))(A5:match(!fA10:allocation)(A2:okA3:buf(!B(!lA9:exclusiveA5:infer(!cA10:borrow_mut(!fA3:buf)))(!lA5:writeA5:infer(!cA15:buffer.write_u8(!fA9:exclusive)(!3A1:0)(!3A1:7)))(A5:match(!fA5:write)(A2:okA1:x(!B))(A3:errA1:e(!B)))(!lA1:nA5:infer(!cA10:buffer.len(!fA9:exclusive)))(!lA8:releasedA5:infer(!cA14:buffer.release(!cA4:move(!fA3:buf))))(!r(!fA1:n))))(A3:errA1:e(!B(!r(!fA1:e)))))))))

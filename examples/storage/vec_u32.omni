@@ -1,0 +1,86 @@
+module vec_u32
+
+// CP-04 (spec/DYNAMIC_STORAGE_CANDIDATE.md): a growable vector of u32 written in Omni over one owned Buffer.
+// There is no hidden allocator: the caller owns the Resource<Buffer>, passes the live element count, and every growth is an explicit
+// buffer.grow under a BorrowMut. A Borrow/view of the buffer that is still live therefore makes the growth a compile-time E_BORROW_CONFLICT.
+// Outcome codes (a failing call changes neither the buffer nor the count):
+//   1 capacity: more than 262144 elements (the 1 MiB per-buffer limit)   2 budget: the 16 MiB total or 1024-buffer table is exhausted
+//   3 host out of memory                                                 10 index >= len                11 element-count arithmetic would overflow
+pub func limit() u32 { return 262144u32 }
+
+pub func new_buffer(capacity u32) Result<Resource<Buffer>,u32> !{memory.write} {
+  if capacity > 262144u32 { return Err<Resource<Buffer>,u32>(1u32) }
+  return buffer.alloc(capacity * 4u32)
+}
+
+pub func capacity(b Borrow<Buffer>) u32 !{memory.read} {
+  return buffer.len(b) / 4u32
+}
+
+// Makes room for `extra` more elements after `len`. Growth is geometric (at least doubling) and clamped to the limit; arithmetic never wraps.
+pub func reserve(b BorrowMut<Buffer>, len u32, extra u32) Result<u32,u32> !{memory.read,memory.write} {
+  if len > 262144u32 { return Err<u32,u32>(11u32) }
+  if extra > 262144u32 - len { return Err<u32,u32>(1u32) }
+  let need u32 = len + extra
+  let bytes u32 = buffer.len(b)
+  let have u32 = bytes / 4u32
+  if need <= have { return Ok<u32,u32>(have) }
+  var cap u32 = have * 2u32
+  if cap < 4u32 { cap = 4u32 }
+  if cap < need { cap = need }
+  if cap > 262144u32 { cap = 262144u32 }
+  let grown = buffer.grow(b, cap * 4u32)
+  match grown {
+    Ok(n) { return Ok<u32,u32>(n / 4u32) }
+    Err(code) { return Err<u32,u32>(code) }
+  }
+}
+
+// Appends x and returns the new element count.
+pub func push(b BorrowMut<Buffer>, len u32, x u32) Result<u32,u32> !{memory.read,memory.write} {
+  let room = reserve(b, len, 1u32)
+  match room {
+    Ok(cap) {
+      let w = buffer.write_u32le(b, len * 4u32, x)
+      match w {
+        Ok(done) { return Ok<u32,u32>(len + 1u32) }
+        Err(code) { return Err<u32,u32>(code) }
+      }
+    }
+    Err(code) { return Err<u32,u32>(code) }
+  }
+}
+
+pub func get(b Borrow<Buffer>, len u32, index u32) Result<u32,u32> !{memory.read} {
+  if index >= len { return Err<u32,u32>(10u32) }
+  let r = buffer.read_u32le(b, index * 4u32)
+  match r {
+    Ok(x) { return Ok<u32,u32>(x) }
+    Err(code) { return Err<u32,u32>(code) }
+  }
+}
+
+pub func set(b BorrowMut<Buffer>, len u32, index u32, x u32) Result<u32,u32> !{memory.write} {
+  if index >= len { return Err<u32,u32>(10u32) }
+  let w = buffer.write_u32le(b, index * 4u32, x)
+  match w {
+    Ok(done) { return Ok<u32,u32>(done) }
+    Err(code) { return Err<u32,u32>(code) }
+  }
+}
+
+// Removes the last element: returns it and zeroes its slot so a later reuse never observes the old value.
+pub func pop(b BorrowMut<Buffer>, len u32) Result<u32,u32> !{memory.read,memory.write} {
+  if len == 0u32 { return Err<u32,u32>(10u32) }
+  let last = buffer.read_u32le(b, (len - 1u32) * 4u32)
+  match last {
+    Ok(x) {
+      let z = buffer.zero(b, (len - 1u32) * 4u32, 4u32)
+      match z {
+        Ok(done) { return Ok<u32,u32>(x) }
+        Err(code) { return Err<u32,u32>(code) }
+      }
+    }
+    Err(code) { return Err<u32,u32>(code) }
+  }
+}

@@ -1,0 +1,556 @@
+[
+ {
+  "name": "R1 grow permits shrink",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(n<s->n)return 4; if(n>OMNI_BUFFER_VALUE_MAX)return 1;",
+  "new": "if(n>OMNI_BUFFER_VALUE_MAX)return 1;",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "R2 grow does not clear new bytes",
+  "file": "runtime/omni_runtime.c",
+  "old": "unsigned char *p=(unsigned char*)calloc(n,1); if(!p)return 3;\n    if(s->n)",
+  "new": "unsigned char *p=(unsigned char*)malloc(n); if(!p)return 3;\n    if(s->n)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "R3 grow forgets budget accounting",
+  "file": "runtime/omni_runtime.c",
+  "old": "buffer_total+=(size_t)(n-s->n); s->p=p;",
+  "new": "s->p=p;",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "R4 grow ignores the 16 MiB budget",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(buffer_total-(size_t)s->n+(size_t)n>OMNI_BUFFER_TOTAL)return 2;",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "R5 grow ignores the per-buffer limit",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(n<s->n)return 4; if(n>OMNI_BUFFER_VALUE_MAX)return 1;",
+  "new": "if(n<s->n)return 4;",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "R6 zero accepts a range past the end",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(offset>s->n||len>s->n-offset)return 1; if(len)memset",
+  "new": "if(offset>s->n||len>s->n)return 1; if(len)memset",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "R7 zero clears nothing",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(len)memset(s->p+offset,0,len); return 0;}",
+  "new": "return 0;}",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "R8 grow drops the old contents",
+  "file": "runtime/omni_runtime.c",
+  "old": "    if(s->n)memcpy(p,s->p,s->n);\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "R9 same-length grow is an error",
+  "file": "runtime/omni_runtime.c",
+  "old": "if(n==s->n){*out=n;return 0;}",
+  "new": "if(n==s->n){return 4;}",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "E1 evaluator grow permits shrink",
+  "file": "compiler/src/check.cpp",
+  "old": "                            if(n<old){r.fields.push_back(Value(Type::U32,4));return r;}\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "E2 evaluator grow ignores the per-buffer limit",
+  "file": "compiler/src/check.cpp",
+  "old": "                            if(n>1024u*1024u){r.fields.push_back(Value(Type::U32,1));return r;}\n                            if(n!=old){",
+  "new": "                            if(n!=old){",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "E3 evaluator grow ignores the budget",
+  "file": "compiler/src/check.cpp",
+  "old": "if(bufferBytes+(n-old)>16u*1024u*1024u){r.fields.push_back(Value(Type::U32,2));return r;}",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "E4 evaluator grow forgets accounting",
+  "file": "compiler/src/check.cpp",
+  "old": "                                bufferBytes+=n-old;\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "E5 evaluator zero accepts a range past the end",
+  "file": "compiler/src/check.cpp",
+  "old": "a[2].bits>n-a[1].bits",
+  "new": "a[2].bits>n",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "E6 evaluator zero clears nothing",
+  "file": "compiler/src/check.cpp",
+  "old": "if(a[2].bits!=0)std::memset(it->second.data()+a[1].bits,0,static_cast<size_t>(a[2].bits));",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "C1 checker grow takes a shared borrow",
+  "file": "compiler/src/check.cpp",
+  "old": "Type br(Type::BorrowMut); br.name=\"Buffer\"; need(expr(e.args[0],d+1),br,e.loc); need(expr(e.args[1],d+1),Type::U32,e.loc); e.resolved=\"@builtin:buffer.grow\"",
+  "new": "Type br(Type::Borrow); br.name=\"Buffer\"; need(expr(e.args[0],d+1),br,e.loc); need(expr(e.args[1],d+1),Type::U32,e.loc); e.resolved=\"@builtin:buffer.grow\"",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "C2 checker grow needs only memory.read",
+  "file": "compiler/src/check.cpp",
+  "old": "requireCap(\"memory.write\",e.loc); if(e.args.size()!=2)fail(\"E_ARITY\",\"buffer.grow",
+  "new": "requireCap(\"memory.read\",e.loc); if(e.args.size()!=2)fail(\"E_ARITY\",\"buffer.grow",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "F1 representation fence omits the primitives",
+  "file": "compiler/src/formats.cpp",
+  "old": "n==\"buffer.grow\"||n==\"buffer.zero\";",
+  "new": "false;",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "L1 native grow in a target profile",
+  "file": "compiler/src/llvm.cpp",
+  "old": "if(prof)fail(\"E_TARGET_PROFILE\",\"buffer.grow solo",
+  "new": "if(false)fail(\"E_TARGET_PROFILE\",\"buffer.grow solo",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "L2 native zero swaps offset and length",
+  "file": "compiler/src/llvm.cpp",
+  "old": "call i32 @omni_buffer_zero(i64 \"+av[0]+\", i32 \"+av[1]+\", i32 \"+av[2]+\")",
+  "new": "call i32 @omni_buffer_zero(i64 \"+av[0]+\", i32 \"+av[2]+\", i32 \"+av[1]+\")",
+  "tests": [
+   "tests/cp04_dynamic_storage.py"
+  ]
+ },
+ {
+  "name": "region L1 no header check on alloc",
+  "file": "examples/storage/region.omni",
+  "old": "  if h.magic != magic() { return Err<Slice<T>,u32>(10u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L2 no alignment rounding",
+  "file": "examples/storage/region.omni",
+  "old": "let start u64 = bit.and(h.top + mask, bit.not(mask))",
+  "new": "let start u64 = h.top",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L3 no count overflow guard",
+  "file": "examples/storage/region.omni",
+  "old": "  if count > max64() / size { return Err<Slice<T>,u32>(6u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L4 no byte overflow guard",
+  "file": "examples/storage/region.omni",
+  "old": "  if bytes > max64() - start { return Err<Slice<T>,u32>(6u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L5 no range-exhausted check",
+  "file": "examples/storage/region.omni",
+  "old": "  if end > h.limit { return Err<Slice<T>,u32>(1u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L6 no epoch check on access",
+  "file": "examples/storage/region.omni",
+  "old": "  if epoch != h.epoch { return 4u32 }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L7 no alignment check on access",
+  "file": "examples/storage/region.omni",
+  "old": "  if bit.and(addr, align - 1u64) != 0u64 { return 8u32 }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L8 no block range check on access",
+  "file": "examples/storage/region.omni",
+  "old": "  if count > (h.top - addr) / size { return 4u32 }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L9 no index check",
+  "file": "examples/storage/region.omni",
+  "old": "  if index >= count { return 7u32 }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L10 reset does not scrub",
+  "file": "examples/storage/region.omni",
+  "old": "  let z u32 = scrub(v.h + 32u64, h.top)\n  let w u32 = raw.write<Header>(v.h, Header { magic: h.magic, top: v.h + 32u64",
+  "new": "  let w u32 = raw.write<Header>(v.h, Header { magic: h.magic, top: v.h + 32u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L11 reset keeps the epoch",
+  "file": "examples/storage/region.omni",
+  "old": "limit: h.limit, epoch: h.epoch + 1u64 })",
+  "new": "limit: h.limit, epoch: h.epoch })",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L12 extend may shrink",
+  "file": "examples/storage/region.omni",
+  "old": "  if new_limit < h.limit { return Err<u64,u32>(5u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L13 create accepts a misaligned base",
+  "file": "examples/storage/region.omni",
+  "old": "  if bit.and(base, 15u64) != 0u64 { return Err<Resource<Region>,u32>(5u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L14 create lets the range wrap",
+  "file": "examples/storage/region.omni",
+  "old": "  if size > max64() - base { return Err<Resource<Region>,u32>(6u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L15 destroy keeps the header",
+  "file": "examples/storage/region.omni",
+  "old": "Header { magic: 0u64, top: 0u64, limit: 0u64, epoch: 0u64 }",
+  "new": "Header { magic: magic(), top: h.top, limit: h.limit, epoch: h.epoch }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L16 destroy does not scrub data",
+  "file": "examples/storage/region.omni",
+  "old": "  let z u32 = scrub(v.h + 32u64, h.top)\n  let w u32 = raw.write<Header>(v.h, Header { magic: 0u64",
+  "new": "  let w u32 = raw.write<Header>(v.h, Header { magic: 0u64",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "region L17 reset ignores a damaged header",
+  "file": "examples/storage/region.omni",
+  "old": "  if h.magic != magic() { return Err<u64,u32>(10u32) }\n  if h.epoch == max64()",
+  "new": "  if h.epoch == max64()",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "arena A1 any alignment accepted",
+  "file": "examples/storage/arena.omni",
+  "old": "  if bit.and(align, align - 1u32) != 0u32 { return Err<Grant,u32>(5u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "arena A2 no size overflow guard",
+  "file": "examples/storage/arena.omni",
+  "old": "  if size > 4294967295u32 - s.top - pad { return Err<Grant,u32>(6u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "arena A3 no limit check",
+  "file": "examples/storage/arena.omni",
+  "old": "  if end > 1048576u32 { return Err<Grant,u32>(1u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "arena A4 no epoch check",
+  "file": "examples/storage/arena.omni",
+  "old": "  if blk.epoch != s.epoch { return 4u32 }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "arena A5 no element alignment check",
+  "file": "examples/storage/arena.omni",
+  "old": "  if bit.and(blk.off, width - 1u32) != 0u32 { return 8u32 }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "arena A6 no index check",
+  "file": "examples/storage/arena.omni",
+  "old": "  if index >= blk.size / width { return 7u32 }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "arena A7 reset does not zero",
+  "file": "examples/storage/arena.omni",
+  "old": "  let z = buffer.zero(b, 0u32, s.top)\n",
+  "new": "  let z = buffer.zero(b, 0u32, 0u32)\n",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "arena A8 reset keeps the epoch",
+  "file": "examples/storage/arena.omni",
+  "old": "State { top: 0u32, epoch: s.epoch + 1u32 }",
+  "new": "State { top: 0u32, epoch: s.epoch }",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "arena A9 no padding",
+  "file": "examples/storage/arena.omni",
+  "old": "  if rem != 0u32 { pad = align - rem }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "arena A10 epoch exhaustion unchecked",
+  "file": "examples/storage/arena.omni",
+  "old": "  if s.epoch == 4294967295u32 { return Err<State,u32>(9u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "arena A11 growth below the request",
+  "file": "examples/storage/arena.omni",
+  "old": "    if want < end { want = end }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "vec V1 no capacity guard in new_buffer",
+  "file": "examples/storage/vec_u32.omni",
+  "old": "  if capacity > 262144u32 { return Err<Resource<Buffer>,u32>(1u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "vec V2 no extra guard in reserve",
+  "file": "examples/storage/vec_u32.omni",
+  "old": "  if extra > 262144u32 - len { return Err<u32,u32>(1u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "vec V3 pop keeps the slot",
+  "file": "examples/storage/vec_u32.omni",
+  "old": "      let z = buffer.zero(b, (len - 1u32) * 4u32, 4u32)\n",
+  "new": "      let z = buffer.zero(b, (len - 1u32) * 4u32, 0u32)\n",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "vec V4 no index check in get",
+  "file": "examples/storage/vec_u32.omni",
+  "old": "  if index >= len { return Err<u32,u32>(10u32) }\n  let r = buffer.read_u32le(b, index * 4u32)",
+  "new": "  let r = buffer.read_u32le(b, index * 4u32)",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "vec V5 no length guard in reserve",
+  "file": "examples/storage/vec_u32.omni",
+  "old": "  if len > 262144u32 { return Err<u32,u32>(11u32) }\n",
+  "new": "",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ },
+ {
+  "name": "vec V6 growth never doubles",
+  "file": "examples/storage/vec_u32.omni",
+  "old": "  var cap u32 = have * 2u32\n  if cap < 4u32 { cap = 4u32 }\n  if cap < need { cap = need }",
+  "new": "  var cap u32 = need",
+  "tests": [
+   "tests/cp04_dynamic_storage.py",
+   "StorageLibraryTests",
+   "RegionLibraryTests"
+  ]
+ }
+]
