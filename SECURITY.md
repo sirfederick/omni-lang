@@ -5,8 +5,16 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 
 # Security
 
-No released version is supported yet. The source tree is experimental; focal validation is not a security certification. Do not disclose secrets or third-party vulnerabilities in public issues or PRs.
+No released version is supported yet. The source tree is experimental; focal validation is not a security certification.
 
-No public confidential reporting endpoint or email is configured by this reconstruction. The maintainer must configure and test an accessible private channel before public opening and update this policy. Existing authorized coordination with the founder is outside a public issue tracker; no SLA is promised.
+## Report a vulnerability privately
 
-Dependency/toolchain licensing and generated packages require their own review. Hashes establish integrity, not publisher authenticity or authority. Privileged runners, remote CI, release workflows and external-provider integrations are not enabled here.
+Email [hola@omni-lang.com](mailto:hola@omni-lang.com) with a potential security issue in Omni Language, its runtime or SDK. Include the affected version or commit, reproduction steps or a minimal example, and the potential impact.
+
+Do not disclose credentials, private data or vulnerability details in public issues or PRs. Keep initial reports limited to the information needed to reproduce and assess the problem. No guaranteed response time or support SLA is promised.
+
+## Validation and distribution limits
+
+Hashes establish integrity, not publisher authenticity or authority. Published source and package claims must match their actual validation and dependency boundaries.
+
+A GitHub Actions workflow exists, but hosted runs currently fail before starting jobs. Local test results and hosted CI status are reported separately; a startup failure does not establish a remote PASS.
