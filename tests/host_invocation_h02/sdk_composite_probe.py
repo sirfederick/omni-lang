@@ -33,7 +33,7 @@ def one(name,alternate=False):
  for x in reversed(owned): assert drop(x)==0
  assert destroy(inv)==0 and raw_close(raw)==0 and close_sdk(m)==0
 def main():
- names=(('echo_bool',False),('echo_char',False),('echo_text',False),('echo_bytes',False),('echo_tuple',False),('echo_array',False),('echo_pair',False),('echo_choice',False),('echo_choice',True),('echo_option',False),('echo_option',True),('echo_result',False),('echo_result',True),('echo_nested',False))
+ names=(('echo_bool',False),('echo_char',False),('echo_text',False),('echo_bytes',False),('echo_tuple',False),('echo_array',False),('echo_pair',False),('echo_choice',False),('echo_choice',True),('echo_option',False),('echo_option',True),('echo_result',False),('echo_result',True),('echo_nested',False),('echo_box',False),('echo_box_nested',False),('echo_generic_choice',False),('echo_generic_choice',True))
  checks={f'{name}_{"alternate" if alternate else "primary"}':True for name,alternate in names};errors={}
  for name,alternate in names:
   key=f'{name}_{"alternate" if alternate else "primary"}'

@@ -9,7 +9,8 @@ ROOT = pathlib.Path(os.environ['OMNI_H02_EVIDENCE_ROOT'])
 DIST = ROOT / 'dist'
 PACKAGE = ROOT / 'fixture'
 ARTIFACTS = ROOT / 'artifacts'
-NAMES = ('echo_text','echo_bytes','echo_pair','echo_choice','echo_option',
+NAMES = ('echo_box','echo_box_nested','echo_generic_choice',
+         'echo_text','echo_bytes','echo_pair','echo_choice','echo_option',
          'echo_result','echo_nested','echo_bool','echo_bool_matrix','echo_char','semantic_err',
          'echo_tuple','echo_array','echo_array_zero','classify_result',
          'echo_u8','echo_u16','echo_u32','echo_u64','echo_i8','echo_i16','echo_i32','echo_i64',

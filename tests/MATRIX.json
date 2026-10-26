@@ -162,7 +162,8 @@
     ],
     "sdk13": [
       "tests/cp17_distribution.py",
-      "tests/cp17_semantic_exports.py"
+      "tests/cp17_semantic_exports.py",
+      "tests/cp17_nominal_projection.py"
     ],
     "smp13": [
       "tests/cp13_atomics.py",

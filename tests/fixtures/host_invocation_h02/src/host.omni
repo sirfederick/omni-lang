@@ -2,6 +2,11 @@ module host_probe
 pub struct Pair { left u32, right u32 }
 pub enum Choice { Empty, Full(u32) }
 pub struct Nested { pair Pair, choice Choice }
+pub struct Box<T> { value T }
+pub enum GenericChoice<T> { Empty, Full(T) }
+pub func echo_box(x Box<u32>) Box<u32> !pure { return x }
+pub func echo_box_nested(x Box<Box<Pair>>) Box<Box<Pair>> !pure { return x }
+pub func echo_generic_choice(x GenericChoice<Pair>) GenericChoice<Pair> !pure { return x }
 pub func echo_nested(x Nested) Nested !pure { return x }
 pub func echo_tuple(x Tuple<u32,bool>) Tuple<u32,bool> !pure { return x }
 pub func echo_array(x Array<u32,3>) Array<u32,3> !pure { return x }
