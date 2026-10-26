@@ -46,15 +46,18 @@ def audit(root, output):
     output.mkdir(parents=True, exist_ok=True)
     os.chmod(output, 0o700)
     secret_report = output / "gitleaks-redacted.json"
+    report_path = output / "prepublication-audit.json"
+    if secret_report.exists() or report_path.exists():
+        raise RuntimeError("BLOCKED: output already contains audit reports; use a fresh directory")
     command = ["gitleaks", "git", "--no-banner", "--redact=100", "--log-opts=--all",
                "--report-format", "json", "--report-path", str(secret_report), str(root)]
     p = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if p.returncode not in (0, 1):
         raise RuntimeError("BLOCKED: Gitleaks failed; inspect local tool installation")
     try:
-        findings = json.loads(secret_report.read_text(encoding="utf-8")) if secret_report.exists() else []
+        findings = json.loads(secret_report.read_text(encoding="utf-8"))
     except (ValueError, OSError) as exc:
-        raise RuntimeError("BLOCKED: invalid secret scan report") from exc
+        raise RuntimeError("BLOCKED: missing or invalid secret scan report") from exc
     if not isinstance(findings, list) or bool(findings) != (p.returncode == 1):
         raise RuntimeError("BLOCKED: secret scan status/report mismatch")
     paths = set(filter(None, git(root, "log", "--all", "--name-only", "--format=").splitlines()))
@@ -71,7 +74,6 @@ def audit(root, output):
         "result": "BLOCKED_TRIAGE" if blocked else "MANUAL_REVIEW_REQUIRED",
         "note": "Only locally fetched refs; check GitHub remote branches, PR refs and attachments separately."
     }
-    report_path = output / "prepublication-audit.json"
     report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     os.chmod(report_path, 0o600)
     if secret_report.exists():
