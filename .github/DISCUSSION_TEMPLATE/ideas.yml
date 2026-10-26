@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 Federico T. Begna
+# SPDX-License-Identifier: MIT OR Apache-2.0
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Explore an idea for Omni Language or its integrated SDK. Brainstorming does not imply implementation, acceptance or a roadmap commitment.
+        Keep examples free of secrets and private data.
+        For vulnerabilities, follow [SECURITY.md](https://github.com/sirfederick/omni-lang/blob/main/SECURITY.md) and email [hola@omni-lang.com](mailto:hola@omni-lang.com) privately. Do not post vulnerability details in Issues or Discussions.
+  - type: textarea
+    id: opportunity
+    attributes:
+      label: Problem or opportunity
+      description: What could be improved, and who would benefit?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Suggested idea
+      description: What would you like to explore?
+    validations:
+      required: true
+  - type: textarea
+    id: implications
+    attributes:
+      label: Implications and alternatives
+      description: If known, describe tradeoffs, compatibility concerns or other approaches.

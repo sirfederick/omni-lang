@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 Federico T. Begna
+# SPDX-License-Identifier: MIT OR Apache-2.0
+name: Feature request
+description: Propose a change to Omni Language or its integrated SDK.
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe a proposal for Omni Language and its integrated SDK, currently `0.1.0.00` WIP / NOT_RELEASED. A proposal does not mean a feature is implemented, accepted or scheduled.
+        Keep examples free of secrets and private data.
+        For vulnerabilities, follow [SECURITY.md](https://github.com/sirfederick/omni-lang/blob/main/SECURITY.md) and email [hola@omni-lang.com](mailto:hola@omni-lang.com) privately. Do not post vulnerability details in Issues or Discussions.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What are you trying to do, and what limitation gets in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the change you suggest.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: If adopted, how would the proposal work? A small example can help.
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Scope and compatibility
+      description: Which areas would change? Mention compatibility concerns if known.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Describe any alternatives or workarounds you considered.

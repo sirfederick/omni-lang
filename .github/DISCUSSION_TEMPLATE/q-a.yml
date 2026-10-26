@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Federico T. Begna
+# SPDX-License-Identifier: MIT OR Apache-2.0
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask about Omni Language or its integrated SDK. Conceptual questions do not require a build or reproduction.
+        Remove secrets and private data from examples and logs.
+        For vulnerabilities, follow [SECURITY.md](https://github.com/sirfederick/omni-lang/blob/main/SECURITY.md) and email [hola@omni-lang.com](mailto:hola@omni-lang.com) privately. Do not post vulnerability details in Issues or Discussions.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What would you like to understand or accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and attempts
+      description: Add relevant documentation, a small example or what you have tried, if applicable.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: If relevant, include the Omni version or commit, OS, architecture and toolchain or binding versions.

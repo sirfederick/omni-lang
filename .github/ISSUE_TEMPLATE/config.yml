@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Federico T. Begna
+# SPDX-License-Identifier: MIT OR Apache-2.0
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and help
+    url: https://github.com/sirfederick/omni-lang/discussions
+    about: Ask general questions about Omni Language and its integrated SDK in Discussions.
+  - name: Report a vulnerability privately
+    url: https://github.com/sirfederick/omni-lang/security/policy
+    about: Follow SECURITY.md and email hola@omni-lang.com privately. Do not post vulnerability details in Issues or Discussions.
