@@ -30,6 +30,10 @@ def build(m,node,owned,alternate=False):
 def one(name,alternate=False):
  path=ROOT/f'artifacts/{name}.so';m,meta,p=opened(path);root=U32();assert req_node(m,0,c.byref(root))==0;owned=[];arg=build(m,root.value,owned,alternate);args=(U64*1)(arg.value);need=U32();assert encode(m,args,1,None,0,c.byref(need))==6;request=(U8*need.value)();assert encode(m,args,1,request,need.value,c.byref(need))==0
  raw=U64();assert raw_open(arr(p),len(p),arr(bytes.fromhex(meta['artifact_sha256'])),arr(bytes.fromhex(meta['descriptor_sha256'])),c.byref(raw))==0;inv=U64();trace=(U8*16)();assert create(raw,request,need.value,None,0,0,time.monotonic_ns()+5_000_000_000,1_000_000,65536,0,trace,c.byref(inv))==0;eff=U32();length=U32();assert invoke(inv,c.byref(eff),c.byref(length))==0;frame=(U8*length.value)();copied=U32();assert read(inv,frame,length.value,c.byref(copied))==0;out=U64();assert decode(m,frame,copied.value,c.byref(out))==0;owned.append(out)
+ # Echo entries have identical request/result types. Re-encode the returned
+ # value using the public SDK and compare canonical requests, without parsing
+ # or reconstructing OMI1 in this consumer.
+ returned=(U64*1)(out.value);roundtrip=(U8*need.value)();assert encode(m,returned,1,roundtrip,need.value,c.byref(copied))==0;assert copied.value==need.value and bytes(roundtrip)==bytes(request)
  for x in reversed(owned): assert drop(x)==0
  assert destroy(inv)==0 and raw_close(raw)==0 and close_sdk(m)==0
 def main():
