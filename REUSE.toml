@@ -535,6 +535,7 @@ path = [
   "tools/a89_hardening.py",
   "tools/a96_security_supply_chain.py",
   "tools/a97_operations_maintenance.py",
+  "tools/audit_prepublication.py",
   "tools/benchmark_living_system.py",
   "tools/build.sh",
   "tools/build_compiler.py",
