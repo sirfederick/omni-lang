@@ -118,9 +118,16 @@ SchemaProjection projectSchema(const HostSdkSchema& schema){
             case 0x11:type=Type(Type::Option);break;case 0x12:type=Type(Type::Result);break;
             default:bad();
         }
-        if((type.kind==Type::Record||type.kind==Type::Enum)?node.nominalKey.empty():!node.nominalKey.empty())bad();
-        if(type.kind==Type::Record||type.kind==Type::Enum)type.name=type.key=node.nominalKey;
-        for(const auto child:node.children)if(child!=UINT32_MAX)type.parts.push_back(self(self,child));
+        const bool nominal=type.kind==Type::Record||type.kind==Type::Enum;
+        if(nominal?node.nominalKey.empty():!node.nominalKey.empty())bad();
+        if(nominal)type.name=type.key=node.nominalKey;
+        // Nominal children describe fields/variants, not type arguments.
+        // Generic declarations are already monomorphized into nominal keys.
+        // Still traverse every child so cycle and identity checks remain active.
+        for(const auto child:node.children)if(child!=UINT32_MAX){
+            const auto part=self(self,child);
+            if(!nominal)type.parts.push_back(part);
+        }
         if(invocationTypeId(type)!=node.typeId)bad();
         types[index]=type;state[index]=2;return type;
     };
