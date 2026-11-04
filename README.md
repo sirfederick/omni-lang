@@ -97,14 +97,14 @@ For a second executable example, [`result_minimo.omni`](examples/result_minimo.o
 
 ## Build and run
 
-While the repository is private, obtain access with your GitHub account, then choose any checkout location:
+The repository is public. Clone it into any checkout location:
 
 ```sh
 git clone https://github.com/sirfederick/omni-lang.git
 cd omni-lang
 ```
 
-The exercised native development environment is **Linux x86-64**, including **Ubuntu 24.04 under WSL**. The recorded toolchain uses GCC 13 with C++20 support, Clang 18 for native programs, Python 3.12, and OpenSSL development headers/libcrypto. Node.js and N-API headers are additional dependencies for the Node binding.
+The exercised native development environment is **Linux x86-64**, including **Ubuntu 24.04 under WSL**. The recorded baseline uses GCC 13.3 with C++20 support, Clang 18 for native programs, Python 3.12, Node.js 18 for the Node binding, and OpenSSL development headers/libcrypto. Node.js and N-API headers are additional dependencies for the Node binding. A separate validation report also records Python 3.13 exercises covering compiler build, first-use programs, SDK examples, and the `tools` / `compiler` acceptance scopes. This is additional execution evidence for those scopes, not a general compatibility guarantee or a replacement for the recorded Python 3.12 baseline.
 
 Install the base tools **inside Ubuntu**, including when using WSL:
 
@@ -254,7 +254,7 @@ bash tools/ci.sh
 
 From PowerShell use `python -B tools/check_local.py`. Tooling-only feedback is available with `--scope tools`; `--scope compiler` adds first-use evaluator/native tests, and the default also exercises the SDK. Each stops on failure and reports effective cases. [MATRIX](tests/MATRIX.json) offers additional targeted groups; the historical functional baseline does not replace current reproducible commands.
 
-The exercised profile is Linux x86-64/Ubuntu WSL. Other host platforms, full sanitizer/hardware campaigns, complete binding coverage and independent toolchain reproducibility remain separate work. A workflow configuration, local PASS and a successful hosted Actions run are different facts; account availability can block remote execution. No badge claims a remote PASS.
+The exercised profile is Linux x86-64/Ubuntu WSL. Other host platforms, full sanitizer/hardware campaigns, complete binding coverage and independent toolchain reproducibility remain separate work. Workflow configuration, local PASS and successful hosted Actions execution are different facts. The latest recorded project disposition (2026-10-26) reports that hosted Actions was unavailable because of billing restrictions; check the repository's Actions page for current status. No badge or local result is presented as a remote PASS.
 
 Recent [Unreleased improvements](CHANGELOG.md) concern the tree checker, nonempty test runner, binary-integrity validation, shared CI entry and usable SDK examples. They do not introduce new language semantics or announce a release.
 
