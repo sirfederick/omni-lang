@@ -17,4 +17,4 @@ Do not disclose credentials, private data or vulnerability details in public iss
 
 Hashes establish integrity, not publisher authenticity or authority. Published source and package claims must match their actual validation and dependency boundaries.
 
-A GitHub Actions workflow exists, but hosted runs currently fail before starting jobs. Local test results and hosted CI status are reported separately; a startup failure does not establish a remote PASS.
+The latest recorded project disposition (2026-10-26) reports that hosted GitHub Actions was unavailable because of billing restrictions. Check the repository's Actions page for current status. Local test results and hosted CI status are reported separately; workflow configuration or a local PASS does not establish a remote PASS.
