@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 
 ## Obtain sources
 
-The repository is private during preparation. Use an authorized GitHub account:
+The repository is public. Clone it into any checkout location:
 
 ```sh
 git clone https://github.com/sirfederick/omni-lang.git
@@ -18,7 +18,7 @@ All following relative paths start at this checkout root. A source export also w
 
 ## Supported environment and dependencies
 
-The exercised profile is Linux x86-64, with Ubuntu 24.04 directly or through WSL. Recorded tools: GCC 13.3, Clang 18, Python 3.12, Node.js 18 and OpenSSL development headers/libcrypto. Windows commands run the Linux toolchain through WSL; they do not produce Windows-native executables.
+The exercised profile is Linux x86-64, with Ubuntu 24.04 directly or through WSL. Recorded baseline tools: GCC 13.3, Clang 18, Python 3.12, Node.js 18 and OpenSSL development headers/libcrypto. A separate validation report records Python 3.13 exercises for compiler build, first-use programs, SDK examples and the `tools` / `compiler` acceptance scopes. Treat those as additional exercised scopes, not a general support guarantee or a CI version matrix. Windows commands run the Linux toolchain through WSL; they do not produce Windows-native executables.
 
 In Ubuntu (also inside WSL), prepare the compiler/runtime dependencies:
 
@@ -107,4 +107,4 @@ For Python changes use four spaces, descriptive names and focused subprocess/uni
 - Missing `node_api.h`: install `libnode-dev`; this is a Node addon dependency.
 - An SDK demo output already exists: choose a new `--output build/NAME`; existing evidence is not silently removed.
 
-The workflow configuration, local PASS and a successful hosted Actions run are separate facts. Hosted CI availability depends on the account; no badge asserts remote success here.
+The latest recorded project disposition (2026-10-26) reports hosted Actions unavailable because of billing restrictions. Check the Actions page for current status. Workflow configuration, local PASS and a successful hosted Actions run are separate facts; no badge or local result asserts remote success.
