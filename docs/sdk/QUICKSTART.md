@@ -5,7 +5,7 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 
 # Integrated SDK: build, consume and extract
 
-Product identity: **0.1.0.00 WIP / NOT_RELEASED**. Obtain an authorized clone and prepare [the supported Linux/WSL toolchain](../../DEVELOPMENT.md). No release download or npm/pip/winget package is published.
+Product identity: **0.1.0.00 WIP / NOT_RELEASED**. Clone the [public repository](https://github.com/sirfederick/omni-lang) and prepare [the exercised Linux/WSL toolchain](../../DEVELOPMENT.md). No release download or npm/pip/winget package is published.
 
 ## Interfaces and their actual scope
 
@@ -31,7 +31,7 @@ python3 -B tools/omni_dev.py build --target node
 python3 -B tools/run_sdk_examples.py --output build/sdk-guide-linux
 ```
 
-For a mounted WSL checkout, insert `--allow-slow-fs` before each driver subcommand. Python needs no pip dependency; C needs the system C compiler and public headers; Node additionally requires `node_api.h` from `libnode-dev`. Recorded tools are GCC 13.3, Clang 18, Python 3.12 and Node 18.
+For a mounted WSL checkout, insert `--allow-slow-fs` before each driver subcommand. Python needs no pip dependency; C needs the system C compiler and public headers; Node additionally requires `node_api.h` from `libnode-dev`. The recorded baseline is GCC 13.3, Clang 18, Python 3.12 and Node.js 18. A separate validation report records Python 3.13 exercises in selected compiler, first-use, SDK and acceptance scopes; this does not establish general Python 3.13 support.
 
 ## PowerShell source build
 

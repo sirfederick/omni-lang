@@ -11,7 +11,7 @@ Follow [DEVELOPMENT](DEVELOPMENT.md) to install dependencies, build the compiler
 
 ### External contributors: fork and clone
 
-If you do not have write access, use your own fork rather than pushing to the original repository. While Omni is private, access and fork availability depend on the repository's permissions; once public, this is the normal external contribution path.
+The repository is public. If you do not have write access to the upstream repository, use your own fork rather than attempting to push to it. Public visibility does not grant write or merge permissions.
 
 1. Open [Omni Language on GitHub](https://github.com/sirfederick/omni-lang) and choose **Fork** to create a copy under your account.
 2. Replace `YOUR_GITHUB_USERNAME` below with your username, then clone your fork and register the original repository as `upstream`:
@@ -50,7 +50,7 @@ For a fork, open a pull request with **base repository `sirfederick/omni-lang`, 
 
 Use the [PR template](.github/PULL_REQUEST_TEMPLATE.md) to describe the problem, new behavior, contract implications and actual validation. Maintainers review admission; merging and publishing require separate authority. External PR workflows receive read-only permissions and no project secrets.
 
-GitHub Actions currently fails before jobs start in this repository. Creating a fork or PR does not require a successful Actions run. Until hosted execution is available, include the local commands, platform, results and any skips or blockers in the PR; maintainers review that evidence. A hosted startup failure is not a passing check or a failed language test.
+The latest recorded project disposition (2026-10-26) reports that GitHub Actions was unavailable because of billing restrictions. Verify the current state in the repository's Actions tab before relying on hosted checks. Creating a fork or PR does not itself prove that CI ran. Until a hosted run completes, include the local commands, platform, results and any skips or blockers in the PR. A workflow configuration or local PASS is not a hosted PASS.
 
 ## Style, rights and responsibility
 

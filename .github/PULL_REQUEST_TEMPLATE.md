@@ -18,4 +18,4 @@ List exact commands, platform/toolchain, effective tests or probe oracles, and a
 - [ ] The change includes a causal test or an explanation of why one is unnecessary.
 - [ ] No credentials, private data, generated outputs or unsupported capability claims are included.
 
-Maintainer review determines admission. This PR does not authorize a release or visibility change.
+Maintainer review determines admission. This PR does not authorize a release, a support commitment or a change to repository permissions.
